@@ -37,7 +37,7 @@
     "people_other": "{{count}} people",
     "origin": {
       "self": "Written by you",
-      "coach": "Written with your coach",
+      "coach": "Selected in onboarding",
       "pip": "Learned by Pip"
     },
     "sharedWith": "Shared with",

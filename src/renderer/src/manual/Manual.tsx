@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Info } from 'lucide-react'
 import { SECTIONS, type Profile, type Recipient, type Section } from '@shared/schemas'
 import { ensureIds } from '@shared/profile'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/api'
-import { removeAt, removeById, upsert } from './model'
+import { activeIndex, removeAt, removeById, upsert } from './model'
 import { Block, ConfirmDelete, Editor, Row, type Draft } from './parts'
 
 type Del = {
@@ -32,6 +32,7 @@ function Manual(): React.JSX.Element {
   const [saved, setSaved] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [current, setCurrent] = useState<string | null>(null)
+  const lockUntil = useRef(0)
 
   const load = useCallback((alive: () => boolean = () => true) => {
     api
@@ -108,7 +109,10 @@ function Manual(): React.JSX.Element {
   function jump(id: string): void {
     setOpen((o) => ({ ...o, [id]: true }))
     setCurrent(id)
-    requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView())
+    requestAnimationFrame(() => {
+      lockUntil.current = performance.now() + 300
+      document.getElementById(id)?.scrollIntoView()
+    })
   }
 
   function add(id: string, key: string): void {
@@ -119,18 +123,27 @@ function Manual(): React.JSX.Element {
   const ready = profile !== null
   useEffect(() => {
     if (!ready) return
-    const io = new IntersectionObserver(
-      (items) => {
-        const hit = items.find((i) => i.isIntersecting)
-        if (hit) setCurrent(hit.target.id)
-      },
-      { rootMargin: '0px 0px -70% 0px' }
-    )
-    NAV_IDS.forEach((id) => {
-      const el = document.getElementById(id)
-      if (el) io.observe(el)
-    })
-    return () => io.disconnect()
+    let frame = 0
+    const update = (): void => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (performance.now() < lockUntil.current) return // a nav click just set the target
+        const tops = NAV_IDS.map(
+          (id) => document.getElementById(id)?.getBoundingClientRect().top ?? 0
+        )
+        const atBottom =
+          window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2
+        setCurrent(NAV_IDS[activeIndex(tops, window.innerHeight, atBottom)])
+      })
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
   }, [ready])
 
   if (failed || !profile) {
