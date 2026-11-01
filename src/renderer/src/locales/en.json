@@ -59,7 +59,13 @@
     "editor": {
       "entry": "Entry",
       "whoCanSee": "Who can see this",
-      "leaveUnticked": "Leave everyone unticked to keep it private."
+      "leaveUnticked": "Leave everyone unticked to keep it private.",
+      "sharingNote": "The people you tick see this only when Pip shares it.",
+      "hint": {
+        "entry": "What should Pip know about how you work?",
+        "strategy": "Something small that helps you settle, and for how long.",
+        "person": "Pip swaps this name for the role before asking the AI."
+      }
     },
     "validation": "Write something first, or cancel.",
     "validationMinutes": "Enter a number of minutes, 1 or more.",
@@ -100,6 +106,6 @@
       "body": "The file on this computer could not be read. Nothing was changed.",
       "retry": "Try again"
     },
-    "saveError": "Your change did not save. Your text is still here. Try saving again."
+    "saveError": "Could not save, try again. Your text is still here."
   }
 }

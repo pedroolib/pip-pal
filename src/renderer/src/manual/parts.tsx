@@ -81,10 +81,14 @@ export function Row(props: {
     <li className="flex items-start gap-2 border-t px-5 py-4 first:border-t-0">
       <div className="min-w-0 flex-1">
         <div className="max-w-[62ch] text-[17px] leading-[1.6]">{props.children}</div>
-        {props.origin && props.shared && (
+        {(props.shared || props.saved) && (
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <OriginBadge origin={props.origin} />
-            <Shared visibleTo={props.shared} />
+            {props.origin && props.shared && (
+              <>
+                <OriginBadge origin={props.origin} />
+                <Shared visibleTo={props.shared} />
+              </>
+            )}
             {props.saved && (
               <span
                 role="status"
@@ -177,7 +181,13 @@ export function Editor(props: {
 
   return (
     <li className="border-t bg-muted px-5 py-4 first:border-t-0">
-      <form onSubmit={submit} className="grid gap-4" noValidate>
+      <form
+        onSubmit={submit}
+        onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
+        className="grid gap-4"
+        noValidate
+      >
+        <p className="text-sm text-muted-foreground">{t(`manual.editor.hint.${props.kind}`)}</p>
         {props.kind === 'person' ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -250,6 +260,7 @@ export function Editor(props: {
           <fieldset className="grid gap-2">
             <legend className="text-sm font-bold">{t('manual.editor.whoCanSee')}</legend>
             <p className="text-sm text-muted-foreground">{t('manual.editor.leaveUnticked')}</p>
+            <p className="text-sm text-muted-foreground">{t('manual.editor.sharingNote')}</p>
             <div className="flex flex-wrap gap-2">
               {Recipient.options.map((r) => (
                 <Label
@@ -293,6 +304,7 @@ export function ConfirmDelete(props: {
   quote: string
   keep: string
   confirm: string
+  failed: boolean
   onKeep: () => void
   onConfirm: () => void
 }): React.JSX.Element {
@@ -304,13 +316,16 @@ export function ConfirmDelete(props: {
           <DialogTitle>{props.title}</DialogTitle>
           <DialogDescription>{t('manual.dialog.body')}</DialogDescription>
         </DialogHeader>
-        <blockquote className="border-l-2 pl-3 text-[17px] leading-[1.6]">{props.quote}</blockquote>
-        <DialogFooter>
-          <Button variant="outline" className="min-h-11" onClick={props.onConfirm}>
-            <Trash2 aria-hidden /> {props.confirm}
-          </Button>
+        <blockquote className="rounded-md bg-muted p-3 text-[17px] leading-[1.6]">
+          {props.quote}
+        </blockquote>
+        {props.failed && <FieldError id="delete-fail">{t('manual.saveError')}</FieldError>}
+        <DialogFooter className="flex-col sm:flex-row sm:justify-start">
           <Button className="min-h-11" autoFocus onClick={props.onKeep}>
             {props.keep}
+          </Button>
+          <Button variant="outline" className="min-h-11" onClick={props.onConfirm}>
+            <Trash2 aria-hidden /> {props.confirm}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -327,6 +342,7 @@ export function Block(props: {
   open: boolean
   onOpenChange: (o: boolean) => void
   empty: boolean
+  formOpen: boolean
   addLabel: string
   onAdd: () => void
   children: React.ReactNode
@@ -364,11 +380,13 @@ export function Block(props: {
         <CollapsibleContent>
           {props.note && <p className="px-5 pb-3 pl-11 text-sm text-body">{props.note}</p>}
           <ul>{props.children}</ul>
-          <div className="border-t px-3 py-1">
-            <Button variant="ghost" className="min-h-11 text-primary" onClick={props.onAdd}>
-              <Plus aria-hidden /> {props.addLabel}
-            </Button>
-          </div>
+          {!props.formOpen && (
+            <div className="border-t px-3 py-1">
+              <Button variant="ghost" className="min-h-11 text-primary" onClick={props.onAdd}>
+                <Plus aria-hidden /> {props.addLabel}
+              </Button>
+            </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
     </Card>
