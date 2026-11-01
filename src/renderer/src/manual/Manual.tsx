@@ -20,6 +20,7 @@ type Del = {
 const PEOPLE = 'people'
 const CALMING = 'calming'
 const NEW = 'new'
+const NAV_IDS: string[] = [...SECTIONS, CALMING, PEOPLE]
 
 function Manual(): React.JSX.Element {
   const { t } = useTranslation()
@@ -27,14 +28,16 @@ function Manual(): React.JSX.Element {
   const [failed, setFailed] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
   const [del, setDel] = useState<Del | null>(null)
+  const [delFailed, setDelFailed] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [current, setCurrent] = useState<string | null>(null)
 
-  const load = useCallback(() => {
+  const load = useCallback((alive: () => boolean = () => true) => {
     api
       .getProfile()
       .then((p) => {
+        if (!alive()) return
         const full = ensureIds(p)
         setProfile(full)
         setOpen({
@@ -43,9 +46,15 @@ function Manual(): React.JSX.Element {
           [PEOPLE]: true
         })
       })
-      .catch(() => setFailed(true))
+      .catch(() => alive() && setFailed(true))
   }, [])
-  useEffect(load, [load])
+  useEffect(() => {
+    let alive = true // StrictMode runs this twice; only the last load may set state
+    load(() => alive)
+    return () => {
+      alive = false
+    }
+  }, [load])
 
   useEffect(() => {
     if (!saved) return
@@ -77,12 +86,23 @@ function Manual(): React.JSX.Element {
 
   async function confirmDelete(): Promise<void> {
     if (!del) return
-    const { next, focusId } = del
+    setDelFailed(false)
+    if (!(await persist(del.next))) return setDelFailed(true)
+    const { focusId } = del
     setDel(null)
     setEditing(null)
-    if (await persist(next)) {
-      requestAnimationFrame(() => document.getElementById(`${focusId}-h`)?.focus())
-    }
+    requestAnimationFrame(() => document.getElementById(`${focusId}-h`)?.focus())
+  }
+
+  /** Closes the editor without saving and puts focus back where the person was. */
+  function cancel(key: string): void {
+    setEditing(null)
+    requestAnimationFrame(() =>
+      (
+        document.querySelector<HTMLElement>(`[data-edit="${key}"]`) ??
+        document.getElementById(`${key.split(':')[0]}-h`)
+      )?.focus()
+    )
   }
 
   function jump(id: string): void {
@@ -95,6 +115,23 @@ function Manual(): React.JSX.Element {
     setOpen((o) => ({ ...o, [id]: true }))
     setEditing(key)
   }
+
+  const ready = profile !== null
+  useEffect(() => {
+    if (!ready) return
+    const io = new IntersectionObserver(
+      (items) => {
+        const hit = items.find((i) => i.isIntersecting)
+        if (hit) setCurrent(hit.target.id)
+      },
+      { rootMargin: '0px 0px -70% 0px' }
+    )
+    NAV_IDS.forEach((id) => {
+      const el = document.getElementById(id)
+      if (el) io.observe(el)
+    })
+    return () => io.disconnect()
+  }, [ready])
 
   if (failed || !profile) {
     return (
@@ -149,6 +186,7 @@ function Manual(): React.JSX.Element {
         open={open[s]}
         onOpenChange={(o) => setOpen((x) => ({ ...x, [s]: o }))}
         empty={entries.length === 0 && editing !== `${s}:${NEW}`}
+        formOpen={!!editing?.startsWith(`${s}:`)}
         addLabel={t('manual.add')}
         onAdd={() => add(s, `${s}:${NEW}`)}
       >
@@ -159,7 +197,7 @@ function Manual(): React.JSX.Element {
               key={key}
               kind="entry"
               initial={draftOf(e.text, e.visibleTo)}
-              onCancel={() => setEditing(null)}
+              onCancel={() => cancel(key)}
               onSave={(d) =>
                 commit(
                   setEntries(
@@ -197,7 +235,7 @@ function Manual(): React.JSX.Element {
         {editing === `${s}:${NEW}` && (
           <Editor
             kind="entry"
-            onCancel={() => setEditing(null)}
+            onCancel={() => cancel(`${s}:${NEW}`)}
             onSave={(d) => {
               const list = upsert(entries, {
                 text: d.text.trim(),
@@ -247,7 +285,7 @@ function Manual(): React.JSX.Element {
           aria-label={t('manual.indexLabel')}
           className="hidden w-60 shrink-0 self-start lg:sticky lg:top-6 lg:block"
         >
-          <ul className="grid gap-0.5 text-sm">
+          <ul className="grid gap-0.5 text-[15px]">
             {nav.map((n, i) => (
               <li key={n.id} className={i === SECTIONS.length ? 'mt-2 border-t pt-2' : ''}>
                 <a
@@ -269,11 +307,13 @@ function Manual(): React.JSX.Element {
       }
       header={
         <>
-          <h1 className="text-2xl font-bold">{t('manual.title')}</h1>
-          <p className="max-w-[44rem] truncate text-sm text-muted-foreground">
+          <h1 className="text-[28px] leading-tight font-bold">{t('manual.title')}</h1>
+          <p className="max-w-[44rem] truncate text-base text-muted-foreground">
             {t('manual.subtitle', { name: profile.name, role: profile.role })}
           </p>
-          <p className="mt-3 max-w-[62ch] text-body">{t('manual.intro')}</p>
+          <p className="mt-3 max-w-[62ch] text-[17px] leading-[1.6] text-body">
+            {t('manual.intro')}
+          </p>
         </>
       }
     >
@@ -288,6 +328,7 @@ function Manual(): React.JSX.Element {
           open={open[CALMING]}
           onOpenChange={(o) => setOpen((x) => ({ ...x, [CALMING]: o }))}
           empty={false}
+          formOpen={!!editing?.startsWith(`${CALMING}:`)}
           addLabel={t('manual.calming.add')}
           onAdd={() => add(CALMING, `${CALMING}:${NEW}`)}
         >
@@ -298,7 +339,7 @@ function Manual(): React.JSX.Element {
                 key={key}
                 kind="strategy"
                 initial={draftOf(c.label, c.visibleTo, String(c.minutes))}
-                onCancel={() => setEditing(null)}
+                onCancel={() => cancel(key)}
                 onSave={(d) =>
                   commit(setStrategies(upsert(strategies, strategyOf(d, c))), key, key)
                 }
@@ -333,7 +374,7 @@ function Manual(): React.JSX.Element {
           {editing === `${CALMING}:${NEW}` && (
             <Editor
               kind="strategy"
-              onCancel={() => setEditing(null)}
+              onCancel={() => cancel(`${CALMING}:${NEW}`)}
               onSave={(d) => {
                 const list = upsert(strategies, strategyOf(d, {}))
                 const key = `${CALMING}:${list[list.length - 1].id}`
@@ -351,6 +392,7 @@ function Manual(): React.JSX.Element {
           open={open[PEOPLE]}
           onOpenChange={(o) => setOpen((x) => ({ ...x, [PEOPLE]: o }))}
           empty={false}
+          formOpen={!!editing?.startsWith(`${PEOPLE}:`)}
           addLabel={t('manual.people.add')}
           onAdd={() => add(PEOPLE, `${PEOPLE}:${NEW}`)}
         >
@@ -361,7 +403,7 @@ function Manual(): React.JSX.Element {
                 key={key}
                 kind="person"
                 initial={{ name: p.name, role: p.role }}
-                onCancel={() => setEditing(null)}
+                onCancel={() => cancel(key)}
                 onSave={(d) =>
                   commit(
                     setPeople(
@@ -379,7 +421,7 @@ function Manual(): React.JSX.Element {
                 key={key}
                 rowKey={key}
                 shared={null}
-                saved={false}
+                saved={tick(key)}
                 what={p.name}
                 onEdit={() => setEditing(key)}
                 onDelete={() =>
@@ -400,7 +442,7 @@ function Manual(): React.JSX.Element {
           {editing === `${PEOPLE}:${NEW}` && (
             <Editor
               kind="person"
-              onCancel={() => setEditing(null)}
+              onCancel={() => cancel(`${PEOPLE}:${NEW}`)}
               onSave={(d) => {
                 const key = `${PEOPLE}:${people.length}`
                 return commit(
@@ -420,7 +462,11 @@ function Manual(): React.JSX.Element {
         quote={del?.quote ?? ''}
         keep={del?.keep ?? ''}
         confirm={del?.confirm ?? ''}
-        onKeep={() => setDel(null)}
+        failed={delFailed}
+        onKeep={() => {
+          setDel(null)
+          setDelFailed(false)
+        }}
         onConfirm={confirmDelete}
       />
     </Shell>
