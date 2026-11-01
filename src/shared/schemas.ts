@@ -12,6 +12,8 @@ export const Origin = z.enum(['coach', 'self', 'pip'])
 export type Origin = z.infer<typeof Origin>
 
 export const ProfileEntry = z.object({
+  /** Stable id (crypto.randomUUID); filled by ensureIds for older files. */
+  id: z.string().optional(),
   text: z.string().min(1),
   origin: Origin,
   visibleTo: z.array(Recipient)
@@ -40,7 +42,7 @@ export const Section = z.enum(SECTIONS)
 export type Section = z.infer<typeof Section>
 
 export const CalmingStrategy = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   label: z.string().min(1),
   minutes: z.number().int().positive(),
   origin: Origin,
@@ -48,13 +50,24 @@ export const CalmingStrategy = z.object({
 })
 export type CalmingStrategy = z.infer<typeof CalmingStrategy>
 
+/** An entry Pip suggests, waiting for the person's approval. Data model only for now. */
+export const PendingEntry = z.object({
+  id: z.string(),
+  section: Section,
+  text: z.string().min(1),
+  origin: z.literal('pip'),
+  visibleTo: z.array(Recipient)
+})
+export type PendingEntry = z.infer<typeof PendingEntry>
+
 export const Profile = z.object({
   name: z.string(),
   role: z.string(),
   /** Names here are swapped for their role before any text leaves the machine. */
   people: z.array(z.object({ name: z.string().min(1), role: z.string().min(1) })),
   sections: z.record(Section, z.array(ProfileEntry)),
-  calmingStrategies: z.array(CalmingStrategy)
+  calmingStrategies: z.array(CalmingStrategy),
+  pending: z.array(PendingEntry).optional()
 })
 export type Profile = z.infer<typeof Profile>
 

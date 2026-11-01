@@ -8,56 +8,140 @@
   ],
   "sections": {
     "experience": [
-      { "text": "Degree in statistics. Built personal projects in Python and SQL before this job.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Degree in statistics. Built personal projects in Python and SQL before this job.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "languages": [
-      { "text": "Spanish (native), English (professional, prefers it in writing).", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Spanish (native), English (professional, prefers it in writing).",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "communication": [
-      { "text": "Prefers written instructions over spoken ones; spoken requests are easy to lose.", "origin": "coach", "visibleTo": ["coach", "manager"] },
-      { "text": "Is direct in writing; short replies can read as cold even when they are not meant to.", "origin": "coach", "visibleTo": ["coach"] }
+      {
+        "text": "Prefers written instructions over spoken ones; spoken requests are easy to lose.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      },
+      {
+        "text": "Is direct in writing; short replies can read as cold even when they are not meant to.",
+        "origin": "coach",
+        "visibleTo": ["coach"]
+      }
     ],
     "teamwork": [
-      { "text": "Works best with one clear owner per task and a known person to ask.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Works best with one clear owner per task and a known person to ask.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "feedback": [
-      { "text": "Wants feedback that is specific and written down, with an example of what good looks like.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Wants feedback that is specific and written down, with an example of what good looks like.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "stress": [
-      { "text": "Vague deadlines (\"when you get a chance\", \"soon\") are the main stress trigger.", "origin": "coach", "visibleTo": ["coach", "psychologist"] },
-      { "text": "Under stress, delays replying to messages instead of asking.", "origin": "coach", "visibleTo": ["coach", "psychologist"] }
+      {
+        "text": "Vague deadlines (\"when you get a chance\", \"soon\") are the main stress trigger.",
+        "origin": "coach",
+        "visibleTo": ["coach", "psychologist"]
+      },
+      {
+        "text": "Under stress, delays replying to messages instead of asking.",
+        "origin": "coach",
+        "visibleTo": ["coach", "psychologist"]
+      }
     ],
     "relationships": [
-      { "text": "Builds trust slowly; one-to-one works better than group chats.", "origin": "coach", "visibleTo": ["coach"] }
+      {
+        "text": "Builds trust slowly; one-to-one works better than group chats.",
+        "origin": "coach",
+        "visibleTo": ["coach"]
+      }
     ],
     "sensory": [
-      { "text": "Open-plan noise after lunch is draining; noise-cancelling headphones help.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Open-plan noise after lunch is draining; noise-cancelling headphones help.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "motivations": [
-      { "text": "Clean, correct data and knowing the work is used by someone.", "origin": "self", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Clean, correct data and knowing the work is used by someone.",
+        "origin": "self",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "strengths": [
-      { "text": "Spots patterns and errors others miss; follows processes carefully.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Spots patterns and errors others miss; follows processes carefully.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "learning": [
-      { "text": "Learns best from a written example, then trying it alone.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Learns best from a written example, then trying it alone.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "changes": [
-      { "text": "Needs the why of a change first, then who to ask and by when.", "origin": "coach", "visibleTo": ["coach", "manager"] },
-      { "text": "Same-day changes are hard; a few days' notice makes a big difference.", "origin": "self", "visibleTo": ["coach", "manager", "psychologist"] }
+      {
+        "text": "Needs the why of a change first, then who to ask and by when.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      },
+      {
+        "text": "Same-day changes are hard; a few days' notice makes a big difference.",
+        "origin": "self",
+        "visibleTo": ["coach", "manager", "psychologist"]
+      }
     ],
     "adjustments": [
-      { "text": "Instructions in writing, with an explicit deadline.", "origin": "coach", "visibleTo": ["coach", "manager"] },
-      { "text": "Lunch 30 minutes before the team to avoid the busy cafeteria.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Instructions in writing, with an explicit deadline.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      },
+      {
+        "text": "Lunch 30 minutes before the team to avoid the busy cafeteria.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "managerTips": [
-      { "text": "Follow a spoken request with a two-line message: what, by when.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      {
+        "text": "Follow a spoken request with a two-line message: what, by when.",
+        "origin": "coach",
+        "visibleTo": ["coach", "manager"]
+      }
     ],
     "energy": []
   },
   "calmingStrategies": [
-    { "id": "music", "label": "Listen to calm music", "minutes": 10, "origin": "self", "visibleTo": ["coach", "psychologist"] },
+    {
+      "id": "music",
+      "label": "Listen to calm music",
+      "minutes": 10,
+      "origin": "self",
+      "visibleTo": ["coach", "psychologist"]
+    },
     { "id": "coloring", "label": "Colouring", "minutes": 15, "origin": "self", "visibleTo": [] },
-    { "id": "walk", "label": "Short walk outside", "minutes": 10, "origin": "coach", "visibleTo": ["coach"] }
+    {
+      "id": "walk",
+      "label": "Short walk outside",
+      "minutes": 10,
+      "origin": "coach",
+      "visibleTo": ["coach"]
+    }
   ]
 }
