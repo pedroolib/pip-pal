@@ -1,6 +1,14 @@
-import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+  existsSync
+} from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { Profile } from '@shared/schemas'
 import { createProfileStore } from './profile-store'
@@ -31,6 +39,26 @@ describe('profile store', () => {
     expect(existsSync(file + '.tmp')).toBe(false)
   })
 
+  it('keeps ids stable across loads', () => {
+    const ids = (p: Profile): (string | undefined)[] =>
+      Object.values(p.sections)
+        .flat()
+        .map((e) => e.id)
+    const store = createProfileStore(file)
+    expect(ids(store.load())).toEqual(ids(store.load()))
+  })
+
+  it('does not seed over a path it cannot read', () => {
+    mkdirSync(file) // reading a directory fails with EISDIR, not ENOENT
+    expect(() => createProfileStore(file).load()).toThrow()
+    expect(statSync(file).isDirectory()).toBe(true)
+  })
+
+  it.skipIf(process.platform === 'win32')('writes the file owner-only', () => {
+    createProfileStore(file).load()
+    expect(statSync(file).mode & 0o777).toBe(0o600)
+  })
+
   it('rejects an invalid save and leaves the file untouched', () => {
     const store = createProfileStore(file)
     store.load()
@@ -44,7 +72,8 @@ describe('profile store', () => {
     (bad) => {
       writeFileSync(file, bad)
       const p = createProfileStore(file).load()
-      expect(readFileSync(file + '.bak', 'utf8')).toBe(bad)
+      const bak = readdirSync(dirname(file)).find((f) => f.endsWith('.bak'))!
+      expect(readFileSync(join(dirname(file), bak), 'utf8')).toBe(bad)
       expect(p.sections.communication.length).toBeGreaterThan(0)
       expect(() => Profile.parse(JSON.parse(readFileSync(file, 'utf8')))).not.toThrow()
     }
