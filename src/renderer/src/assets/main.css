@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Dark mode is level 2 and has no palette yet. Without this, shadcn's `dark:` styles follow the OS
+   setting and mix grey into Harbor on a Mac in dark mode. Add the `dark` class once the palette exists. */
+@custom-variant dark (&:is(.dark *));
+
 /* Harbor palette (docs/PLAN.md). shadcn reads these names, so theming shadcn = editing this block.
    No red or yellow by design: nothing in Pip should feel like an alarm. */
 :root {
@@ -8,9 +12,9 @@
 
   --background: #f2efe7;
   --foreground: #1e2a36;
-  --card: #f8f6f1;
+  --card: #f2efe7;
   --card-foreground: #1e2a36;
-  --popover: #f8f6f1;
+  --popover: #f2efe7;
   --popover-foreground: #1e2a36;
   --primary: #3368a0;
   --primary-foreground: #ffffff;
