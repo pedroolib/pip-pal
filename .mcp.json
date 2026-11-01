@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "ui-kit": { "command": "npx", "args": ["-y", "shadcn@latest", "mcp"] }
+  }
+}

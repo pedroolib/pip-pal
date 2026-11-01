@@ -1,0 +1,16 @@
+{
+  "enabledPlugins": {
+    "factory-webdev@pedros-factory": true,
+    "factory@pedros-factory": true,
+    "frontend-design@pedros-factory": true,
+    "ui-ux-pro-max@pedros-factory": true,
+    "impeccable@pedros-factory": true,
+    "mattpocock-skills@pedros-factory": true,
+    "ponytail@pedros-factory": true
+  },
+  "model": "opus",
+  "env": {
+    "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "2",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0"
+  }
+}

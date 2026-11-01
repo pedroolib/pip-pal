@@ -6,3 +6,6 @@ out
 *.log*
 .env
 .env.*
+.factory/jobs/
+.factory/init-state.json
+.claude/settings.local.json
