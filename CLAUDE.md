@@ -8,6 +8,7 @@ Read before working: `docs/PLAN.md` (what we build, by when, who owns what) and 
 
 - `src/shared/` is the contract between main, preload and renderer. Change it only through a PR that all three devs review.
 - Privacy is the product: only text the person selected leaves the machine, always after PII scrubbing; summaries are filtered by recipient in code, not in the prompt; Pip never sends anything on its own.
+- The renderer talks to main only through `api` from `@renderer/api`, never `window.api` directly. In a plain browser (no preload, e.g. Factory review on localhost:3000) it falls back to the fixture-backed mock in `src/shared/mock-api.ts`.
 - API keys live only in the main process (env vars), never in the renderer or the repo.
 - All UI text goes in `src/renderer/src/locales/en.json` (i18next); no hard-coded strings.
 - Harbor theme only, via the CSS variables in `src/renderer/src/assets/main.css`. No red or yellow. Respect `prefers-reduced-motion`.

@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next'
 import type { Decoded } from '@shared/schemas'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
+import { api } from '@renderer/api'
 
 function App(): React.JSX.Element {
   const { t } = useTranslation()
   const [decoded, setDecoded] = useState<Decoded | null>(null)
 
   useEffect(() => {
-    window.api.decode('', null).then(setDecoded)
+    api.decode('', null).then(setDecoded)
   }, [])
 
   if (!decoded) return <></>
