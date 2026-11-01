@@ -106,6 +106,46 @@ describe('buildProfileContext', () => {
     expect(out).not.toMatch(/alex|Dana/i)
   })
 
+  it('replaces the owner name with [Me] everywhere, case-insensitively', () => {
+    const out = buildProfileContext({
+      ...profile,
+      sections: sections({
+        feedback: [
+          { text: 'Sam likes it when SAM is told early; sam agrees', origin: 'self', visibleTo: [] }
+        ]
+      }),
+      calmingStrategies: [{ label: 'Sam walks', minutes: 5, origin: 'self', visibleTo: [] }]
+    })
+    expect(out.split('\n')[0]).toBe('[Me], Analyst')
+    expect(out).toContain('[Me] likes it when [Me] is told early; [Me] agrees')
+    expect(out).toContain('[Me] walks (5 min)')
+    expect(out).not.toMatch(/sam/i)
+  })
+
+  it('lets a person with the owner name win', () => {
+    const out = buildProfileContext({
+      ...profile,
+      people: [{ name: 'Sam', role: 'Buddy' }],
+      sections: sections({ feedback: [{ text: 'Sam helps', origin: 'self', visibleTo: [] }] })
+    })
+    expect(out).toContain('[Buddy] helps')
+  })
+
+  it('swaps in a single pass so roles are never re-scanned', () => {
+    const out = buildProfileContext({
+      ...profile,
+      people: [
+        { name: 'Ana Maria', role: 'Lead' },
+        { name: 'Bo', role: "Ana Maria's assistant" }
+      ],
+      sections: sections({
+        feedback: [{ text: 'Bo said hi to Ana Maria', origin: 'self', visibleTo: [] }]
+      }),
+      calmingStrategies: []
+    })
+    expect(out).toContain("[Ana Maria's assistant] said hi to [Lead]")
+  })
+
   it('excludes pending', () => {
     expect(buildProfileContext(profile)).not.toContain('PENDINGTEXT')
   })

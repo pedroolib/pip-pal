@@ -40,22 +40,23 @@ export function forRecipient(profile: Profile, recipient: Recipient): Profile {
 /** Claude-ready text. Names of people become [Role]; pending entries are never included. */
 export function buildProfileContext(profile: Profile): string {
   const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // Longest names first so "Ana Maria" wins over "Ana".
-  const people = profile.people
-    .map((p) => ({ name: p.name.trim(), role: p.role.trim() }))
-    .filter((p) => p.name)
-    .sort((a, b) => b.name.length - a.name.length)
+  // One pass over all names, so replacement text is never re-scanned. People override the owner.
+  const repl = new Map<string, string>()
+  const own = profile.name.trim()
+  if (own) repl.set(own.toLowerCase(), '[Me]')
+  for (const p of profile.people) {
+    const name = p.name.trim()
+    if (name) repl.set(name.toLowerCase(), `[${p.role.trim()}]`)
+  }
+  // Longest first so "Ana Maria" wins over "Ana".
+  const names = [...repl.keys()].sort((x, y) => y.length - x.length).map(escape)
+  const re = names.length
+    ? new RegExp(`(?<![\\p{L}\\p{N}_])(?:${names.join('|')})(?![\\p{L}\\p{N}_])`, 'giu')
+    : null
   const swap = (text: string): string =>
-    people.reduce(
-      (t, p) =>
-        t.replace(
-          new RegExp(`(?<![\\p{L}\\p{N}_])${escape(p.name)}(?![\\p{L}\\p{N}_])`, 'giu'),
-          () => `[${p.role}]` // replacer fn: role text must not expand $& etc.
-        ),
-      text
-    )
+    re ? text.replace(re, (m) => repl.get(m.toLowerCase()) ?? m) : text
 
-  const lines: string[] = [`${swap(profile.name)}, ${swap(profile.role)}`]
+  const lines: string[] = [`[Me], ${swap(profile.role)}`]
   for (const section of SECTIONS) {
     const entries = profile.sections[section]
     if (!entries?.length) continue
