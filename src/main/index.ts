@@ -24,6 +24,9 @@ function createOverlay(): void {
     fullscreenable: false,
     skipTaskbar: true,
     autoHideMenuBar: true,
+    // macOS: a non-activating panel is what reliably floats over other apps' full-screen Spaces;
+    // setVisibleOnAllWorkspaces alone only works some of the time.
+    ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
