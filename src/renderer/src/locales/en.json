@@ -6,5 +6,100 @@
     "stuck": "I'm stuck",
     "then": "Then {{step}}",
     "canWait": "The rest can wait"
+  },
+  "manual": {
+    "title": "My manual",
+    "subtitle": "{{name}}, {{role}}",
+    "intro": "Pip reads this to explain messages the way that works for you. Every entry shows who can see it. An entry with nobody ticked stays private.",
+    "indexLabel": "Sections",
+    "sections": {
+      "experience": "Experience",
+      "languages": "Languages",
+      "communication": "Communication",
+      "teamwork": "Working with others",
+      "feedback": "Feedback",
+      "stress": "Stress",
+      "relationships": "Relationships",
+      "sensory": "Sensory needs",
+      "motivations": "What motivates me",
+      "strengths": "Strengths",
+      "learning": "How I learn",
+      "changes": "Changes",
+      "adjustments": "Adjustments at work",
+      "managerTips": "Tips for my manager",
+      "energy": "Energy"
+    },
+    "count_one": "{{count}} entry",
+    "count_other": "{{count}} entries",
+    "things_one": "{{count}} thing",
+    "things_other": "{{count}} things",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people",
+    "origin": {
+      "self": "Written by you",
+      "coach": "Written with your coach",
+      "pip": "Learned by Pip"
+    },
+    "sharedWith": "Shared with",
+    "onlyYou": "Only you",
+    "recipients": {
+      "coach": "Coach",
+      "psychologist": "Psychologist",
+      "therapist": "Therapist",
+      "manager": "Manager"
+    },
+    "add": "Add an entry",
+    "edit": "Edit {{what}}",
+    "delete": "Delete {{what}}",
+    "entryLabel": "entry {{n}} in {{section}}",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "saved": "Saved",
+    "close": "Close",
+    "editor": {
+      "entry": "Entry",
+      "whoCanSee": "Who can see this",
+      "leaveUnticked": "Leave everyone unticked to keep it private."
+    },
+    "validation": "Write something first, or cancel.",
+    "validationMinutes": "Enter a number of minutes, 1 or more.",
+    "validationName": "Fill in both fields, or cancel.",
+    "dialog": {
+      "title": "Delete this entry?",
+      "body": "It will be removed from your manual. This cannot be undone.",
+      "keep": "Keep entry",
+      "confirm": "Delete entry"
+    },
+    "calming": {
+      "title": "Calming strategies",
+      "note": "Pip can suggest one of these when things feel like a lot. You can always skip it.",
+      "label": "What helps",
+      "minutes": "How long",
+      "unit": "minutes",
+      "minutesShort": "{{count}} minutes",
+      "placeholder": "For example, stretch at my desk",
+      "add": "Add a calming strategy",
+      "deleteTitle": "Delete this calming strategy?",
+      "keep": "Keep strategy",
+      "confirm": "Delete strategy"
+    },
+    "people": {
+      "title": "People",
+      "note": "Only you see this list. Before Pip asks the AI for help, each name is replaced by the role, like [Manager].",
+      "name": "Name",
+      "role": "Role",
+      "add": "Add a person",
+      "deleteTitle": "Delete this person?",
+      "keep": "Keep person",
+      "confirm": "Delete person"
+    },
+    "empty": "Nothing here yet.",
+    "loading": "Opening your manual",
+    "loadError": {
+      "title": "Your manual did not open.",
+      "body": "The file on this computer could not be read. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "saveError": "Your change did not save. Your text is still here. Try saving again."
   }
 }
