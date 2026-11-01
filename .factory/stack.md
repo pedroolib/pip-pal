@@ -4,7 +4,7 @@ Run: npm run dev  (web apps must serve on http://localhost:3000 during review; r
 Gates:
 - npm run typecheck
 - npm run lint
-- (no test command yet)
+- npm test
 - npm run build
 Always escalate:
 - Database migrations, auth and session code, payment code, deploy config
