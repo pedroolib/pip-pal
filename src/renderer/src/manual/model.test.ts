@@ -27,13 +27,36 @@ describe('manual list edits', () => {
 
 describe('activeIndex', () => {
   it('picks the last section whose top passed 30% of the viewport', () => {
-    expect(activeIndex([-500, -100, 200, 900], 1000, false)).toBe(2)
-    expect(activeIndex([-500, -100, 301, 900], 1000, false)).toBe(1)
+    expect(activeIndex([-500, -100, 200, 900], 1000, 5000)).toBe(2)
+    expect(activeIndex([-500, -100, 301, 900], 1000, 5000)).toBe(1)
   })
   it('falls back to the first when none passed', () => {
-    expect(activeIndex([400, 900], 1000, false)).toBe(0)
+    expect(activeIndex([400, 900], 1000, 5000)).toBe(0)
   })
-  it('is the last section at the bottom of the page', () => {
-    expect(activeIndex([-900, -400, 600, 800], 1000, true)).toBe(3)
+
+  // 15 sections; the last three (Energy, Calming, People) are short.
+  const heights = [...Array(12).fill(600), 150, 150, 150]
+  const starts = heights.map((_, i) => 40 + heights.slice(0, i).reduce((a, b) => a + b, 0))
+  const vh = 800
+  const docH = starts[14] + 150 + 40
+  const max = docH - vh
+  const at = (y: number): number =>
+    activeIndex(
+      starts.map((s) => s - y),
+      vh,
+      max - y
+    )
+  const down = Array.from({ length: max / 5 + 1 }, (_, k) => at(k * 5))
+  const up = [...down].reverse()
+
+  it('visits every section in order scrolling down, including the short last ones', () => {
+    expect(down.every((v, i) => i === 0 || v >= down[i - 1])).toBe(true)
+    expect(new Set(down).size).toBe(15)
+    expect(down.at(-1)).toBe(14)
+  })
+  it('visits every section in order scrolling back up', () => {
+    expect(up.every((v, i) => i === 0 || v <= up[i - 1])).toBe(true)
+    expect(new Set(up).size).toBe(15)
+    expect(up.at(-1)).toBe(0)
   })
 })

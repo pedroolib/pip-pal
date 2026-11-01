@@ -131,9 +131,9 @@ function Manual(): React.JSX.Element {
         const tops = NAV_IDS.map(
           (id) => document.getElementById(id)?.getBoundingClientRect().top ?? 0
         )
-        const atBottom =
-          window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2
-        setCurrent(NAV_IDS[activeIndex(tops, window.innerHeight, atBottom)])
+        const remaining =
+          document.documentElement.scrollHeight - (window.scrollY + window.innerHeight)
+        setCurrent(NAV_IDS[activeIndex(tops, window.innerHeight, Math.max(0, remaining))])
       })
     }
     update()

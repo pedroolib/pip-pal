@@ -14,12 +14,17 @@ export const removeById = <T extends WithId>(list: T[], id: string): T[] =>
 
 export const removeAt = <T>(list: T[], index: number): T[] => list.filter((_, i) => i !== index)
 
-/** Index of the section the reader is in: the last whose top is above 30% of the viewport. */
-export function activeIndex(tops: number[], viewportH: number, atBottom: boolean): number {
-  if (atBottom) return tops.length - 1
+/**
+ * Index of the section the reader is in: the last whose top is above a line at 30% of the viewport.
+ * Near the end of the page the line slides down to the viewport bottom, so short last sections
+ * can still become active in order. `remaining` is the scroll distance left to the page bottom.
+ */
+export function activeIndex(tops: number[], viewportH: number, remaining: number): number {
+  const slide = viewportH * 0.7
+  const line = viewportH * 0.3 + slide * Math.max(0, 1 - remaining / slide)
   let active = 0
   tops.forEach((top, i) => {
-    if (top <= viewportH * 0.3) active = i
+    if (top <= line) active = i
   })
   return active
 }
