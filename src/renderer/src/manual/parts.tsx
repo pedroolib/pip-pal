@@ -380,7 +380,7 @@ export function Block(props: {
           <p className="px-5 pb-3 pl-11 text-sm text-muted-foreground">{t('manual.empty')}</p>
         )}
         {props.empty && !props.open && footer}
-        <CollapsibleContent>
+        <CollapsibleContent forceMount>
           {props.note && <p className="px-5 pb-3 pl-11 text-sm text-body">{props.note}</p>}
           <ul>{props.children}</ul>
           {footer}
