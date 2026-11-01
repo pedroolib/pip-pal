@@ -90,6 +90,22 @@ describe('buildProfileContext', () => {
     expect(out).toContain('Walk with [Manager] (5 min)')
   })
 
+  it('swaps case-insensitively, trims names, and keeps $ patterns in roles literal', () => {
+    const out = buildProfileContext({
+      ...profile,
+      people: [
+        { name: 'Alex ', role: 'Manager' },
+        { name: 'Dana', role: '$&' }
+      ],
+      sections: sections({
+        feedback: [{ text: 'ALEX and alex met Dana', origin: 'self', visibleTo: [] }]
+      }),
+      calmingStrategies: []
+    })
+    expect(out).toContain('[Manager] and [Manager] met [$&]')
+    expect(out).not.toMatch(/alex|Dana/i)
+  })
+
   it('excludes pending', () => {
     expect(buildProfileContext(profile)).not.toContain('PENDINGTEXT')
   })

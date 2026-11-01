@@ -22,14 +22,8 @@
       }
     ],
     "steps": [
-      {
-        "text": "Ask Alex for the handoff details in writing.",
-        "why": "Your manual says written instructions work best for you."
-      },
-      {
-        "text": "Write a short handoff note for the dashboard: done, left, where files are.",
-        "why": null
-      },
+      { "text": "Ask Alex for the handoff details in writing.", "why": "Your manual says written instructions work best for you." },
+      { "text": "Write a short handoff note for the dashboard: done, left, where files are.", "why": null },
       { "text": "Message Dana to set a 20-minute sync before Monday.", "why": null },
       { "text": "Read the forecasting project's main document.", "why": null },
       { "text": "List three questions for your first day on the new project.", "why": null }
@@ -53,18 +47,9 @@
       }
     ],
     "profileUsed": [
-      {
-        "section": "communication",
-        "how": "You prefer written instructions, so step 1 asks for the handoff in writing."
-      },
-      {
-        "section": "stress",
-        "how": "Vague timing stresses you, so Pip turned \"when you get a chance\" into a question."
-      },
-      {
-        "section": "changes",
-        "how": "You need the why first, so the plan starts with the handoff details."
-      }
+      { "section": "communication", "how": "You prefer written instructions, so step 1 asks for the handoff in writing." },
+      { "section": "stress", "how": "Vague timing stresses you, so Pip turned \"when you get a chance\" into a question." },
+      { "section": "changes", "how": "You need the why first, so the plan starts with the handoff details." }
     ]
   },
   "fromCache": false

@@ -1,13 +1,5 @@
 [
-  {
-    "at": "2026-10-27T11:00:00-06:00",
-    "kind": "asked_not_guessed",
-    "label": "Asked which data source to use instead of guessing"
-  },
-  {
-    "at": "2026-10-29T16:40:00-06:00",
-    "kind": "change_navigated",
-    "label": "Got through the report date change"
-  },
+  { "at": "2026-10-27T11:00:00-06:00", "kind": "asked_not_guessed", "label": "Asked which data source to use instead of guessing" },
+  { "at": "2026-10-29T16:40:00-06:00", "kind": "change_navigated", "label": "Got through the report date change" },
   { "at": "2026-10-30T12:15:00-06:00", "kind": "step_done", "label": "Sent the weekly report" }
 ]

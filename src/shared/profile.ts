@@ -41,13 +41,16 @@ export function forRecipient(profile: Profile, recipient: Recipient): Profile {
 export function buildProfileContext(profile: Profile): string {
   const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   // Longest names first so "Ana Maria" wins over "Ana".
-  const people = [...profile.people].sort((a, b) => b.name.length - a.name.length)
+  const people = profile.people
+    .map((p) => ({ name: p.name.trim(), role: p.role.trim() }))
+    .filter((p) => p.name)
+    .sort((a, b) => b.name.length - a.name.length)
   const swap = (text: string): string =>
     people.reduce(
       (t, p) =>
         t.replace(
-          new RegExp(`(?<![\\p{L}\\p{N}_])${escape(p.name)}(?![\\p{L}\\p{N}_])`, 'gu'),
-          `[${p.role}]`
+          new RegExp(`(?<![\\p{L}\\p{N}_])${escape(p.name)}(?![\\p{L}\\p{N}_])`, 'giu'),
+          () => `[${p.role}]` // replacer fn: role text must not expand $& etc.
         ),
       text
     )
