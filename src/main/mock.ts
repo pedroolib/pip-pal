@@ -39,8 +39,16 @@ export function registerMockHandlers(): void {
     from: checkIns[0].at,
     to: checkIns[checkIns.length - 1].at,
     points: [
-      { text: 'Energy dipped mid-week (1–2 spoons on Thursday).', source: 'checkins', include: true },
-      { text: 'The report deadline moved with one day of notice.', source: 'changes', include: true },
+      {
+        text: 'Energy dipped mid-week (1–2 spoons on Thursday).',
+        source: 'checkins',
+        include: true
+      },
+      {
+        text: 'The report deadline moved with one day of notice.',
+        source: 'changes',
+        include: true
+      },
       { text: 'Asked instead of guessing once this week.', source: 'achievements', include: true }
     ]
   }))
