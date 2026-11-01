@@ -7,11 +7,6 @@ import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from '@renderer/components/ui/collapsible'
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -357,20 +352,27 @@ export function Block(props: {
   )
   return (
     <Card id={props.id} className="scroll-mt-4 gap-0 py-0 shadow-none">
-      <Collapsible open={props.open} onOpenChange={props.onOpenChange}>
+      <div>
         <div className="flex items-center justify-between gap-2 px-5">
           <h2
             id={`${props.id}-h`}
             tabIndex={-1}
             className="min-w-0 flex-1 text-lg font-bold outline-none"
           >
-            <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+            <button
+              type="button"
+              data-state={props.open ? 'open' : 'closed'}
+              aria-expanded={props.open}
+              aria-controls={`${props.id}-c`}
+              onClick={() => props.onOpenChange(!props.open)}
+              className="group flex min-h-11 w-full items-center gap-2 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
               <ChevronDown
                 className="size-4 shrink-0 transition-transform duration-150 group-data-[state=closed]:-rotate-90"
                 aria-hidden
               />
               {props.title}
-            </CollapsibleTrigger>
+            </button>
           </h2>
           {props.empty && !props.open ? null : (
             <span className="text-sm text-muted-foreground">{props.count}</span>
@@ -380,12 +382,13 @@ export function Block(props: {
           <p className="px-5 pb-3 pl-11 text-sm text-muted-foreground">{t('manual.empty')}</p>
         )}
         {props.empty && !props.open && footer}
-        <CollapsibleContent forceMount>
+        {/* Always mounted (only hidden) so an open form keeps its draft while collapsed. */}
+        <div id={`${props.id}-c`} hidden={!props.open}>
           {props.note && <p className="px-5 pb-3 pl-11 text-sm text-body">{props.note}</p>}
           <ul>{props.children}</ul>
           {footer}
-        </CollapsibleContent>
-      </Collapsible>
+        </div>
+      </div>
     </Card>
   )
 }
