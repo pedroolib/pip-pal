@@ -11,7 +11,7 @@ export function createProfileStore(file: string): {
   const write = (p: Profile): void => {
     mkdirSync(dirname(file), { recursive: true })
     const tmp = file + '.tmp'
-    writeFileSync(tmp, JSON.stringify(p, null, 2))
+    writeFileSync(tmp, JSON.stringify(p, null, 2), { mode: 0o600 }) // health-related data
     renameSync(tmp, file) // atomic: a crash never leaves a half-written profile
   }
   const seed = (): Profile => {
@@ -25,17 +25,19 @@ export function createProfileStore(file: string): {
       let raw: string
       try {
         raw = readFileSync(file, 'utf8')
-      } catch {
-        return seed() // missing file: first run
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return seed() // first run
+        throw err // never overwrite a profile we merely failed to read
       }
+      let p: Profile
       try {
-        const p = ensureIds(Profile.parse(JSON.parse(raw)))
-        write(p) // persist freshly minted ids so they stay stable
-        return p
+        p = ensureIds(Profile.parse(JSON.parse(raw)))
       } catch {
-        copyFileSync(file, file + '.bak')
+        copyFileSync(file, `${file}.${Date.now()}.bak`)
         return seed()
       }
+      write(p) // persist freshly minted ids so they stay stable
+      return p
     },
     save(profile: Profile): void {
       write(Profile.parse(profile))
