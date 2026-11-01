@@ -1,15 +1,28 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerMockHandlers } from './mock'
 
-function createWindow(): void {
-  // Create the browser window.
+// Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
+const OVERLAY = { width: 448, height: 400, margin: 16 }
+
+// The overlay: transparent, frameless and docked bottom-right, floating over every app.
+function createOverlay(): void {
+  const { workArea } = screen.getPrimaryDisplay()
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: OVERLAY.width,
+    height: OVERLAY.height,
+    x: workArea.x + workArea.width - OVERLAY.width - OVERLAY.margin,
+    y: workArea.y + workArea.height - OVERLAY.height - OVERLAY.margin,
     show: false,
+    transparent: true,
+    frame: false,
+    // The card draws its own shadow; the OS one would outline the empty part of the window.
+    hasShadow: false,
+    resizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -19,8 +32,19 @@ function createWindow(): void {
     }
   })
 
+  // Above everything, including apps in full screen (docs/DECISIONS.md, notes for A).
+  mainWindow.setAlwaysOnTop(true, 'screen-saver')
+  mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
+  // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
+  // and for the Casa de Pip window, which load the same page.
+  mainWindow.webContents.on('dom-ready', () => {
+    mainWindow.webContents.insertCSS('body { background: transparent !important; }')
+  })
+
+  // showInactive: Pip appearing must not steal focus from the app the person is working in.
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow.showInactive()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -53,12 +77,12 @@ app.whenReady().then(() => {
 
   registerMockHandlers()
 
-  createWindow()
+  createOverlay()
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createOverlay()
   })
 })
 
