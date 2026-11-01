@@ -1,6 +1,6 @@
 # Pip: plan de construcción
 
-Decisiones cerradas el 1 de noviembre de 2026. Fuentes: entrevista con Specialisterne (31 oct), "Replanteamiento después de la entrevista", concepto de Pip y rúbrica del reto.
+Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnicas por módulo están en [DECISIONS.md](DECISIONS.md). Fuentes, en [research/](research/): [análisis de la entrevista](research/interview-analysis.md), [notas de la entrevista](research/interview-notes.md), [replanteamiento](research/plan-after-interview.md), [concepto de Pip](research/pip-concept.md) y [rúbrica del reto](research/challenge-rubric.md). Referencias visuales en [design/](design/README.md).
 
 **En una frase:** Pip mantiene vivo el perfil profesional de la persona y lo usa en su día a día, para que el apoyo del coaching siga funcionando entre sesiones y después de que termine. El traductor de mensajes es la puerta de entrada; lo que nos diferencia es la memoria (el perfil) y el apoyo en los momentos de cambio.
 
