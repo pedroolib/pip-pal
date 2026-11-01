@@ -348,6 +348,13 @@ export function Block(props: {
   children: React.ReactNode
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const footer = !props.formOpen && (
+    <div className="border-t px-3 py-1">
+      <Button variant="ghost" className="min-h-11 text-primary" onClick={props.onAdd}>
+        <Plus aria-hidden /> {props.addLabel}
+      </Button>
+    </div>
+  )
   return (
     <Card id={props.id} className="scroll-mt-4 gap-0 py-0 shadow-none">
       <Collapsible open={props.open} onOpenChange={props.onOpenChange}>
@@ -370,23 +377,13 @@ export function Block(props: {
           )}
         </div>
         {props.empty && !props.open && (
-          <div className="flex items-center justify-between gap-2 px-5 pb-3 pl-11">
-            <p className="text-sm text-muted-foreground">{t('manual.empty')}</p>
-            <Button variant="outline" className="min-h-11" onClick={props.onAdd}>
-              <Plus aria-hidden /> {props.addLabel}
-            </Button>
-          </div>
+          <p className="px-5 pb-3 pl-11 text-sm text-muted-foreground">{t('manual.empty')}</p>
         )}
+        {props.empty && !props.open && footer}
         <CollapsibleContent>
           {props.note && <p className="px-5 pb-3 pl-11 text-sm text-body">{props.note}</p>}
           <ul>{props.children}</ul>
-          {!props.formOpen && (
-            <div className="border-t px-3 py-1">
-              <Button variant="ghost" className="min-h-11 text-primary" onClick={props.onAdd}>
-                <Plus aria-hidden /> {props.addLabel}
-              </Button>
-            </div>
-          )}
+          {footer}
         </CollapsibleContent>
       </Collapsible>
     </Card>
