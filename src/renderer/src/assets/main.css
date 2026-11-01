@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* Harbor palette (docs/PLAN.md). shadcn reads these names, so theming shadcn = editing this block.
+   No red or yellow by design: nothing in Pip should feel like an alarm. */
+:root {
+  --radius: 0.875rem;
+
+  --background: #f2efe7;
+  --foreground: #1e2a36;
+  --card: #f8f6f1;
+  --card-foreground: #1e2a36;
+  --popover: #f8f6f1;
+  --popover-foreground: #1e2a36;
+  --primary: #3368a0;
+  --primary-foreground: #ffffff;
+  --secondary: #c8dfdb;
+  --secondary-foreground: #1e2a36;
+  --muted: #ece8de;
+  --muted-foreground: #55626e;
+  --accent: #c8dfdb;
+  --accent-foreground: #1e2a36;
+  --destructive: #3368a0;
+  --border: #dcd7cb;
+  --input: #dcd7cb;
+  --ring: #3368a0;
+
+  /* Harbor-only tokens */
+  --pip: #66a3bf;
+  --body: #3a4652;
+}
+
+@theme inline {
+  --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-pip: var(--pip);
+  --color-body: var(--body);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+/* Honour the OS "reduce motion" setting for Pip and every shadcn animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

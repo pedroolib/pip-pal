@@ -1,0 +1,10 @@
+{
+  "card": {
+    "now": "Now",
+    "stepOf": "Step {{current}} of {{total}}",
+    "done": "Done",
+    "stuck": "I'm stuck",
+    "then": "Then {{step}}",
+    "canWait": "The rest can wait"
+  }
+}
