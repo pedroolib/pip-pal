@@ -26,7 +26,7 @@ export function AliasField(props: {
         <ul className="flex flex-wrap gap-2">
           {aliases.map((a, i) => (
             <li key={a}>
-              <Badge variant="secondary" className="min-h-8 gap-1 pr-0.5 text-sm">
+              <Badge variant="secondary" className="min-h-8 gap-1 overflow-visible pr-0.5 text-sm">
                 {a}
                 <Button
                   type="button"
