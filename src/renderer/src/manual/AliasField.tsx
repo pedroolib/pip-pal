@@ -5,7 +5,8 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
-import { ALIAS_MAX, addAlias, removeAt } from './model'
+import { ALIAS_MAX, aliasKey } from '@shared/profile'
+import { addAlias, removeAt } from './model'
 
 /** Chip input for nicknames. Enter or comma adds; text left in the box is added by the form on Save. */
 export function AliasField(props: {
@@ -22,8 +23,11 @@ export function AliasField(props: {
   const [tooLong, setTooLong] = useState(false)
   const add = (v: string): void => {
     const next = addAlias(aliases, v)
-    // A part was dropped only if it was too long (empty parts and duplicates are not worth a message).
-    setTooLong(v.split(',').some((p) => p.trim().length > ALIAS_MAX))
+    // A part the scrubber would ignore that has 2+ letters or digits is too long (folded); empty, one-letter
+    // and duplicate parts are not worth a message.
+    setTooLong(
+      v.split(',').some((p) => aliasKey(p) === null && /[\p{L}\p{N}].*[\p{L}\p{N}]/su.test(p))
+    )
     onChange(next, '')
   }
   return (

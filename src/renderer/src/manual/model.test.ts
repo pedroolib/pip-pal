@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ALIAS_MAX, activeIndex, addAlias, removeAt, removeById, upsert } from './model'
+import { ALIAS_MAX } from '@shared/profile'
+import { activeIndex, addAlias, removeAt, removeById, upsert } from './model'
 
 describe('manual list edits', () => {
   it('adds an item and gives it an id', () => {
@@ -70,13 +71,22 @@ describe('addAlias', () => {
     expect(addAlias(['Ally'], 'ALLY')).toEqual(['Ally'])
   })
   it('splits pasted or leftover text on commas', () => {
-    expect(addAlias(['a'], 'b, A,, c')).toEqual(['a', 'b', 'c'])
+    expect(addAlias(['ab'], 'bo, AB,, cy')).toEqual(['ab', 'bo', 'cy'])
   })
-  it('keeps a nickname of exactly the cap and skips one character more', () => {
-    expect(addAlias([], 'x'.repeat(ALIAS_MAX))).toEqual(['x'.repeat(ALIAS_MAX)])
-    expect(addAlias([], 'x'.repeat(ALIAS_MAX + 1))).toEqual([])
+  it('keeps 100 characters and skips 101', () => {
+    expect(ALIAS_MAX).toBe(100)
+    expect(addAlias([], 'x'.repeat(100))).toEqual(['x'.repeat(100)])
+    expect(addAlias([], 'x'.repeat(101))).toEqual([])
+  })
+  it('skips what the scrubber would ignore, judged on the folded text like the scrubber', () => {
+    // 100 typed, but NFKC turns each "ﬃ" into "ffi": 120 once folded, so it is skipped.
+    expect(addAlias([], 'ﬃ'.repeat(20) + 'x'.repeat(80))).toEqual([])
+    // 120 typed with zero-width spaces, 60 once folded, so it is kept; a leading "@" does not count.
+    const zw = 'd\u200b'.repeat(60)
+    expect(addAlias([], `${zw}, @${'e'.repeat(100)}`)).toEqual([zw, '@' + 'e'.repeat(100)])
+    expect(addAlias([], 'J, @a, J.')).toEqual([])
   })
   it('keeps only the short part of a pasted list', () => {
-    expect(addAlias([], `a, ${'x'.repeat(ALIAS_MAX + 1)}`)).toEqual(['a'])
+    expect(addAlias([], `al, ${'x'.repeat(101)}`)).toEqual(['al'])
   })
 })

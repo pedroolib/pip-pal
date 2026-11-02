@@ -3,12 +3,27 @@ import sam from './fixtures/sam.profile.json'
 import { Profile, SECTIONS, type ProfileEntry } from './schemas'
 import demo from './fixtures/demo.decoded.json'
 import {
-  buildProfileContext,
+  ALIAS_MAX,
+  aliasKey,
+  buildProfileContext as contextNew,
   ensureIds,
   forRecipient,
   restoreDecoded,
-  scrubForModel
+  scrubForModel as scrubNew
 } from './profile'
+import * as reference from './__reference/profile'
+
+// Every scrub and context below is also checked byte for byte against the old one-big-regex matcher.
+const scrubForModel: typeof scrubNew = (text, profile) => {
+  const r = scrubNew(text, profile)
+  expect(r.text, text).toBe(reference.scrubForModel(text, profile).text)
+  return r
+}
+const buildProfileContext: typeof contextNew = (profile) => {
+  const out = contextNew(profile)
+  expect(out).toBe(reference.buildProfileContext(profile))
+  return out
+}
 
 const sections = (
   some: Partial<Record<(typeof SECTIONS)[number], ProfileEntry[]>>
@@ -753,21 +768,42 @@ describe('aliases', () => {
     expect(scrub('@srivera8675309x', digits)).toBe('[handle]')
   })
 
-  it('ignores aliases over 40 characters instead of failing every scrub', () => {
-    const forty = 'b'.repeat(40)
+  it('ignores aliases over 100 characters (folded, without "@") instead of failing every scrub', () => {
+    const max = 'b'.repeat(100)
+    const hidden = 'd​'.repeat(60) // 120 typed, 60 once the zero-width spaces fold away
     const long: Profile = {
       ...profile,
       people: [
         {
           name: 'Alex Morgan',
           role: 'Manager',
-          aliases: ['a-'.repeat(5000) + 'b', 'c'.repeat(41), forty, 'Ally']
+          aliases: [
+            'a-'.repeat(5000) + 'b',
+            'c'.repeat(101),
+            max,
+            '@' + 'e'.repeat(100),
+            hidden,
+            'Ally'
+          ]
         }
       ]
     }
     expect(scrub('hi Ally', long)).toBe('hi [Manager]')
-    expect(scrub(`hi ${forty}`, long)).toBe('hi [Manager]')
-    expect(scrub(`hi ${'c'.repeat(41)}`, long)).toBe(`hi ${'c'.repeat(41)}`)
+    expect(scrub(`hi ${max} and ${'e'.repeat(100)}`, long)).toBe('hi [Manager] and [Manager]')
+    expect(scrub(`hi ${'d'.repeat(60)}`, long)).toBe('hi [Manager]')
+    expect(scrub(`hi ${'c'.repeat(101)}`, long)).toBe(`hi ${'c'.repeat(101)}`)
+  })
+
+  it('aliasKey is the one rule for which aliases count', () => {
+    expect(ALIAS_MAX).toBe(100)
+    expect(aliasKey(' @Jean‑Pi ')).toBe('jean pi')
+    expect(aliasKey('b'.repeat(100))).toBe('b'.repeat(100))
+    expect(aliasKey('b'.repeat(101))).toBeNull()
+    expect(aliasKey('@' + 'b'.repeat(100))).toBe('b'.repeat(100))
+    expect(aliasKey('d​'.repeat(60))).toBe('d'.repeat(60))
+    expect(aliasKey('ﷺ'.repeat(10))).toBeNull() // 10 typed, 180 after NFKC
+    for (const tiny of ['J', '@a', '-', '', 'J.', '555 123 4567'])
+      expect(aliasKey(tiny), tiny).toBeNull()
   })
 
   it('scrubs hostile 8000-char messages with 20 people x 10 aliases in well under 1 s', () => {
@@ -787,8 +823,9 @@ describe('aliases', () => {
     for (const unit of hostile) {
       const msg = unit.repeat(8000).slice(0, 8000)
       const t = performance.now()
-      scrubForModel(msg, big)
+      const out = scrubNew(msg, big).text
       expect(performance.now() - t, unit).toBeLessThan(1000)
+      expect(out, unit).toBe(reference.scrubForModel(msg, big).text)
     }
   })
 })
@@ -860,8 +897,9 @@ describe('scrubForModel on real chat text', () => {
     const big = { ...profile, people: many }
     scrubForModel('warm up', big)
     const t = performance.now()
-    scrubForModel(msg, big)
+    const out = scrubNew(msg, big).text
     expect(performance.now() - t).toBeLessThan(200)
+    expect(out).toBe(reference.scrubForModel(msg, big).text)
   })
 
   it('scrubs hostile 8000-char messages with 200 hyphen and apostrophe names in well under 1 s', () => {
@@ -876,8 +914,9 @@ describe('scrubForModel on real chat text', () => {
     for (const unit of hostile) {
       const msg = unit.repeat(8000).slice(0, 8000)
       const t = performance.now()
-      scrubForModel(msg, big)
+      const out = scrubNew(msg, big).text
       expect(performance.now() - t, unit).toBeLessThan(1000)
+      expect(out, unit).toBe(reference.scrubForModel(msg, big).text)
     }
   })
 
@@ -955,10 +994,177 @@ describe('scrubForModel on real chat text', () => {
       const big = { ...profile, people: many }
       scrubForModel('warm up', big)
       for (const unit of ["a'", 'a-', '王', ' a', 'Γ', 'П', 'م', 'ד', '字Dana']) {
+        const msg = unit.repeat(8000).slice(0, 8000)
         const t = performance.now()
-        scrubForModel(unit.repeat(8000).slice(0, 8000), big)
+        const out = scrubNew(msg, big).text
         expect(performance.now() - t, unit).toBeLessThan(1000)
+        expect(out, unit).toBe(reference.scrubForModel(msg, big).text)
       }
     })
+  })
+})
+
+describe('alias cap at 100 with a pathological profile', () => {
+  const L = 'bcdfghjklmnpqrs'
+  const id = (n: number): string => L[n % 15] + L[Math.floor(n / 15)]
+  const shapes: [string, (n: number) => string][] = [
+    ["'a-' x 50", (n) => 'a-'.repeat(49) + id(n)],
+    ["'a ' x 50", (n) => 'a '.repeat(49) + id(n)],
+    ["'a ' x 48 + q + i", (n) => 'a '.repeat(48) + 'q' + n]
+  ]
+  const hostile = ['a̲-', 'a-', 'a ', 'a', 'é̲', '@a.', '1 ', '[a] ', "a'", 'ễ', ' a']
+  for (const [label, alias] of shapes)
+    it(`scrubs hostile 8000-char messages in under 500 ms, 20 people x 10 aliases shaped ${label}`, () => {
+      const people = Array.from({ length: 20 }, (_, i) => ({
+        name: `Person ${i}`,
+        role: `Role ${i}`,
+        aliases: Array.from({ length: 10 }, (_, j) => alias(i * 10 + j))
+      }))
+      for (const a of people.flatMap((p) => p.aliases)) expect(a.length).toBeLessThanOrEqual(100)
+      const big: Profile = {
+        name: 'Sam Rivera',
+        role: 'Analyst',
+        people,
+        sections: sections({}),
+        calmingStrategies: []
+      }
+      expect(scrubForModel(`hi ${people[3].aliases[4]}!`, big).text).toBe('hi [Role 3]!')
+      for (const msg of [...hostile.map((u) => u.repeat(8000).slice(0, 8000)), 'a̲-'.repeat(2700)]) {
+        const t = performance.now()
+        scrubNew(msg, big)
+        expect(performance.now() - t, msg.slice(0, 6)).toBeLessThan(500)
+      }
+    })
+
+  it('scrubs a run of 8000 marks fast when an alias holds a loose mark ("1̲x" took the old regex 30 ms, "1̲̲x" 50 s)', () => {
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [{ name: 'Alex Morgan', role: 'Lead', aliases: ['1\u0332x', '1\u0332 x', 'ab'] }],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    const msg = '1' + '\u0332'.repeat(7999)
+    const t = performance.now()
+    const out = scrubNew(msg, p).text
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(out).toBe(reference.scrubForModel(msg, p).text)
+    expect(scrubForModel('1\u0332x and 1\u0332-x', p).text).toBe('[Lead] and [Lead]')
+  })
+})
+
+describe('trie matcher against the old one-big-regex matcher', () => {
+  let seed = 7
+  const rnd = (n: number): number => {
+    seed = (seed * 1103515245 + 12345) % 2 ** 31
+    return seed % n
+  }
+  const pick = <T>(xs: T[]): T => xs[rnd(xs.length)]
+  // Letters with accents, case and fold quirks, separators, apostrophes, format characters, loose marks, CJK, RTL, astral.
+  const wide = [
+    ...['ka', 'lo', 'mi', 'ra', 'su', 'an', 'a', 'e', 'o', 'ß', 'ł', 'ı', 'ς', 'σ', 'ι', 'k'],
+    ...['é', 'ễ', 'Ḥ', 'ñ', 'Ö', 'A', 'Ｄ', 'ａ', 'K', 'ſ', 'ǅ', 'İ', '1', '7', '0', '_', '.'],
+    ...['-', ' ', '‐', '‑', '–', "'", '’', '‘', 'ʼ', '`', '´', '​', '­', '̲', '́'],
+    ...['ͅ', '͏', '۞', 'ٰ', 'ा', '@', '[', ']', '王', '伟', 'さん', '김', 'ส'],
+    ...['م', 'ُ', 'ח', 'ָ', 'Γ', 'ώ', 'П', 'ё', '𠀋', '😀', '́́']
+  ]
+  // Few characters, so keys share prefixes and overlap: apostrophes, marks, sigma forms, digits after a word.
+  const tight = [
+    'a',
+    'b',
+    'ab',
+    "'",
+    '’',
+    ' ',
+    '-',
+    '1',
+    '_',
+    '\u0332',
+    '\u0345',
+    '\u06de',
+    'ς',
+    'σ',
+    'ι',
+    '@',
+    'さ'
+  ]
+  let bits = wide
+  const word = (): string => Array.from({ length: 1 + rnd(4) }, () => pick(bits)).join('')
+  const name = (): string => Array.from({ length: 1 + rnd(3) }, word).join(pick([' ', '-', ' ']))
+  // A message mixes names and aliases, sometimes bent (case, accents, separators, marks, cut short), with contacts and filler.
+  const bend = (s: string): string =>
+    pick([
+      (x: string) => x,
+      (x: string) => x.toUpperCase(),
+      (x: string) => x.normalize('NFD').replace(/\p{M}/gu, ''),
+      (x: string) => x.replace(/[ -]/g, () => pick([' ', '-', '‐', '‑', '  ', ''])),
+      (x: string) => x.replace(/'/g, () => pick(["'", '’', ''])),
+      (x: string) => [...x].map((c) => c + pick(['', '', '̲', 'ͅ', '۞'])).join(''),
+      (x: string) => x.slice(0, 1 + rnd(x.length)),
+      (x: string) => '@' + x
+    ])(s)
+  const filler = [
+    ...[' ', ', ', '. ', 'x', '1', '2026-11-01 10:30', '+52 55 1234 5678', 'dana@acme.com'],
+    ...['https://a.io/x', 'acme.com', '@kim', '[Manager]', '[Me]', 'ok', 'さん', 'が', 'said'],
+    ...['9', '_', "'s", '’', '-', '̲']
+  ]
+  it('picks the longest key that matches, even when a shorter one on another branch matches first', () => {
+    // "a'b" (optional apostrophe) and "ab 1x" both match "ab 1x"; the longer key wins, as in the old regex.
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [
+        { name: 'Alex Morgan', role: 'Lead', aliases: ["a'bcdz", "a'b"] },
+        { name: 'Dana Lee', role: 'Peer', aliases: ['ab 1x'] }
+      ],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    expect(scrubForModel('ab 1x and ab, then ab-1x', p).text).toBe('[Peer] and [Lead], then [Peer]')
+    // A mark after a digit stays in the key, so "b1̲x y" needs "1" to give the mark back, and it still wins
+    // over the shorter "b1x" (whose "1" swallows the mark; that span is no key, so it is [someone]: still hidden).
+    const marks: Profile = {
+      ...p,
+      people: [
+        { name: 'Alex Morgan', role: 'Lead', aliases: ['b1̲x y'] },
+        { name: 'Dana Lee', role: 'Peer', aliases: ['b1x'] }
+      ]
+    }
+    expect(scrubForModel('b1̲x y, b1̲x', marks).text).toBe('[Lead], [someone]')
+  })
+  it.each([
+    ['wide', wide],
+    ['tight', tight]
+  ])('gives byte-identical scrubs and profile contexts on a generated %s corpus', (_, chars) => {
+    bits = chars
+    for (let n = 0; n < 400; n++) {
+      const people = Array.from({ length: 1 + rnd(5) }, (_, i) => ({
+        name: name(),
+        role:
+          pick(['Manager', 'Lead', `Role ${i}`, 'lead@ops', '[x] dev', 'Me', '', 'a@b.com']) +
+          (rnd(3) ? '' : ' ' + word()),
+        aliases: Array.from({ length: rnd(4) }, () => (rnd(4) ? '' : '@') + name())
+      }))
+      const owner = { name: name(), aliases: rnd(2) ? [name()] : undefined }
+      const all = [
+        owner.name,
+        ...(owner.aliases ?? []),
+        ...people.flatMap((p) => [p.name, ...p.aliases])
+      ]
+      const msg = (): string =>
+        Array.from({ length: 2 + rnd(12) }, () => (rnd(2) ? bend(pick(all)) : pick(filler))).join(
+          pick(['', ' ', ' ', '-'])
+        )
+      const p: Profile = {
+        name: owner.name,
+        role: 'Analyst ' + msg(),
+        aliases: owner.aliases,
+        people,
+        sections: sections({ feedback: [{ text: msg(), origin: 'coach', visibleTo: [] }] }),
+        calmingStrategies: [{ label: msg(), minutes: 5, origin: 'self', visibleTo: [] }]
+      }
+      buildProfileContext(p)
+      for (let m = 0; m < 6; m++) scrubForModel(msg(), p)
+    }
   })
 })

@@ -1,4 +1,6 @@
 // Pure list edits for the manual. New items get an id here, never in the UI.
+import { aliasKey } from '@shared/profile'
+
 type WithId = { id?: string }
 
 /** Replaces the item with the same id, or appends it (with a fresh id) when it is new. */
@@ -29,16 +31,15 @@ export function activeIndex(tops: number[], viewportH: number, remaining: number
   return active
 }
 
-/** Must match the scrubber's alias cap in src/shared/profile.ts: longer aliases are not hidden. */
-export const ALIAS_MAX = 40
-
-/** Adds nicknames typed or pasted as "a, b": trimmed, empty, over-long and case-insensitive duplicates skipped. */
+/**
+ * Adds nicknames typed or pasted as "a, b": trimmed; empty parts, case-insensitive duplicates and
+ * aliases the scrubber would ignore (`aliasKey`: under 2 letters or digits, over ALIAS_MAX once folded) are skipped.
+ */
 export function addAlias(list: string[], text: string): string[] {
   const out = [...list]
   for (const raw of text.split(',')) {
     const a = raw.trim()
-    if (a && a.length <= ALIAS_MAX && !out.some((x) => x.toLowerCase() === a.toLowerCase()))
-      out.push(a)
+    if (aliasKey(a) !== null && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
   }
   return out
 }
