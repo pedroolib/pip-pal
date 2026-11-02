@@ -28,3 +28,13 @@ export function activeIndex(tops: number[], viewportH: number, remaining: number
   })
   return active
 }
+
+/** Adds nicknames typed or pasted as "a, b": trimmed, empty and case-insensitive duplicates skipped. */
+export function addAlias(list: string[], text: string): string[] {
+  const out = [...list]
+  for (const raw of text.split(',')) {
+    const a = raw.trim()
+    if (a && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
+  }
+  return out
+}

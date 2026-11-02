@@ -17,13 +17,16 @@ import {
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Textarea } from '@renderer/components/ui/textarea'
+import { AliasField } from './AliasField'
+import { addAlias } from './model'
 
-export type Kind = 'entry' | 'strategy' | 'person'
+export type Kind = 'entry' | 'strategy' | 'person' | 'owner'
 export type Draft = {
   text: string
   minutes: string
   name: string
   role: string
+  aliases: string[]
   visibleTo: Recipient[]
 }
 
@@ -69,7 +72,7 @@ export function Row(props: {
   rowKey: string
   saved: boolean
   onEdit: () => void
-  onDelete: () => void
+  onDelete?: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -105,15 +108,17 @@ export function Row(props: {
       >
         <Pencil />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={touch}
-        aria-label={t('manual.delete', { what: props.what })}
-        onClick={props.onDelete}
-      >
-        <Trash2 />
-      </Button>
+      {props.onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={touch}
+          aria-label={t('manual.delete', { what: props.what })}
+          onClick={props.onDelete}
+        >
+          <Trash2 />
+        </Button>
+      )}
     </li>
   )
 }
@@ -146,24 +151,28 @@ export function Editor(props: {
     minutes: '',
     name: '',
     role: '',
+    aliases: [],
     visibleTo: [],
     ...props.initial
   })
   const [error, setError] = useState<'text' | 'minutes' | 'pair' | null>(null)
   const [failed, setFailed] = useState(false)
+  const [pending, setPending] = useState('')
   const set = (p: Partial<Draft>): void => setD((x) => ({ ...x, ...p }))
   const minutes = Number(d.minutes)
 
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setFailed(false)
-    if (props.kind === 'person') {
+    if (props.kind === 'owner') {
+      // nothing to validate: the list may be empty
+    } else if (props.kind === 'person') {
       if (!d.name.trim() || !d.role.trim()) return setError('pair')
     } else if (!d.text.trim()) return setError('text')
     else if (props.kind === 'strategy' && !(Number.isInteger(minutes) && minutes >= 1))
       return setError('minutes')
     setError(null)
-    if (!(await props.onSave(d))) setFailed(true)
+    if (!(await props.onSave({ ...d, aliases: addAlias(d.aliases, pending) }))) setFailed(true)
   }
 
   const err = (k: typeof error): object =>
@@ -183,7 +192,7 @@ export function Editor(props: {
         noValidate
       >
         <p className="text-sm text-muted-foreground">{t(`manual.editor.hint.${props.kind}`)}</p>
-        {props.kind === 'person' ? (
+        {props.kind === 'owner' ? null : props.kind === 'person' ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor={`${uid}-n`}>{t('manual.people.name')}</Label>
@@ -249,9 +258,22 @@ export function Editor(props: {
             />
           </div>
         )}
+        {(props.kind === 'person' || props.kind === 'owner') && (
+          <AliasField
+            id={`${uid}-a`}
+            autoFocus={props.kind === 'owner'}
+            hint={t(`manual.aliases.hint.${props.kind}`)}
+            aliases={d.aliases}
+            text={pending}
+            onChange={(aliases, text) => {
+              set({ aliases })
+              setPending(text)
+            }}
+          />
+        )}
         {error && <FieldError id={`${uid}-err`}>{message[error]}</FieldError>}
 
-        {props.kind !== 'person' && (
+        {props.kind !== 'person' && props.kind !== 'owner' && (
           <fieldset className="grid gap-2">
             <legend className="text-sm font-bold">{t('manual.editor.whoCanSee')}</legend>
             <p className="text-sm text-muted-foreground">{t('manual.editor.leaveUnticked')}</p>

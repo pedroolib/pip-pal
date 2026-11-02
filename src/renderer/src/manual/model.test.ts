@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeIndex, removeAt, removeById, upsert } from './model'
+import { activeIndex, addAlias, removeAt, removeById, upsert } from './model'
 
 describe('manual list edits', () => {
   it('adds an item and gives it an id', () => {
@@ -58,5 +58,18 @@ describe('activeIndex', () => {
     expect(up.every((v, i) => i === 0 || v <= up[i - 1])).toBe(true)
     expect(new Set(up).size).toBe(15)
     expect(up.at(-1)).toBe(0)
+  })
+})
+
+describe('addAlias', () => {
+  it('adds trimmed text', () => {
+    expect(addAlias(['Ally'], '  @alexr ')).toEqual(['Ally', '@alexr'])
+  })
+  it('ignores empty text and case-insensitive duplicates', () => {
+    expect(addAlias(['Ally'], '   ')).toEqual(['Ally'])
+    expect(addAlias(['Ally'], 'ALLY')).toEqual(['Ally'])
+  })
+  it('splits pasted or leftover text on commas', () => {
+    expect(addAlias(['a'], 'b, A,, c')).toEqual(['a', 'b', 'c'])
   })
 })
