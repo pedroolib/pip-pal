@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { ALIAS_MAX } from '@shared/profile'
-import { activeIndex, addAlias, hasTooLongAlias, removeAt, removeById, upsert } from './model'
+import {
+  activeIndex,
+  addAlias,
+  aliasesToSave,
+  hasTooLongAlias,
+  removeAt,
+  removeById,
+  splitAliases,
+  upsert
+} from './model'
 
 describe('manual list edits', () => {
   it('adds an item and gives it an id', () => {
@@ -106,5 +115,31 @@ describe('hasTooLongAlias', () => {
     expect(hasTooLongAlias('J, @a')).toBe(false)
     expect(hasTooLongAlias('12 ' + '-'.repeat(120))).toBe(false)
     expect(hasTooLongAlias('x'.repeat(100))).toBe(false)
+  })
+})
+
+describe('splitAliases', () => {
+  it('turns a 2248-character pasted list into whole chips, none cut off', () => {
+    const names = Array.from({ length: 150 }, (_, i) => `Nickname${String(i).padStart(3, '0')}xy`)
+    const pasted = names.join(', ')
+    expect(pasted.length).toBe(2248)
+    expect(splitAliases([], pasted)).toEqual({ aliases: names, left: '' })
+  })
+  it('keeps a too-long part in the box', () => {
+    const long = 'x'.repeat(101)
+    expect(splitAliases(['al'], ` bo , ${long}, cy`)).toEqual({
+      aliases: ['al', 'bo', 'cy'],
+      left: long
+    })
+  })
+})
+
+describe('aliasesToSave', () => {
+  it('adds what is left in the box', () => {
+    expect(aliasesToSave(['al'], ' bo ')).toEqual(['al', 'bo'])
+  })
+  it('refuses to save while the box holds a part over the cap, so it is never dropped silently', () => {
+    expect(aliasesToSave(['al'], 'x'.repeat(101))).toBeNull()
+    expect(aliasesToSave(['al'], `bo, ${'x'.repeat(101)}`)).toBeNull()
   })
 })

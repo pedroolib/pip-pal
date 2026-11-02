@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import { Badge } from '@renderer/components/ui/badge'
@@ -6,7 +6,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { ALIAS_MAX } from '@shared/profile'
-import { addAlias, hasTooLongAlias, removeAt } from './model'
+import { hasTooLongAlias, removeAt, splitAliases } from './model'
 
 /** Chip input for nicknames. Enter or comma adds; text left in the box is added by the form on Save. */
 export function AliasField(props: {
@@ -20,17 +20,13 @@ export function AliasField(props: {
   const { t } = useTranslation()
   const input = useRef<HTMLInputElement>(null)
   const { aliases, text, onChange } = props
-  const [tooLong, setTooLong] = useState(false)
+  const tooLong = hasTooLongAlias(text)
   const add = (v: string): void => {
-    // Parts skipped for length stay in the box, so the person can shorten them instead of losing them.
-    const left = v
-      .split(',')
-      .filter(hasTooLongAlias)
-      .map((a) => a.trim())
-      .join(', ')
-    setTooLong(left !== '')
-    onChange(addAlias(aliases, v), left)
+    const { aliases: next, left } = splitAliases(aliases, v)
+    onChange(next, left)
   }
+  // A typed comma ends the chip; pasted "a, b" is split the same way.
+  const change = (v: string): void => (v.includes(',') ? add(v) : onChange(aliases, v))
   return (
     <div className="grid min-w-0 gap-2">
       <Label htmlFor={props.id}>{t('manual.aliases.label')}</Label>
@@ -66,17 +62,18 @@ export function AliasField(props: {
         ref={input}
         autoFocus={props.autoFocus}
         className="min-h-11 bg-background"
-        maxLength={ALIAS_MAX * 20} // room for a pasted list; each part is capped by addAlias, never cut mid-word
+        maxLength={ALIAS_MAX * 20} // typing only: a paste is handled whole below, and each part is capped by addAlias
         aria-describedby={tooLong ? `${props.id}-hint ${props.id}-long` : `${props.id}-hint`}
         value={text}
-        onChange={(e) => {
-          const v = e.target.value
-          // A typed comma ends the chip; pasted "a, b" is split the same way.
-          if (v.includes(',')) add(v)
-          else {
-            setTooLong(hasTooLongAlias(v))
-            onChange(aliases, v)
-          }
+        onChange={(e) => change(e.target.value)}
+        onPaste={(e) => {
+          // The browser would cut a paste at maxLength, mid-word; insert the full clipboard text instead.
+          e.preventDefault()
+          const el = e.currentTarget
+          const at = el.selectionStart ?? text.length
+          change(
+            text.slice(0, at) + e.clipboardData.getData('text') + text.slice(el.selectionEnd ?? at)
+          )
         }}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing) return // IME: Enter confirms the composition, not the chip

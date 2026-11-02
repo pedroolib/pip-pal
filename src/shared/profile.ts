@@ -185,6 +185,7 @@ function trie(keys: string[]): Node {
   })
   return root
 }
+const NO_ENDS: [number, number] = [-1, 0] // an empty range: kid `k` is skipped
 // End of the lowest-ranked key matching at `at` (keys are ranked longest first), or -1.
 // `dead` is shared by every start in one text (same trie and `ok`): it holds the (node, position) visits that reach no key end.
 function matchEnd(
@@ -199,9 +200,10 @@ function matchEnd(
   // A node already walked from a position found all it could there the first time; keys with loose marks reach one many ways.
   // A visit left with nothing found while `best` was still unset pruned nothing, so it is dead for every later start too:
   // without it a glued key led by two mark-taking characters ("̲̲さa", "ιιさa" on U+0345) was cubic in a run of marks (~35 s on 8000).
-  // shortcut: a key with 2+ loose marks after a digit or symbol ("1̲̲x", ~0.35 s on 8000; the old regex took 50 s) or a glued key
-  // led by 2+ mark-taking characters (~0.7 s) is still quadratic in a run of marks: every start re-reads the run once;
-  // collapse repeated marks in keys and text if a real profile ever has one.
+  // shortcut: on a run of marks the walk is still ~k·n² for a key with k mark-taking characters in a row (every start re-reads
+  // the run). `aliasKey` refuses k >= 3; worst accepted on 8000: "1̲̲x" ~0.37 s, "̲̲さa" ~0.73 s, the four ι/U+0345 pairs + "さa"
+  // together ~1.5 s. Names are not capped: a name "̲̲̲̲さa" takes ~1.7 s, 98 marks ~72 s. Collapse repeated marks in keys and
+  // text if a real name ever has a run of marks.
   const seen = new Set<number>()
   // A depth-first walk with an explicit stack (one frame per key character, so a long name cannot overflow the call stack).
   // A frame tries its kids in order, each at every end `ends` gives, then checks its own key once they are done.
@@ -220,7 +222,7 @@ function matchEnd(
     if (f.e >= f.lo && f.n.kids[f.k][1].min < best) enter(f.n.kids[f.k][1], f.e--)
     else if (++f.k < f.n.kids.length) {
       const [s, kid] = f.n.kids[f.k]
-      ;[f.e, f.lo] = (kid.min < best && ends(s, kid, text, f.i)) || [-1, 0]
+      ;[f.e, f.lo] = (kid.min < best && ends(s, kid, text, f.i)) || NO_ENDS
     } else {
       stack.pop()
       if (f.n.rank < best && ok(f.i)) [best, end] = [f.n.rank, f.i]
@@ -235,11 +237,14 @@ const hasLetter = (s: string): boolean => /[\p{L}\p{N}]/u.test(s)
 export const ALIAS_MAX = 100
 /**
  * The key the scrubber matches an alias by (folded, without a leading "@"), or null when it ignores the alias:
- * under 2 letters or digits ("J", "@a") would swap single letters all over the text, and over ALIAS_MAX is refused.
+ * under 2 letters or digits ("J", "@a") would swap single letters all over the text; over ALIAS_MAX, or with 3+ marks in a row, is refused.
  */
 export function aliasKey(alias: string): string | null {
   const k = fold(alias).replace(/^@/, '').trim()
   if (k.length > ALIAS_MAX) return null
+  // 3+ characters in a row the matcher reads as loose marks make the walk k·n² on a run of marks (98 took ~70 s); no name has that.
+  let run = 0
+  for (const c of k) if ((run = takesMark(step(c)) ? run + 1 : 0) > 2) return null
   const size = (
     k
       .replace(PHONE, phone)

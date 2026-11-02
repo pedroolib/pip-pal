@@ -52,3 +52,18 @@ export function hasTooLongAlias(text: string): boolean {
     return aliasKey(a) === null && aliasKey(a.slice(0, ALIAS_MAX)) !== null
   })
 }
+
+/** Adds the parts of "a, b" as chips; parts skipped only for length come back in `left`, to be shortened, not lost. */
+export function splitAliases(list: string[], text: string): { aliases: string[]; left: string } {
+  const left = text
+    .split(',')
+    .filter(hasTooLongAlias)
+    .map((a) => a.trim())
+    .join(', ')
+  return { aliases: addAlias(list, text), left }
+}
+
+/** The aliases to save with the text left in the box, or null while that text holds a part over the cap. */
+export function aliasesToSave(list: string[], pending: string): string[] | null {
+  return hasTooLongAlias(pending) ? null : addAlias(list, pending)
+}

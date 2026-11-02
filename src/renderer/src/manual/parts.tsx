@@ -18,7 +18,7 @@ import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { AliasField } from './AliasField'
-import { addAlias } from './model'
+import { aliasesToSave } from './model'
 
 export type Kind = 'entry' | 'strategy' | 'person' | 'owner'
 export type Draft = {
@@ -173,7 +173,10 @@ export function Editor(props: {
     else if (props.kind === 'strategy' && !(Number.isInteger(minutes) && minutes >= 1))
       return setError('minutes')
     setError(null)
-    if (!(await props.onSave({ ...d, aliases: addAlias(d.aliases, pending) }))) setFailed(true)
+    // A part over the cap would be dropped on save: keep the form open on it (its message is already shown).
+    const aliases = aliasesToSave(d.aliases, pending)
+    if (!aliases) return document.getElementById(`${uid}-a`)?.focus()
+    if (!(await props.onSave({ ...d, aliases }))) setFailed(true)
   }
 
   const err = (k: typeof error): object =>

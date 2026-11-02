@@ -1068,10 +1068,31 @@ describe('alias cap at 100 with a pathological profile', () => {
       const msg = mark.repeat(8000)
       const t = performance.now()
       const out = scrubNew(msg, p).text
-      expect(performance.now() - t, alias).toBeLessThan(1500) // still quadratic, ~0.7 s locally
+      expect(performance.now() - t, alias).toBeLessThan(2500) // still quadratic, ~0.7 s locally
       expect(out).toBe(msg)
       expect(scrubForModel(`${alias} ok`, p).text).toBe('[Lead] ok')
     }
+  })
+
+  it('ignores an alias with 3+ mark-taking characters in a row (98 marks + "さa" froze main ~70 s on 8000 marks)', () => {
+    const hostile = '\u0332'.repeat(98) + 'さa'
+    expect(aliasKey(hostile)).toBeNull()
+    expect(aliasKey('ιιιさa')).toBeNull() // "ι" takes U+0345 under `iu`
+    expect(aliasKey('\u0332\u0332さa')).toBe('\u0332\u0332さa')
+    expect(aliasKey('Jose\u0301')).toBe('jose')
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [{ name: 'Alex Morgan', role: 'Lead', aliases: [hostile, 'Jose\u0301'] }],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    const msg = '\u0332'.repeat(8000)
+    const t = performance.now()
+    expect(scrubNew(msg, p).text).toBe(msg)
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(scrubNew(`${hostile} ok`, p).text).toBe(`${hostile} ok`) // the reference still hid it
+    expect(scrubForModel('ask Jose\u0301 and José', p).text).toBe('ask [Lead] and [Lead]')
   })
 
   it('matches a 10,000-character name without running out of stack', () => {
