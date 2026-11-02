@@ -234,6 +234,19 @@ describe('createTriager', () => {
     expect(t.evidence).toEqual({})
   })
 
+  it('keeps urgency evidence only when the urgency is explicit', async () => {
+    const text = 'Please send the file today. Thanks.'
+    const run = async (explicit: number): Promise<string | undefined> => {
+      const f = fake(() => ({
+        urgencyExplicit: { noul: explicit },
+        evidenceUrgency: { choice: 'Please send the file today.' }
+      }))
+      return (await createTriager({ jev: f.jev, now })(text, profile)).evidence.urgency
+    }
+    expect(await run(0.95)).toBe('Please send the file today.')
+    expect(await run(0.05)).toBeUndefined()
+  })
+
   it('offers at most MAX_CANDIDATES sentences from a long message', async () => {
     const f = fake()
     const long = Array.from({ length: 30 }, (_, i) => `Item ${i + 1} is ready.`).join(' ')

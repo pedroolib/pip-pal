@@ -42,7 +42,7 @@ describe('createClaudeClient', () => {
     expect(await c.decode({ system: 'S', user: 'U' })).toBeUndefined()
   })
 
-  it('reports status and the API message on a 400, never the request text', async () => {
+  it('reports only the status of an API error, never its message or the request text', async () => {
     const err = new Anthropic.BadRequestError(
       400,
       { type: 'error', error: { type: 'invalid_request_error', message: 'bad thing' } },
@@ -55,7 +55,7 @@ describe('createClaudeClient', () => {
       })
     )
     await expect(c.decode({ system: 'S', user: 'SECRET' })).rejects.toThrow(
-      /^Claude API error 400: bad thing$/
+      /^Claude API error 400$/
     )
   })
 })

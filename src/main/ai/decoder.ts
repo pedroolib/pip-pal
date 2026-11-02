@@ -64,7 +64,7 @@ export function createDecoder({
     let body = scrubbed.text
     for (let prev = ''; prev !== body;) {
       prev = body
-      body = body.replace(/<\/?message>/gi, () => '')
+      body = body.replace(/<\s*\/?\s*message\b[^>]*>/gi, () => '')
     }
     const user = [
       `Today is ${now().toISOString().slice(0, 10)}.`,

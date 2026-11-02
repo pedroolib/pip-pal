@@ -88,3 +88,58 @@ describe('input validation', () => {
     }
   })
 })
+
+describe('one running call per key', () => {
+  const deferred = <T>(): { promise: Promise<T>; resolve: (v: T) => void } => {
+    let resolve!: (v: T) => void
+    const promise = new Promise<T>((a) => {
+      resolve = a
+    })
+    return { promise, resolve }
+  }
+  const keys = { TYPESAFE_API_KEY: 'k', ANTHROPIC_API_KEY: 'k' }
+
+  it('joins the same text, refuses another text without echoing it, and clears when done', async () => {
+    const s = setup(keys)
+    const d = deferred<never>()
+    s.realExpand.mockReturnValueOnce(d.promise)
+    const first = s.ai.expand('same', 'steps', 3)
+    const again = s.ai.expand('same', 'steps', 3)
+    const e = await s.ai.expand(SECRET, 'steps', 3).catch((x: Error) => x)
+    expect((e as Error).message).toMatch(/still working/)
+    expect((e as Error).message).not.toContain('Quillfeather')
+    d.resolve({ real: 'late' } as never)
+    expect(await first).toEqual({ real: 'late' })
+    expect(await again).toEqual({ real: 'late' })
+    expect(s.realExpand).toHaveBeenCalledTimes(1)
+    await s.ai.expand(SECRET, 'steps', 3)
+    expect(s.realExpand).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears the entry when the call rejects', async () => {
+    const s = setup(keys)
+    s.realExpand.mockRejectedValueOnce(new Error('boom'))
+    await expect(s.ai.expand('a', 'steps', 3)).rejects.toThrow('boom')
+    expect(await s.ai.expand('b', 'steps', 3)).toEqual({ real: 'expand' })
+  })
+
+  it('lets 3 expands and 1 triage run at once, but not two for one key', async () => {
+    const s = setup(keys)
+    const ds = [deferred<never>(), deferred<never>(), deferred<never>(), deferred<never>()]
+    s.realExpand
+      .mockReturnValueOnce(ds[0].promise)
+      .mockReturnValueOnce(ds[1].promise)
+      .mockReturnValueOnce(ds[2].promise)
+    s.realTriage.mockReturnValueOnce(ds[3].promise)
+    const all = [
+      s.ai.expand('t', 'steps', 3),
+      s.ai.expand('t', 'questions', 3),
+      s.ai.expand('t', 'transition', 3),
+      s.ai.triage('t')
+    ]
+    await expect(s.ai.triage('other')).rejects.toThrow(/still working/)
+    expect(s.realExpand).toHaveBeenCalledTimes(3)
+    ds.forEach((d) => d.resolve({} as never))
+    await Promise.all(all)
+  })
+})

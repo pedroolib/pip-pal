@@ -47,11 +47,9 @@ export function createClaudeClient(
       // A missing or truncated tool call fails validation in the caller, which rejects (no retry).
       return res.content.find((b) => b.type === 'tool_use')?.input
     } catch (e) {
-      // Status and the API's own message only, never the request (it holds the user's text).
-      if (e instanceof Anthropic.APIError) {
-        const detail = (e.error as { error?: { message?: string } } | undefined)?.error?.message
-        throw new Error(`Claude API error ${e.status}: ${detail ?? 'no message'}`, { cause: e })
-      }
+      // Status only, like the Jev client: neither the API's message nor the request (it holds the user's text).
+      // eslint-disable-next-line preserve-caught-error -- no cause on purpose, it holds the API body
+      if (e instanceof Anthropic.APIError) throw new Error(`Claude API error ${e.status}`)
       throw e
     }
   }

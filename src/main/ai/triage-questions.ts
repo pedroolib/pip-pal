@@ -242,7 +242,7 @@ export function toTriage(
   ]
   const picks: Partial<Record<EvidenceField, string>> = {
     deadline: found ? a.evidenceDeadline?.choice : undefined,
-    urgency: a.evidenceUrgency?.choice,
+    urgency: a.urgencyExplicit.noul >= URGENCY_EXPLICIT ? a.evidenceUrgency?.choice : undefined,
     tone: a.evidenceTone?.choice,
     change: isChange >= NOUL_NO_BELOW ? a.evidenceChange?.choice : undefined
   }

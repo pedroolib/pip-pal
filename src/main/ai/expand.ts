@@ -72,7 +72,7 @@ export function createExpander({
     let body = scrubbed.text
     for (let prev = ''; prev !== body;) {
       prev = body
-      body = body.replace(/<\/?message>/gi, () => '')
+      body = body.replace(/<\s*\/?\s*message\b[^>]*>/gi, () => '')
     }
     const energy = Number.isInteger(spoons) ? spoons : 'unknown'
     const user = [
@@ -98,6 +98,7 @@ export function createExpander({
       user,
       tool: { name, description, input_schema: toInputSchema(output) }
     })
+    // free model text: the UI must render it as plain text
     const parsed = output.safeParse(raw)
     if (!parsed.success)
       throw new Error(

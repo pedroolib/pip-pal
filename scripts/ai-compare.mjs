@@ -71,7 +71,8 @@ const latency = (runs) => ({
     95
   )
 })
-const invalidCount = (runs) => runs.filter((r) => r.error && /invalid/i.test(r.error)).length
+const invalidCount = (runs) =>
+  runs.filter((r) => r.error && /^(Claude|Jev) returned an invalid /.test(r.error)).length
 const average = (values) =>
   values.length ? (values.reduce((n, v) => n + v, 0) / values.length).toFixed(1) : '-'
 const printFirstError = (name, runs) => {
@@ -98,11 +99,12 @@ try {
     mkdirSync(resolve(root, 'scripts/.out'), { recursive: true })
     const stamp = new Date().toISOString().replace(/[:.]/g, '-')
     const mode = triageMode ? 'triage' : expandMode ? 'expand' : 'compare'
-    const file = resolve(root, `scripts/.out/${mode}-${stamp}.json`)
+    const file = resolve(root, `scripts/.out/${mode}${dry ? '-dry' : ''}-${stamp}.json`)
     writeFileSync(file, JSON.stringify({ dry, labels: messages, report }, null, 2))
     console.log(`Full outputs: ${file}`)
   }
   const tag = dry ? ' (dry)' : ''
+  const dryNote = () => dry && console.log('DRY RUN: numbers are fake')
 
   if (triageMode) {
     // The date labels in compare-messages.json assume this day (a Wednesday); weeks start Monday.
@@ -186,6 +188,7 @@ try {
       ...latency(runs)
     }
 
+    dryNote()
     console.log(`Triage fields${tag}`)
     console.table(fields)
     console.log('Actions offered vs labelled')
@@ -253,6 +256,7 @@ try {
         })
       }
     }
+    dryNote()
     console.table(
       Object.fromEntries(
         report.map(({ model, kind, summary }) => [`${model} ${kind}${tag}`, summary])
@@ -320,6 +324,7 @@ try {
       })
     }
 
+    dryNote()
     console.table(Object.fromEntries(report.map(({ model, summary }) => [model + tag, summary])))
     for (const { model, runs } of report) printFirstError(model, runs)
     save(report)
