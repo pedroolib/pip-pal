@@ -74,17 +74,17 @@ Detalles de diseño en [design/README.md](design/README.md).
 
 | Modelo | Hace | Por qué |
 |---|---|---|
-| **Claude** (`PIP_MODEL=sonnet\|haiku`) | Todo el texto: pasos, preguntas listas para enviar, plan de transición, con su `why`. | Jev no genera texto. |
+| **Claude Haiku 5.5** (`PIP_MODEL=sonnet\|haiku`, por defecto Haiku) | Todo el texto: pasos, preguntas listas para enviar, plan de transición, con su `why`. | Jev no genera texto. |
 | **Jev (TypeSafe AI)** | Clasifica: Noul/Choice/Score en una sola petición. | Probabilidades **calibradas** y respuesta en 70–500 ms: la burbuja aparece al instante. En el pitch: "el modelo correcto para cada trabajo". |
 
 **Reglas que se decidieron en el camino:**
 - **Seleccionar, no generar.** El código arma los candidatos (por ejemplo las fechas posibles del texto, en `dates.ts`) y Jev elige. El código decide los umbrales (Noul "no seguro" entre 0.3 y 0.7; Choice no seguro si el primero < 0.6 o la ventaja < 0.2). Nunca se usa la `confidence` de Jev.
-- **Claude con salida estructurada** (`output_config.format` con JSON schema), sin herramientas y sin `tool_choice` (Sonnet 5.5 lo rechaza con HTTP 400). Tiempo límite 30 s.
+- **Claude con salida estructurada** (`output_config.format` con JSON schema), sin herramientas y sin `tool_choice` (Sonnet 5.5 lo rechaza con HTTP 400, un dato de Sonnet, no el modelo por defecto). Tiempo límite 30 s.
 - **Sin reintentos, en ninguna parte.** La primera respuesta inválida rechaza con un mensaje que solo trae códigos y rutas, nunca la salida del modelo. Se probó: 54/54 válidas con Haiku y Sonnet en la corrida real.
 - **Sin límites de cantidad** de pasos o preguntas: lo decide el perfil (Sam prefiere pasos pequeños y concretos). Con ≤2 cucharas la interfaz recorta a 3 pasos; el modelo no.
 - **Una llamada a la vez por clave** (`triage`, o cada tipo de `expand`). El mismo texto con las mismas cucharas y pistas se une a la llamada en curso; otro texto rechaza con "Pip is still working on another text. Try again in a moment."
 - **Reglas de prompt (anti-masking y autismo):** no adivinar al remitente (es "the sender" salvo que el mensaje lo nombre); no coachear el tono ("sé más amable") salvo que se pida; **no apelar al "sentido común" ni a lo "obvio"** (las normas no dichas son justo lo que la persona puede no saber); no preguntar lo que se resuelve con la fecha de hoy; cada paso lleva su razón. Tras cada cambio de prompt hay que repetir `npm run ai:lite`.
-- **Haiku** gustó más que Sonnet en `ai:lite` (≈5 s contra 6.5–8 s); el modelo por defecto en código sigue siendo sonnet. Está por decidir.
+- **Haiku es el modelo por defecto** (decidido el 2026-11-02 tras las corridas locales de `ai:lite` y `ai:compare`): gustó más que Sonnet en `ai:lite` (≈5 s contra 6.5–8 s). Sonnet queda como alternativa con `PIP_MODEL=sonnet`.
 
 **La interfaz que se construye sobre esto** (aún no implementada; el contrato y los fixtures ya existen):
 - Con el atajo aparece un Pip junto al cursor con una burbuja: el triage y los botones.
@@ -198,7 +198,6 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - ¿El pitch será en inglés o en español?
 - ¿Podemos citar a nuestra contacto de Specialisterne con su nombre?
 - Confirmar las citas del pitch contra el audio de la entrevista (vienen de una transcripción automática).
-- Modelo por defecto: ¿Haiku o Sonnet? Las corridas de `npm run ai:lite` y `ai:compare` ya se hicieron; los resultados viven en local y se compartieron con el equipo (no están en el repo). Falta tomar la decisión.
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
 - Interfaz del triage y los botones (arriba): migrar `DecodeCard` y `TaskCard`.
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).
