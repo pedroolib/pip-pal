@@ -7,6 +7,7 @@ out
 scripts/.out/
 .env
 .env.*
+!.env.example
 .factory/jobs/
 .factory/init-state.json
 .claude/settings.local.json

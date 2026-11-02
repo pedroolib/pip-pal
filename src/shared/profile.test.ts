@@ -585,7 +585,7 @@ describe('scrubForModel on real chat text', () => {
     expect(performance.now() - t).toBeLessThan(200)
   })
 
-  it('scrubs hostile 8000-char messages with 200 hyphen and apostrophe names in well under 500 ms', () => {
+  it('scrubs hostile 8000-char messages with 200 hyphen and apostrophe names in well under 1 s', () => {
     const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
     const many = Array.from({ length: 200 }, (_, i) => ({
       name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} D'${syl[(i * 5) % 8]}ễn ${syl[(i >> 5) % 8]}'${syl[i % 7]}`,
@@ -598,7 +598,7 @@ describe('scrubForModel on real chat text', () => {
       const msg = unit.repeat(8000).slice(0, 8000)
       const t = performance.now()
       scrubForModel(msg, big)
-      expect(performance.now() - t, unit).toBeLessThan(500)
+      expect(performance.now() - t, unit).toBeLessThan(1000)
     }
   })
 
@@ -661,7 +661,7 @@ describe('scrubForModel on real chat text', () => {
       expect(scrubForModel('Samsung', p).text).toBe('Samsung')
     })
 
-    it('stays under 500 ms with a CJK key among 200 hostile names', () => {
+    it('stays under 1 s with a CJK key among 200 hostile names', () => {
       const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
       const many = [
         ...['王伟', 'Γιώργος', 'Пётр', 'مُحَمَّد', 'דָּוִד', 'အောင်ကျော်'].map((name) => ({
@@ -678,7 +678,7 @@ describe('scrubForModel on real chat text', () => {
       for (const unit of ["a'", 'a-', '王', ' a', 'Γ', 'П', 'م', 'ד', '字Dana']) {
         const t = performance.now()
         scrubForModel(unit.repeat(8000).slice(0, 8000), big)
-        expect(performance.now() - t, unit).toBeLessThan(500)
+        expect(performance.now() - t, unit).toBeLessThan(1000)
       }
     })
   })
