@@ -1,0 +1,27 @@
+{
+  "type": { "value": "change", "p": 0.88 },
+  "needsReply": { "value": "confirm_only", "p": 0.62 },
+  "urgency": { "value": "this_week", "p": 0.74, "explicit": false },
+  "deadline": { "text": "Monday", "date": "2026-11-02", "explicit": false },
+  "tone": { "value": "friendly", "p": 0.91 },
+  "isNewTask": 0.82,
+  "isChange": 0.99,
+  "changeType": "project",
+  "deadlineUnclear": 0.78,
+  "whatOrWhoUnclear": 0.35,
+  "addressee": { "value": "me", "p": 0.97 },
+  "senderRole": null,
+  "evidence": {
+    "deadline": "we're moving you to the Q1 forecasting project starting Monday",
+    "urgency": "sync with Dana when you get a chance",
+    "tone": "Hey Sam, heads up",
+    "change": "we're moving you to the Q1 forecasting project"
+  },
+  "unsure": ["needsReply", "urgency", "deadline", "ambiguity"],
+  "actions": [
+    { "kind": "transition", "strength": "primary" },
+    { "kind": "steps", "strength": "primary" },
+    { "kind": "questions", "strength": "primary" }
+  ],
+  "source": "jev"
+}

@@ -1,0 +1,13 @@
+{
+  "kind": "steps",
+  "steps": [
+    { "text": "Ask Alex for the handoff details in writing.", "why": "Your manual says written instructions work best for you." },
+    { "text": "Write a short handoff note for the dashboard: done, left, where files are.", "why": "\"Wrap up\" when you move projects usually means a handoff, not finishing everything." },
+    { "text": "Message Dana to set a 20-minute sync before Monday.", "why": null },
+    { "text": "Read the forecasting project's main document.", "why": null },
+    { "text": "List three questions for your first day on the new project.", "why": null }
+  ],
+  "profileUsed": [
+    { "section": "communication", "how": "You prefer written instructions, so step 1 asks for the handoff in writing." }
+  ]
+}

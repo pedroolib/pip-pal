@@ -4,6 +4,9 @@ import type {
   ChangeEvent,
   CheckIn,
   Decoded,
+  ActionKind,
+  Expansion,
+  Triage,
   Profile,
   Recipient,
   Slot,
@@ -16,6 +19,8 @@ export const IPC = {
   /** main → overlay: time for a spoons check-in. */
   checkInDue: 'pip:check-in-due',
   decode: 'pip:decode',
+  triage: 'pip:triage',
+  expand: 'pip:expand',
   profileGet: 'profile:get',
   profileSave: 'profile:save',
   checkInSave: 'check-in:save',
@@ -36,7 +41,12 @@ export interface PipApi {
   onCaptured(cb: (text: string) => void): () => void
   onCheckInDue(cb: (slot: Slot) => void): () => void
   /** `spoons` is the latest check-in, or null if none today. */
+  /** Replaced by triage + expand once the UI migrates. */
   decode(text: string, spoons: number | null): Promise<Decoded>
+  /** Jev only, on the hotkey; rejects if Jev fails. Never calls Claude. */
+  triage(text: string): Promise<Triage>
+  /** One Claude call, only when the person presses that button. Calls for different kinds can run in parallel. */
+  expand(text: string, kind: ActionKind, spoons: number | null): Promise<Expansion>
   getProfile(): Promise<Profile>
   saveProfile(profile: Profile): Promise<void>
   saveCheckIn(checkIn: CheckIn): Promise<void>

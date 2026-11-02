@@ -90,7 +90,7 @@ export const Classification = z.object({
 })
 export type Classification = z.infer<typeof Classification>
 
-/** Claude's reading of the message. Every suggestion carries its why, so Pip teaches instead of masking. */
+/** Claude's reading of the message (one heavy call). Replaced by triage + expand once the UI migrates. Every suggestion carries its why, so Pip teaches instead of masking. */
 export const DecodeResult = z.object({
   summary: z.string(),
   asks: z.array(z.string()),
@@ -126,6 +126,117 @@ export const Decoded = z.object({
   fromCache: z.boolean()
 })
 export type Decoded = z.infer<typeof Decoded>
+
+// ---------- Triage (Jev, on the hotkey) and expansions (Claude, one per button) ----------
+
+export const MessageType = z.enum(['request', 'question', 'fyi', 'feedback', 'change', 'social'])
+export type MessageType = z.infer<typeof MessageType>
+
+export const NeedsReply = z.enum(['yes', 'no', 'confirm_only'])
+export type NeedsReply = z.infer<typeof NeedsReply>
+
+export const UrgencyLevel = z.enum(['today', 'this_week', 'no_rush'])
+export type UrgencyLevel = z.infer<typeof UrgencyLevel>
+
+export const TriageTone = z.enum(['neutral', 'friendly', 'upset', 'worried'])
+export type TriageTone = z.infer<typeof TriageTone>
+
+export const Addressee = z.enum(['me', 'group', 'nobody'])
+export type Addressee = z.infer<typeof Addressee>
+
+/** The fields `Triage.unsure` can name. */
+export const TriageField = z.enum([
+  'type',
+  'needsReply',
+  'urgency',
+  'deadline',
+  'tone',
+  'change',
+  'task',
+  'ambiguity',
+  'addressee'
+])
+export type TriageField = z.infer<typeof TriageField>
+
+/** One narrow Claude call per button. */
+export const ActionKind = z.enum(['steps', 'questions', 'transition'])
+export type ActionKind = z.infer<typeof ActionKind>
+
+/** A label and how sure Jev is of it (0–1). */
+const scored = <T extends z.ZodType>(value: T): z.ZodObject<{ value: T; p: z.ZodNumber }> =>
+  z.object({ value, p: z.number().min(0).max(1) })
+
+/** Jev's fast read of the selected message; no Claude involved. Which buttons appear comes from `actions`. */
+export const Triage = z.object({
+  type: scored(MessageType),
+  needsReply: scored(NeedsReply),
+  urgency: scored(UrgencyLevel).extend({
+    /** True when the text says so ("today", "ASAP"); false when Jev inferred it. */
+    explicit: z.boolean()
+  }),
+  deadline: z
+    .object({
+      text: z.string(),
+      /** ISO date when one can be pinned down, else null. */
+      date: z.string().nullable(),
+      /** True when a date or time word is in the text; false when inferred. */
+      explicit: z.boolean()
+    })
+    .nullable(),
+  tone: scored(TriageTone),
+  /** Probability that the message hands over a new task (offers "Break it into steps"). */
+  isNewTask: z.number().min(0).max(1),
+  /** Probability that the message announces a change (offers "Plan for this change"). */
+  isChange: z.number().min(0).max(1),
+  changeType: ChangeType,
+  /** Probability that the timing is unclear. */
+  deadlineUnclear: z.number().min(0).max(1),
+  /** Probability that what to do, or with whom, is unclear. */
+  whatOrWhoUnclear: z.number().min(0).max(1),
+  addressee: scored(Addressee),
+  /** Role from the profile's people list when the selection names its sender, else null. */
+  senderRole: z.string().nullable(),
+  /** Exact quotes from the message each field is based on, with names restored locally. */
+  evidence: z
+    .object({
+      deadline: z.string(),
+      urgency: z.string(),
+      tone: z.string(),
+      change: z.string()
+    })
+    .partial(),
+  /** Fields too uncertain to state: the "Ask, don't guess" trigger. */
+  unsure: z.array(TriageField),
+  /** Buttons to offer, primary before maybe, then change, task, questions. Computed in code. */
+  actions: z.array(z.object({ kind: ActionKind, strength: z.enum(['primary', 'maybe']) })),
+  source: z.literal('jev')
+})
+export type Triage = z.infer<typeof Triage>
+
+const profileUsed = z.array(z.object({ section: Section, how: z.string() }))
+
+/** What one button returns. Every suggestion carries its why, so Pip teaches instead of masking. */
+export const Expansion = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('steps'),
+    /** All steps, in order of importance; the UI trims to 3 when spoons are low. */
+    steps: z.array(z.object({ text: z.string(), why: z.string().nullable() })),
+    profileUsed
+  }),
+  z.object({
+    kind: z.literal('questions'),
+    /** `suggestedQuestion` is drafted, ready to send. */
+    questions: z.array(z.object({ what: z.string(), suggestedQuestion: z.string() })),
+    profileUsed
+  }),
+  z.object({
+    kind: z.literal('transition'),
+    plan: z.array(z.string()),
+    questionsToAsk: z.array(z.string()),
+    profileUsed
+  })
+])
+export type Expansion = z.infer<typeof Expansion>
 
 // ---------- Day-to-day log (stored locally) ----------
 

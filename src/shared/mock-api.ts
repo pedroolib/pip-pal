@@ -1,7 +1,21 @@
 // shortcut: a PipApi backed by the fixtures, with writes kept in memory. Main serves it over IPC until real
 // storage (A) and AI (B) replace it handler by handler; the renderer uses it directly in a plain browser.
 import type { PipApi } from './ipc'
-import { Achievement, ChangeEvent, CheckIn, Decoded, Profile, Recipient } from './schemas'
+import {
+  Achievement,
+  ActionKind,
+  ChangeEvent,
+  CheckIn,
+  Decoded,
+  Expansion,
+  Profile,
+  Recipient,
+  Triage
+} from './schemas'
+import triageJson from './fixtures/demo.triage.json'
+import stepsJson from './fixtures/demo.expansion.steps.json'
+import questionsJson from './fixtures/demo.expansion.questions.json'
+import transitionJson from './fixtures/demo.expansion.transition.json'
 import samJson from './fixtures/sam.profile.json'
 import decodedJson from './fixtures/demo.decoded.json'
 import checkInsJson from './fixtures/week.checkins.json'
@@ -12,6 +26,10 @@ export function createMockApi(): PipApi {
   // Parsing up front doubles as the fixture self-check: a bad fixture fails loudly on startup.
   let profile = Profile.parse(samJson)
   const decoded = Decoded.parse(decodedJson)
+  const triage = Triage.parse(triageJson)
+  const expansions = Object.fromEntries(
+    [stepsJson, questionsJson, transitionJson].map((e) => [e.kind, Expansion.parse(e)])
+  ) as Record<ActionKind, Expansion>
   const checkIns = CheckIn.array().parse(checkInsJson)
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
@@ -20,6 +38,8 @@ export function createMockApi(): PipApi {
     onCaptured: () => () => {},
     onCheckInDue: () => () => {},
     decode: async () => decoded,
+    triage: async () => triage,
+    expand: async (_text, kind) => expansions[kind],
     getProfile: async () => profile,
     saveProfile: async (p) => void (profile = Profile.parse(p)),
     listCheckIns: async () => checkIns,

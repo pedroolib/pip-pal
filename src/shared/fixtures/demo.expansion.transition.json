@@ -1,0 +1,15 @@
+{
+  "kind": "transition",
+  "plan": [
+    "Today: get the handoff details in writing.",
+    "Before Friday: handoff note done and sync with Dana booked.",
+    "Monday: start with Dana's walkthrough, not on your own."
+  ],
+  "questionsToAsk": [
+    "Who will own the dashboard after I move?",
+    "What should I have ready for Monday?"
+  ],
+  "profileUsed": [
+    { "section": "changes", "how": "You need the why first, so the plan starts with the handoff details." }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "kind": "questions",
+  "questions": [
+    {
+      "what": "\"When you get a chance\" doesn't say when to sync with Dana.",
+      "suggestedQuestion": "Hi Alex! Should I sync with Dana before Monday, or is early next week fine?"
+    },
+    {
+      "what": "\"Wrap up the dashboard stuff\" doesn't say how much to finish before the move.",
+      "suggestedQuestion": "For the dashboard, do you want a handoff note, or should I finish the open items first?"
+    }
+  ],
+  "profileUsed": [
+    { "section": "stress", "how": "Vague timing stresses you, so Pip turned \"when you get a chance\" into a question." }
+  ]
+}
