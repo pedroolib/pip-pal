@@ -1,45 +1,14 @@
-import {
-  copyFileSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  renameSync,
-  unlinkSync,
-  writeFileSync
-} from 'fs'
-import { basename, dirname, join } from 'path'
+import { readFileSync } from 'fs'
 import samJson from '@shared/fixtures/sam.profile.json'
 import { ensureIds } from '@shared/profile'
 import { Profile } from '@shared/schemas'
+import { backupFile, writeJsonAtomic } from './json-file'
 
 export function createProfileStore(file: string): {
   load(): Profile
   save(profile: Profile): void
 } {
-  const write = (p: Profile): void => {
-    mkdirSync(dirname(file), { recursive: true })
-    const tmp = file + '.tmp'
-    writeFileSync(tmp, JSON.stringify(p, null, 2), { mode: 0o600 }) // health-related data
-    renameSync(tmp, file) // atomic: a crash never leaves a half-written profile
-  }
-  const backup = (): void => {
-    const dir = dirname(file)
-    const prefix = basename(file) + '.'
-    const stamp = (f: string): number => parseInt(f.slice(prefix.length), 10)
-    const mine = (): string[] =>
-      readdirSync(dir)
-        .filter((f) => f.startsWith(prefix) && /^\d+\.bak$/.test(f.slice(prefix.length)))
-        .sort((x, y) => stamp(x) - stamp(y))
-    // strictly increasing names, even after pruning freed the newest-but-one slot
-    const ts = Math.max(
-      Date.now(),
-      ...mine()
-        .map(stamp)
-        .map((n) => n + 1)
-    )
-    copyFileSync(file, join(dir, `${prefix}${ts}.bak`))
-    for (const old of mine().slice(0, -3)) unlinkSync(join(dir, old)) // keep the 3 newest
-  }
+  const write = (p: Profile): void => writeJsonAtomic(file, p)
   const seed = (): Profile => {
     const p = ensureIds(Profile.parse(samJson))
     write(p)
@@ -59,7 +28,7 @@ export function createProfileStore(file: string): {
       try {
         p = ensureIds(Profile.parse(JSON.parse(raw)))
       } catch {
-        backup()
+        backupFile(file)
         return seed()
       }
       try {
