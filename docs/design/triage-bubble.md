@@ -29,6 +29,12 @@ No se pregunta a Jev porque el código ya lo sabe con una regla. Jev elige cuál
 
 **10. Los botones todavía no hacen nada.** Se ven y se pueden enfocar, pero qué pasa al pulsarlos (¿expandir la tarjeta o "mitosis" de Pip?) está sin decidir.
 
+**11. El tono `worried` se muestra como "Concerned".** "Worried" se leía alarmante en la prueba de UX.
+
+**12. Ajuste a pantallas angostas.** La tarjeta mide 24rem como máximo y se encoge con la ventana (probada a 320 px, sin scroll lateral). Cuando no hay espacio arriba, el tooltip se abre abajo.
+
+Lo que sigue abierto para la prueba en la Mac está en [DECISIONS.md §4](../DECISIONS.md), al final de la tabla de la burbuja.
+
 ## Estructura
 
 ```

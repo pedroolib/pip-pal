@@ -31,7 +31,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 
 **Nivel 0, entrega del 5 de noviembre**
 1. Shell del overlay: Pip acoplado, atajo, captura de la selección.
-2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess". **Flujo actual** (ver [DECISIONS.md §4](DECISIONS.md)): el atajo dispara un triage rápido de Jev y una burbuja junto al cursor con botones; cada botón pide a Claude una sola cosa (pasos, preguntas o plan de transición) y abre su propia tarjeta. Backend listo; la interfaz está pendiente.
+2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess". **Flujo actual** (ver [DECISIONS.md §4](DECISIONS.md)): el atajo dispara un triage rápido de Jev y una burbuja junto al cursor con botones; cada botón pide a Claude una sola cosa (pasos, preguntas o plan de transición) y abre su propia tarjeta. Backend listo y burbuja hecha (PR #10); faltan las tarjetas de cada botón.
 3. Detector de cambios con mini plan de transición y preguntas sugeridas (es el botón "Plan for this change" del flujo anterior).
 4. Check-in de cucharas (1–5, visual, 9/13/17 h, se pospone y no insiste). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
 5. Estrategia de calma del perfil (con ≤2 cucharas, al detectar un cambio o con "I'm stuck"), temporizador opcional y regreso al paso 1. Siempre se puede saltar.

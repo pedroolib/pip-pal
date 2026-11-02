@@ -49,7 +49,7 @@ Electron tiene ventanas transparentes, `globalShortcut` y portapapeles maduros, 
     ```
     bind = CTRL SHIFT, SPACE, exec, pip-pal --capture
     ```
-    En Linux se lee la selección directo con `clipboard.readText('selection')`, sin simular copia.
+    En Linux se lee la selección primaria directo, sin simular copia. En Wayland nativo Electron la lee vacía, así que se usa `wl-paste --primary --no-newline`; si falla o no está instalado, `clipboard.selection` (X11/XWayland).
   - **Windows:** simular Ctrl+C con PowerShell (`SendKeys`) y leer el portapapeles.
 - **Mac sin firmar:** el `.app` se abre con clic derecho → Abrir. El permiso de Accesibilidad se da un día antes del demo. Firmar cuesta $99 (cuenta de Apple) y tiempo que no hay.
 - **Quitar de `electron-builder.yml`** los textos de permisos de cámara, micrófono, Documentos y Descargas que trae la plantilla: Pip no los usa y una Mac podría mostrarlos.
@@ -63,7 +63,7 @@ Electron tiene ventanas transparentes, `globalShortcut` y portapapeles maduros, 
 - **Tailwind puro para lo visual y el layout:** la barra de 5 segmentos (el `Progress` de shadcn es continuo), las etiquetas, el `<kbd>`.
 - El tema vive en las variables CSS de `src/renderer/src/assets/main.css`. El look por defecto de shadcn es genérico; con Harbor deja de serlo.
 
-**Flujo del overlay: check-in → burbuja → acoplado.** La burbuja de triage reemplaza a las vistas de decode, calma y tarea. Los botones de acción todavía no hacen nada.
+**Flujo del overlay: check-in → burbuja → acoplado.** La burbuja de triage reemplaza a las vistas de decode, calma y tarea. Los botones de acción todavía no hacen nada. Un clic en Pip acoplado vuelve a abrir la última burbuja (por si se cerró sin querer). Un check-in que llega después de una burbuja se abre a su tamaño normal donde está Pip, no en la esquina.
 
 **La burbuja se abre junto al cursor y se cierra con Esc** (idea en desarrollo: puede cambiar según evaluemos la UX). El overlay nunca recibe foco, así que no oye teclas. Por eso Esc se registra como atajo global solo mientras la burbuja está abierta, y se suelta al cerrar, al cerrar el overlay y al salir. También se cierra con `pip-pal --dismiss`. En Hyprland el cursor se pide con `hyprctl cursorpos`; en otros sistemas, a Electron.
 
@@ -97,13 +97,13 @@ Detalles de diseño en [design/README.md](design/README.md).
 - **Reglas para quien construya la interfaz:** (1) todo texto del modelo se muestra como **texto plano** (nada de HTML, Markdown ni enlaces automáticos; `suggestedQuestion` es texto listo para enviar); (2) manejar el rechazo "still working"; (3) pasar a `expand('questions', …, unclear)` las pistas del triage (`deadline`, `what_or_who`); (4) recortar a 3 pasos con pocas cucharas; (5) mostrar la `evidence` del tono solo si no es neutral (el tono es una elección forzada y siempre trae cita).
 - Contrato: `PipApi.triage(text)` y `PipApi.expand(text, kind, spoons, unclear?)`, con fixtures en `src/shared/fixtures/demo.triage.json` y `demo.expansion.*.json`; `mock-api.ts` los sirve en el navegador.
 
-**Qué muestra la burbuja del triage** (borrador en revisión, 2026-11-02; aún no es final; el diseño y el prompt para Claude Design están en [design/triage-bubble.md](design/triage-bubble.md)). Cada línea responde una duda de la persona; lo que repite otra línea o solo sirve al código no se muestra.
+**Qué muestra la burbuja del triage** (implementada el 2026-11-02, PR #10; falta la prueba en la Mac; el diseño está en [design/triage-bubble.md](design/triage-bubble.md)). Cada línea responde una duda de la persona; lo que repite otra línea o solo sirve al código no se muestra.
 
 | Campo | Se muestra | Por qué |
 |---|---|---|
 | `deadline` | Sí: "Due Fri, Nov 6" si `explicit`, "Before Mon, Nov 9" si no (en el triage `explicit: false` solo sale de una fecha de inicio, "starting Monday"). Fecha con `Intl.DateTimeFormat`: día de la semana, día y mes | Es lo primero que hace falta saber. "Before" dice qué es la fecha sin preguntarle nada nuevo a Jev, y el día y el mes evitan leer "Monday" como hoy. |
 | `needsReply` | Sí: "Needs a reply", "Just confirm" o "No reply needed" | Responde "¿tengo que contestar?". |
-| `tone` | Sí, como etiqueta, con su `evidence` pegada como la razón: Friendly · "Hey Sam, heads up"; sin cita si es neutral (regla 5) | Baja la ansiedad de leer el tono. Una cita suelta no se entiende; pegada a la etiqueta, deja que la persona juzgue. |
+| `tone` | Sí, como etiqueta, con su `evidence` pegada como la razón: Friendly · "Hey Sam, heads up"; sin cita si es neutral (regla 5). `worried` se muestra como "Concerned" | Baja la ansiedad de leer el tono. Una cita suelta no se entiende; pegada a la etiqueta, deja que la persona juzgue. "Worried" se leía alarmante en la prueba de UX. |
 | `urgency` | **Solo si no hay `deadline`** ("Friendly, this week") | Con fecha, la urgencia repite lo mismo: "Monday" y "this week" dicen lo mismo y duplican el "not sure". |
 | `isChange` + `changeType` | Sí, "CHANGE: PROJECT" como encabezado dentro del botón de plan | Los cambios son el centro del producto; dentro del botón sigue el mismo patrón que "ASK, DON'T GUESS". |
 | `actions` | Sí, los botones en ese orden; "maybe" con menos peso | El orden ya lo calcula el código. |
@@ -111,7 +111,10 @@ Detalles de diseño en [design/README.md](design/README.md).
 | `addressee` | Solo si es `group` o `nobody` | Quita la presión de contestar lo que no es para la persona; `me` no aporta nada. |
 | `senderRole` | Opcional y discreto ("From: [Manager]") | Contexto sin adivinar: es null si el mensaje no nombra al remitente. |
 | `type`, `isNewTask`, `source` y todas las `p` | No | Las etiquetas, los botones y los umbrales del código ya los usan; un "0.73" es falsa precisión. |
-| `evidence` de fecha, urgencia y cambio | No en la burbuja (a lo más un tooltip) | Satura. |
+| `evidence` de fecha y urgencia | En un tooltip sobre la etiqueta (mouse y foco de teclado), no como línea visible | Satura. La prueba de UX pidió ver la fuente de la fecha sin hover; se decidió dejarla en el tooltip. |
+| `evidence` de cambio | No | El botón de plan ya dice el tipo de cambio. |
+
+**Decisiones tras la prueba de UX (2026-11-02):** el demo dice "Probably just a confirmation" porque así lo clasifica Jev (`confirm_only`); hablar con Dana es una acción, no una respuesta, y se mide en el set de 30 mensajes. El error no tiene botón de reintentar: se reintenta con el atajo. **Abiertas para la prueba en la Mac:** "Before Mon" contra "Starts Mon" (un lector literal leyó "Before" como fecha límite), "worth asking" sin porqué y la cita cortada a 320 px.
 
 **Lo que sabemos de Jev** (investigado el 1 de noviembre; reconfirmar en https://docs.typesafe.ai):
 - Modelo "System One": recibe estado y preguntas tipadas (`choice`, `score`, `noul`) y devuelve respuestas con probabilidades. Nunca devuelve un tipo inválido.
@@ -219,5 +222,5 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - ¿Podemos citar a nuestra contacto de Specialisterne con su nombre?
 - Confirmar las citas del pitch contra el audio de la entrevista (vienen de una transcripción automática).
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
-- Interfaz del triage y los botones (arriba): migrar `DecodeCard` y `TaskCard`.
+- Qué hacen los botones de la burbuja: ¿la tarjeta se expande, o Pip hace "mitosis" (un Pip nuevo baja a la derecha, piensa y abre su propia tarjeta)? Ahí se reusan `DecodeCard`, `CalmingCard` y `TaskCard`.
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).
