@@ -1,10 +1,12 @@
-import { app, shell, BrowserWindow, globalShortcut, ipcMain, screen } from 'electron'
+import { app, shell, BrowserWindow, globalShortcut, ipcMain, powerMonitor, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC, OVERLAY_MIN } from '@shared/ipc'
 import { captureSelection } from './capture'
+import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers } from './mock'
+import { openStorage } from './storage'
 
 // Explicit Control: `CommandOrControl` would become ⌘ on Mac (docs/DECISIONS.md, notes for A).
 // shortcut: fixed until there is a settings screen to change it.
@@ -169,7 +171,8 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  registerMockHandlers()
+  const storage = openStorage()
+  registerMockHandlers(storage)
 
   ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -203,6 +206,20 @@ app.whenReady().then(() => {
   })
 
   createOverlay()
+  // Spoons check-ins at 9, 13 and 17 h. Shown without taking focus, like a captured message.
+  const checkIns = startCheckInSchedule({
+    listCheckIns: () => storage.checkIns.list(),
+    onDue: (slot) => {
+      if (is.dev) console.log(`[check-in] ${slot} is due`)
+      const win = overlay
+      if (!win) return
+      win.showInactive()
+      win.webContents.send(IPC.checkInDue, slot)
+    },
+    times: is.dev ? parseCheckInTimes(process.env['PIP_CHECK_IN_TIMES']) : undefined
+  })
+  powerMonitor.on('resume', checkIns.resume)
+  app.on('will-quit', checkIns.stop)
   if (!globalShortcut.register(HOTKEY, () => void capture())) {
     console.warn(`[capture] ${HOTKEY} is taken by another app; use \`pip-pal --capture\` instead.`)
   }
