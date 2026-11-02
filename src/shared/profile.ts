@@ -132,6 +132,20 @@ const PARTICLES = new Set(
 const RESERVED = new Set(['me', 'someone', 'email', 'phone', 'link', 'handle'])
 
 type Who = { role: string; real: string } // role: plain text, no brackets; real: the name restore gives back
+type RoleToken = { words: string[]; real: string; numbered: boolean } // numbered ([Manager 1]) restores only exactly
+const words = (s: string): string[] => s.toLowerCase().split(/\s+/).filter(Boolean)
+
+// A model may shorten "[Teammate on the forecasting project]" to "[Teammate]". It restores only when the inner words
+// are a strict whole-word prefix of exactly one person token, that token is not numbered, and it is no fixed token.
+function restoreShortened(m: string, roles: RoleToken[]): string | undefined {
+  const inner = words(m.slice(1, -1))
+  if (!inner.length || (inner.length === 1 && (RESERVED.has(inner[0]) || inner[0] === 'person')))
+    return undefined
+  const hits = roles.filter(
+    (r) => inner.length < r.words.length && inner.every((x, i) => x === r.words[i])
+  )
+  return hits.length === 1 && !hits[0].numbered ? hits[0].real : undefined
+}
 
 /** Name swapping shared by `buildProfileContext` and `scrubForModel`. */
 function nameSwapper(profile: Profile): {
@@ -139,6 +153,7 @@ function nameSwapper(profile: Profile): {
   scrubRole: (role: string, self: Who, selfText: string) => string
   owner: Who
   restoreMap: Map<string, string> // lowercased "[Role]" -> real name
+  roles: RoleToken[] // every person token, for restoring a shortened one
 } {
   // Replace all names in ONE pass, so replacement text is never re-scanned. People override the owner.
   const owner: Who = { role: 'Me', real: profile.name.trim() }
@@ -217,6 +232,7 @@ function nameSwapper(profile: Profile): {
     return !b || RESERVED.has(b.toLowerCase()) ? 'person' : b
   })
   const used = new Set([...RESERVED].map((r) => `[${r}]`))
+  const roles: RoleToken[] = []
   people.forEach((w, i) => {
     const same = people.filter((_, j) => base[j].toLowerCase() === base[i].toLowerCase())
     // People sharing a role get numbered tokens; a suffix covers clashes like "Manager" x2 next to "Manager 1".
@@ -226,9 +242,10 @@ function nameSwapper(profile: Profile): {
     used.add(t.toLowerCase())
     token.set(w, t)
     restoreMap.set(t.toLowerCase(), w.real)
+    roles.push({ words: words(t.slice(1, -1)), real: w.real, numbered: t !== `[${base[i]}]` })
   })
   const swap = (text: string): string => (re ? text.replace(re, (m) => token.get(find(m))!) : text)
-  return { swap, scrubRole, owner, restoreMap }
+  return { swap, scrubRole, owner, restoreMap, roles }
 }
 
 /** Claude-ready text. Names become [Role], contacts are removed; pending entries are never included. */
@@ -260,12 +277,16 @@ export function scrubForModel(
   text: string,
   profile: Profile
 ): { text: string; restore: (s: string) => string } {
-  const { swap, restoreMap } = nameSwapper(profile)
+  const { swap, restoreMap, roles } = nameSwapper(profile)
   // Contacts before names, so a name inside an address cannot split it.
   return {
     text: swap(stripContacts(text)),
     // shortcut: a message that already contains a token ("ask [Manager 1]") is restored to a real name; owner-only output, escape typed tokens if it misleads.
-    restore: (s) => s.replace(/\[[^\]]+\]/g, (m) => restoreMap.get(m.toLowerCase()) ?? m)
+    restore: (s) =>
+      s.replace(
+        /\[[^\]]+\]/g,
+        (m) => restoreMap.get(m.toLowerCase()) ?? restoreShortened(m, roles) ?? m
+      )
   }
 }
 

@@ -294,6 +294,69 @@ describe('scrubForModel', () => {
     expect(one.restore('[Unknown] [coach]')).toBe('[Unknown] Dana')
   })
 
+  describe('restore of a shortened role token', () => {
+    const dana2 = { name: 'Dana Ruiz', role: 'Teammate on the forecasting project' }
+
+    it('restores the exact token and a unique whole-word prefix of it, in any case', () => {
+      const { restore } = scrubForModel('hi', p([alex, dana2]))
+      expect(restore('ask [Teammate on the forecasting project]')).toBe('ask Dana Ruiz')
+      expect(restore('ask [Teammate] and [teammate on the]')).toBe('ask Dana Ruiz and Dana Ruiz')
+      expect(restore('[Manager] said')).toBe('Alex said')
+    })
+
+    it('leaves a prefix shared by two tokens alone', () => {
+      const lead = { name: 'Rui Costa', role: 'Teammate on support' }
+      const { restore } = scrubForModel('hi', p([alex, dana2, lead]))
+      expect(restore('[Teammate] and [Teammate on]')).toBe('[Teammate] and [Teammate on]')
+      expect(restore('[Teammate on support]')).toBe('Rui Costa')
+    })
+
+    it('never matches part of a word, a longer token, or something else', () => {
+      const { restore } = scrubForModel('hi', p([dana2]))
+      for (const s of ['[Team]', '[Teammate on the forecast]', '[forecasting project]'])
+        expect(restore(s)).toBe(s)
+      expect(restore('[Teammate on the forecasting project today]')).toBe(
+        '[Teammate on the forecasting project today]'
+      )
+    })
+
+    it('leaves the fixed tokens alone, even when a role starts with their word', () => {
+      const people = [
+        { name: 'Dana Ruiz', role: 'Person in charge of payroll' },
+        { name: 'Rui Costa', role: 'Someone from legal' },
+        { name: 'Bo Li', role: 'Link to the design team' },
+        { name: 'Kim Park', role: 'Me and my mentor' }
+      ]
+      const { restore } = scrubForModel('hi', p(people))
+      for (const s of ['[person]', '[someone]', '[Link]', '[email]', '[phone]', '[handle]'])
+        expect(restore(s)).toBe(s)
+      expect(restore('[Me]')).toBe('Sam')
+      expect(restore('[Person in charge]')).toBe('Dana Ruiz')
+    })
+
+    it('restores numbered tokens only exactly', () => {
+      const bo = { name: 'Bo Li', role: 'Manager of data' }
+      const kim = { name: 'Kim Park', role: 'Manager of data' }
+      const { text, restore } = scrubForModel('Bo and Kim', p([bo, kim]))
+      expect(text).toBe('[Manager of data 1] and [Manager of data 2]')
+      expect(restore(text)).toBe('Bo Li and Kim Park')
+      expect(restore('[Manager of data] [Manager]')).toBe('[Manager of data] [Manager]')
+    })
+
+    it('keeps clash-suffixed tokens exact: "[Lead 1]" is Bo, never a prefix of "[Lead 1 2]"', () => {
+      const people = [
+        { name: 'Bo Li', role: 'Lead' },
+        { name: 'Kim Park', role: 'Lead' },
+        { name: 'Ana Ruiz', role: 'Lead 1' }
+      ]
+      const { text, restore } = scrubForModel('Bo, Kim, Ana', p(people))
+      expect(text).toBe('[Lead 1], [Lead 2], [Lead 1 2]')
+      expect(restore(text)).toBe('Bo Li, Kim Park, Ana Ruiz')
+      expect(restore('[Lead 1]')).toBe('Bo Li')
+      expect(restore('[Lead]')).toBe('[Lead]')
+    })
+  })
+
   it('removes emails, links and phones, and does not restore them', () => {
     const input = [
       'mail sam@corp.com or a.b+c@mail.example.org',
