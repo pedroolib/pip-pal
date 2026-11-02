@@ -2,11 +2,19 @@ import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { IPC } from '@shared/ipc'
 import { registerMockHandlers } from './mock'
 import { IPC } from '@shared/ipc'
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
 const OVERLAY = { width: 448, height: 400, margin: 16 }
+
+// Clicks on the overlay's transparent area go to the app underneath. `forward` keeps mouse moves
+// reaching the renderer, which reports when the pointer is over Pip. Linux can't forward them, so
+// there the whole window stays clickable.
+const CLICK_THROUGH = process.platform !== 'linux'
+
+let overlay: BrowserWindow | null = null
 
 // The overlay: transparent, frameless and docked bottom-right, floating over every app.
 function createOverlay(): void {
@@ -39,6 +47,12 @@ function createOverlay(): void {
   // Above everything, including apps in full screen (docs/DECISIONS.md, notes for A).
   mainWindow.setAlwaysOnTop(true, 'screen-saver')
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  if (CLICK_THROUGH) mainWindow.setIgnoreMouseEvents(true, { forward: true })
+
+  overlay = mainWindow
+  mainWindow.on('closed', () => {
+    overlay = null
+  })
 
   // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
   // and for the Casa de Pip window, which load the same page.
@@ -119,6 +133,12 @@ app.whenReady().then(() => {
   })
 
   registerMockHandlers()
+
+  ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!CLICK_THROUGH || !win || win !== overlay) return
+    win.setIgnoreMouseEvents(!interactive, { forward: true })
+  })
 
   createOverlay()
   ipcMain.on(IPC.homeOpen, openHome)
