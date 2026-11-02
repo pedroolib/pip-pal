@@ -49,7 +49,7 @@ export function TaskCard({
   const next = steps[current + 1]
 
   return (
-    <Card className="max-w-sm gap-4 p-5 shadow-lg">
+    <Card className="@container min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
       <header className="flex items-center gap-3">
         <StepPip key={current} finished={finished} cheer={current > 0} />
         <div className="min-w-0 flex-1">
@@ -79,37 +79,42 @@ export function TaskCard({
         ))}
       </div>
 
-      {finished ? (
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-bold">{t('card.allDone')}</h1>
-          <p className="text-body">
-            {laterCount > 0 ? t('card.restWaiting', { count: laterCount }) : t('card.allDoneBody')}
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1" aria-live="polite">
-          <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            {t('card.now')}
-          </p>
-          <h1 className="text-2xl leading-tight font-bold">{step.text}</h1>
-          {step.why && <p className="text-body">{step.why}</p>}
-        </div>
-      )}
+      {/* Wide window: the step on the left, its buttons on the right. */}
+      <div className="flex flex-col gap-4 @xl:flex-row @xl:items-end @xl:gap-8">
+        {finished ? (
+          <div className="flex flex-col gap-1 @xl:flex-1">
+            <h1 className="text-2xl font-bold">{t('card.allDone')}</h1>
+            <p className="text-body">
+              {laterCount > 0
+                ? t('card.restWaiting', { count: laterCount })
+                : t('card.allDoneBody')}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 @xl:flex-1" aria-live="polite">
+            <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+              {t('card.now')}
+            </p>
+            <h1 className="text-2xl leading-tight font-bold">{step.text}</h1>
+            {step.why && <p className="text-body">{step.why}</p>}
+          </div>
+        )}
 
-      {finished ? (
-        <Button size="lg" onClick={onMinimize}>
-          {t('card.close')}
-        </Button>
-      ) : (
-        <div className="flex gap-2">
-          <Button size="lg" className="flex-1" onClick={onDone}>
-            {t('card.done')}
+        {finished ? (
+          <Button size="lg" className="@xl:w-48" onClick={onMinimize}>
+            {t('card.close')}
           </Button>
-          <Button size="lg" variant="outline" className="flex-1" onClick={onStuck}>
-            {t('card.stuck')}
-          </Button>
-        </div>
-      )}
+        ) : (
+          <div className="flex gap-2 @xl:w-48 @xl:flex-col">
+            <Button size="lg" className="flex-1" onClick={onDone}>
+              {t('card.done')}
+            </Button>
+            <Button size="lg" variant="outline" className="flex-1" onClick={onStuck}>
+              {t('card.stuck')}
+            </Button>
+          </div>
+        )}
+      </div>
 
       {!finished && (next || due) && (
         <div className="flex flex-col gap-1 text-sm text-muted-foreground">

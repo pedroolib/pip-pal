@@ -8,6 +8,10 @@ import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { SNOOZE_MS, slotFor } from '@renderer/checkin/model'
 import { DecodeCard } from '@renderer/decode/DecodeCard'
 import { planSteps } from '@renderer/decode/model'
+import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
+import { useFitFont } from '@renderer/overlay/useFitFont'
+import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
+import { cn } from '@renderer/lib/utils'
 import { DockedPip } from '@renderer/pip/DockedPip'
 import { TaskCard } from '@renderer/task/TaskCard'
 
@@ -30,6 +34,7 @@ type View = 'checkIn' | 'decode' | 'calm' | 'task' | 'docked'
 
 function Overlay(): React.JSX.Element {
   const { t } = useTranslation()
+  const drag = useWindowDrag()
   const [view, setView] = useState<View | null>(null)
   const [spoons, setSpoons] = useState<number | null>(null)
   const [decoded, setDecoded] = useState<Decoded | null>(null)
@@ -40,6 +45,13 @@ function Overlay(): React.JSX.Element {
   const [current, setCurrent] = useState(0)
   const spoonsRef = useRef<number | null>(null)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The open card fills the window and its text is sized to fit it (docked Pip keeps the default).
+  const frame = useRef<HTMLDivElement>(null)
+  useFitFont(
+    frame,
+    view !== null && view !== 'docked',
+    `${view}:${current}:${decoded?.decode.summary}`
+  )
 
   const showDecoded = (next: Decoded): void => {
     setDecoded(next)
@@ -118,43 +130,55 @@ function Overlay(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-screen items-end justify-end p-8">
-      {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
-      {view === 'decode' && decoded && (
-        <DecodeCard
-          decoded={decoded}
-          spoons={spoons}
-          onStart={start}
-          onLater={() => setView('docked')}
-        />
-      )}
-      {view === 'calm' && strategy && (
-        <CalmingCard
-          strategy={strategy}
-          then={t(`calm.${calmThen}`)}
-          onDone={() => setView('task')}
-        />
-      )}
-      {view === 'task' && decoded && (
-        <TaskCard
-          title={decoded.decode.asks[0] ?? decoded.decode.summary}
-          steps={plan.now}
-          laterCount={plan.later.length}
-          current={current}
-          due={decoded.decode.deadline?.text ?? null}
-          onDone={done}
-          onStuck={stuck}
-          onMinimize={() => setView('docked')}
-        />
-      )}
-      {view === 'docked' && (
-        <DockedPip
-          mood={started && finished ? 'happy' : 'calm'}
-          progress={started ? current / plan.now.length : null}
-          doneStep={current > 0 ? current : null}
-          onOpen={() => setView(!decoded ? 'checkIn' : started && !finished ? 'task' : 'decode')}
-        />
-      )}
+    <div data-overlay-root className="flex h-screen items-end justify-end p-[32px]">
+      {/* Drag any card or Pip to move the overlay, or a card's edge to resize it; tall cards scroll. */}
+      <div
+        {...drag}
+        ref={frame}
+        className={cn(
+          'relative flex max-h-full w-full flex-col items-end select-none',
+          view !== 'docked' &&
+            'h-full [&>[data-slot=card]]:flex-1 [&>[data-slot=card]]:justify-between'
+        )}
+      >
+        {view !== 'docked' && <ResizeEdges />}
+        {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
+        {view === 'decode' && decoded && (
+          <DecodeCard
+            decoded={decoded}
+            spoons={spoons}
+            onStart={start}
+            onLater={() => setView('docked')}
+          />
+        )}
+        {view === 'calm' && strategy && (
+          <CalmingCard
+            strategy={strategy}
+            then={t(`calm.${calmThen}`)}
+            onDone={() => setView('task')}
+          />
+        )}
+        {view === 'task' && decoded && (
+          <TaskCard
+            title={decoded.decode.asks[0] ?? decoded.decode.summary}
+            steps={plan.now}
+            laterCount={plan.later.length}
+            current={current}
+            due={decoded.decode.deadline?.text ?? null}
+            onDone={done}
+            onStuck={stuck}
+            onMinimize={() => setView('docked')}
+          />
+        )}
+        {view === 'docked' && (
+          <DockedPip
+            mood={started && finished ? 'happy' : 'calm'}
+            progress={started ? current / plan.now.length : null}
+            doneStep={current > 0 ? current : null}
+            onOpen={() => setView(!decoded ? 'checkIn' : started && !finished ? 'task' : 'decode')}
+          />
+        )}
+      </div>
     </div>
   )
 }

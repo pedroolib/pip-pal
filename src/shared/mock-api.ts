@@ -48,6 +48,7 @@ export function createMockApi(): PipApi {
     }),
     exportSummaryPdf: async () => null,
     openHome: () => {},
-    setOverlayInteractive: () => {}
+    setOverlayInteractive: () => {},
+    setOverlayBounds: () => {}
   }
 }

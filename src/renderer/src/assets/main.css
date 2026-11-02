@@ -71,6 +71,14 @@
   }
 }
 
+/* The overlay scales as one piece with its window: every size is in rem, so the root font size grows
+   and shrinks text, spacing, buttons and Pip together. With a card open, useFitFont
+   (src/renderer/src/overlay/useFitFont.ts) sets it to fit the card exactly; this rough window-based
+   size is the fallback (docked Pip, first paint). Pip's House is untouched. */
+html:has([data-overlay-root]) {
+  font-size: clamp(12px, calc((3.57vw + 4vh) / 2), 24px);
+}
+
 /* Pip bobs gently and blinks every few seconds (src/renderer/src/pip/Pip.tsx). */
 @keyframes pip-bob {
   0%,
