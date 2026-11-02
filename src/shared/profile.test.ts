@@ -598,6 +598,125 @@ describe('scrubForModel', () => {
   })
 })
 
+describe('aliases', () => {
+  const people: Profile['people'] = [
+    {
+      name: 'Alex Morgan',
+      role: 'Manager',
+      aliases: ['Ally', '@alexr', 'arod', '@alex.r', 'a_rod']
+    },
+    { name: 'Juan Pablo Ortiz', role: 'Lead', aliases: [' JP ', 'Jean-Pi', 'Big Al'] },
+    { name: 'Dana López', role: 'Coach', aliases: ['D’Lo', 'Al​ly2'] },
+    { name: 'Rui Costa', role: 'Buddy', aliases: ['Will'] }
+  ]
+  const profile: Profile = {
+    name: 'Sam Rivera',
+    role: 'Analyst',
+    aliases: ['Sammy'],
+    people,
+    sections: sections({}),
+    calmingStrategies: []
+  }
+  const scrub = (t: string, pr: Profile = profile): string => scrubForModel(t, pr).text
+
+  it('swaps person and owner aliases for their token, and restores the full name', () => {
+    const msg = 'hey Sammy, Ally wants the deck by 2026-11-01 10:30, ping @alexr or arod'
+    const { text, restore } = scrubForModel(msg, profile)
+    expect(text).toBe(
+      'hey [Me], [Manager] wants the deck by 2026-11-01 10:30, ping [Manager] or [Manager]'
+    )
+    expect(restore(text)).toBe(
+      'hey Sam Rivera, Alex Morgan wants the deck by 2026-11-01 10:30, ping Alex Morgan or Alex Morgan'
+    )
+  })
+
+  it('matches @aliases before handles are removed, bare or with @, and keeps unknown handles out', () => {
+    expect(scrub('ping @alexr.')).toBe('ping [Manager].')
+    expect(scrub('alexr and @arod and @Alex.R and @a_rod and a_rod')).toBe(
+      '[Manager] and [Manager] and [Manager] and [Manager] and [Manager]'
+    )
+    expect(scrub('cc @alexr2, @alexr_old and @kim.')).toBe('cc [handle], [handle] and [handle].')
+    expect(scrub('mail alexr@acme.com or arod.x@acme.com')).toBe('mail [email] or [email]')
+    // A kept handle glued to a mark still loses its name.
+    expect(scrub('x̲@alexr')).not.toMatch(/alexr/i)
+  })
+
+  it('matches aliases across case, two letters, hyphens, curly apostrophes, NFKC and zero-width', () => {
+    expect(scrub('jp and JP, Jean-Pi / jean pi / Jean‑Pi, JPEG')).toBe(
+      '[Lead] and [Lead], [Lead] / [Lead] / [Lead], JPEG'
+    )
+    expect(scrub("D'Lo, D’Lo and DLo")).toBe('[Coach], [Coach] and [Coach]')
+    expect(scrub('Ａｌｌｙ and Al​ly and ally2')).toBe('[Manager] and [Manager] and [Coach]')
+  })
+
+  it('matches an alias whole: no word splitting, no space-less form', () => {
+    expect(scrub('Big Al said Big-Al, not Al, Big or BigAl')).toBe(
+      '[Lead] said [Lead], not Al, Big or BigAl'
+    )
+  })
+
+  it('shortcut pinned: an alias that is a common word swaps that word too', () => {
+    expect(scrub('Will said he will')).toBe('[Buddy] said he [Buddy]')
+  })
+
+  it('lets full names win over aliases, and an alias sharing a name word becomes [someone]', () => {
+    const clash: Profile = {
+      ...profile,
+      people: [
+        { name: 'Alex Morgan', role: 'Manager', aliases: ['Rui Costa', 'Dana', 'morgan'] },
+        { name: 'Rui Costa', role: 'Buddy' },
+        { name: 'Dana López', role: 'Coach' }
+      ]
+    }
+    expect(scrub('Rui Costa, Dana, Morgan', clash)).toBe('[Buddy], [someone], [Manager]')
+  })
+
+  it('ignores aliases with fewer than two letters or digits, and never restores an alias token', () => {
+    const tiny: Profile = {
+      ...profile,
+      aliases: ['S', '@'],
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['J', '@a', '-', '', 'J.'] }]
+    }
+    expect(scrub('J said S and @a: a - J. ok', tiny)).toBe('J said S and [handle]: a - J. ok')
+    const { restore } = scrubForModel('Ally', profile)
+    expect(restore('[Ally] [alexr] [Manager]')).toBe('[Ally] [alexr] Alex Morgan')
+  })
+
+  it('swaps aliases in the profile context and never sends the alias list', () => {
+    const out = buildProfileContext({
+      ...profile,
+      sections: sections({
+        feedback: [{ text: 'Ally and Sammy; ping @alexr', origin: 'coach', visibleTo: [] }]
+      })
+    })
+    expect(out).toContain('- [Manager] and [Me]; ping [Manager] (coach)')
+    for (const leak of [/ally/i, /sammy/i, /alexr/i, /arod/i, /jean/i, /\bjp\b/i])
+      expect(out).not.toMatch(leak)
+  })
+
+  it('scrubs hostile 8000-char messages with 20 people x 10 aliases in well under 1 s', () => {
+    const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
+    const many = Array.from({ length: 20 }, (_, i) => ({
+      name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} D'${syl[(i * 5) % 8]}ễn`,
+      role: `Role ${i}`,
+      aliases: Array.from(
+        { length: 10 },
+        (_, j) =>
+          `${j % 2 ? '@' : ''}${syl[j % 8]}${syl[(i + j) % 8]}${j % 3 ? '-' : "'"}${syl[i % 8]}${j}`
+      )
+    }))
+    const big: Profile = { ...profile, people: many }
+    const hostile = ["a'", 'a-', "ka'", 'kalo-', 'a̲', 'ễ', '@a.', '@ka', '1-', ' a']
+    scrubForModel('warm up', big)
+    for (const unit of hostile) {
+      const msg = unit.repeat(8000).slice(0, 8000)
+      const t = performance.now()
+      scrubForModel(msg, big)
+      expect(performance.now() - t, unit).toBeLessThan(1000)
+    }
+  })
+})
+
 describe('scrubForModel on real chat text', () => {
   const people = [
     { name: 'Dana-Lee Park', role: 'Peer' },

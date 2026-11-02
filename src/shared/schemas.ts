@@ -60,11 +60,15 @@ export const PendingEntry = z.object({
 })
 export type PendingEntry = z.infer<typeof PendingEntry>
 
+/** Nicknames, @handles and usernames; swapped like the name they belong to. */
+const Aliases = z.array(z.string().trim().min(1)).optional()
+
 export const Profile = z.object({
   name: z.string(),
   role: z.string(),
+  aliases: Aliases, // the owner's own nicknames, swapped for [Me]
   /** Names here are swapped for their role before any text leaves the machine. */
-  people: z.array(z.object({ name: z.string().min(1), role: z.string().min(1) })),
+  people: z.array(z.object({ name: z.string().min(1), role: z.string().min(1), aliases: Aliases })),
   sections: z.record(Section, z.array(ProfileEntry)),
   calmingStrategies: z.array(CalmingStrategy),
   pending: z.array(PendingEntry).optional()

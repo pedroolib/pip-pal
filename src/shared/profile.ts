@@ -62,11 +62,14 @@ const normalize = (s: string): string =>
     .normalize('NFKC')
     .replace(/\p{Cf}/gu, '')
 
-/** Normalized text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs. */
-function stripContacts(text: string): string {
+/**
+ * Normalized text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs.
+ * A handle whose folded text is in `aliases` is kept, so the name swap turns it into its person's token.
+ */
+function stripContacts(text: string, aliases: Set<string> = new Set()): string {
   return normalize(text)
     .replace(EMAIL, () => '[email]')
-    .replace(HANDLE, () => '[handle]')
+    .replace(HANDLE, (m) => (aliases.has(fold(m.slice(1))) ? m : '[handle]'))
     .replace(URL_RE, () => '[link]')
     .replace(PHONE, (m, date) => (date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'))
 }
@@ -137,7 +140,7 @@ const BRACKET = /\[[^\][]+\]/g
 
 /** Name swapping shared by `buildProfileContext` and `scrubForModel`. */
 function nameSwapper(profile: Profile): {
-  swap: (text: string) => string
+  clean: (text: string) => string // contacts removed, then names swapped
   scrubRole: (role: string, self: Who, selfText: string) => string
   owner: Who
   restoreMap: Map<string, string> // lowercased "[Role]" -> real name
@@ -159,7 +162,7 @@ function nameSwapper(profile: Profile): {
   // point to the same person; a word two people share is just "someone". A part restores to the full name.
   // shortcut: words match case-insensitively, so a person "Will" also swaps the verb "will"; this errs toward privacy, add a common-word case rule if decodes suffer.
   // shortcut: [someone] is never restored, so the user may see it literally; explain it in the system prompt if users ask.
-  // shortcut: nicknames not in the profile ("Sammy"), initial+surname usernames ("srivera") and possessives without an apostrophe ("Danas") pass; they need name detection.
+  // shortcut: nicknames and usernames the person did not add as aliases ("Sammy", "srivera") and possessives without an apostrophe ("Danas") pass; they need name detection.
   const all = new Map(who)
   for (const [k, w] of who) {
     const hyphened = w.real
@@ -174,7 +177,28 @@ function nameSwapper(profile: Profile): {
       all.set(word, all.has(word) && all.get(word) !== w ? someone : w)
     }
   }
+  // Aliases join the same map whole (no word split, no space-less form) and without "@", so "@alexr" and "alexr" both match.
+  // They never get their own token: restore gives the full name. Full names win; a key two people share is "someone".
+  const aliases = new Set<string>()
+  const owned: [Who | undefined, string[] | undefined][] = [
+    [owner, profile.aliases],
+    ...profile.people.map((p): [Who | undefined, string[] | undefined] => [
+      who.get(fold(p.name)),
+      p.aliases
+    ])
+  ]
+  for (const [w, list] of owned) {
+    for (const a of list ?? []) {
+      const k = fold(a).replace(/^@/, '').trim()
+      // Under 2 letters or digits ("J", "@a") would swap single letters all over the text.
+      if (!w || (k.match(/[\p{L}\p{N}]/gu) ?? []).length < 2) continue
+      aliases.add(k)
+      if (who.has(k)) continue
+      all.set(k, all.has(k) && all.get(k) !== w ? someone : w)
+    }
+  }
   // Longest first so "Ana Maria" wins over "Ana". Digits and "_" count as boundaries, so "sam_rivera" and "sam123" match.
+  // An optional "@" lets a handle kept for an alias ("@alexr") become its token whole.
   // Scripts written without spaces (and Korean particles) glue names to the next word, so those keys skip the word boundary.
   // shortcut: Arabic/Hebrew prefixes glued to a name still leak; add those scripts to `unspaced` if that matters.
   // shortcut: one-character Han names and name parts that are ordinary words (まい, ชาย, 지원) over-scrub; partial CJK names stored without a space
@@ -187,13 +211,13 @@ function nameSwapper(profile: Profile): {
   const spaced = keys.filter((k) => !unspaced.test(k)).map(namePattern)
   const glued = keys.filter((k) => unspaced.test(k)).map(namePattern)
   const alts = [
-    ...(spaced.length ? [`(?<!${edge})(?:${spaced.join('|')})(?!${edge})`] : []),
+    ...(spaced.length ? [`(?<!${edge})@?(?:${spaced.join('|')})(?!${edge})`] : []),
     ...glued
   ]
   const re = alts.length ? new RegExp(alts.join('|'), 'giu') : null
   // Looked up without apostrophes, since the pattern lets "OBrien" match "O'Brien".
   const bare = new Map([...all].map(([k, w]) => [k.replace(/'/g, ''), w]))
-  const find = (m: string): Who => bare.get(fold(m).replace(/'/g, '')) ?? someone
+  const find = (m: string): Who => bare.get(fold(m).replace(/^@|'/g, '')) ?? someone
   // Names inside a role would leak through the replacement, so a role is scrubbed one level deep:
   // another person's name becomes their plain role (any name left inside that becomes "Me" for the owner, else "someone"),
   // and the person's own name becomes "this person", which keeps self-references from looping.
@@ -230,14 +254,13 @@ function nameSwapper(profile: Profile): {
     restoreMap.set(t.toLowerCase(), w.real)
   })
   const swap = (text: string): string => (re ? text.replace(re, (m) => token.get(find(m))!) : text)
-  return { swap, scrubRole, owner, restoreMap }
+  const clean = (text: string): string => swap(stripContacts(text, aliases))
+  return { clean, scrubRole, owner, restoreMap }
 }
 
 /** Claude-ready text. Names become [Role], contacts are removed; pending entries are never included. */
 export function buildProfileContext(profile: Profile): string {
-  const { swap, scrubRole, owner } = nameSwapper(profile)
-  const clean = (s: string): string => swap(stripContacts(s))
-
+  const { clean, scrubRole, owner } = nameSwapper(profile)
   const lines: string[] = [`[Me], ${scrubRole(stripContacts(profile.role), owner, 'Me')}`]
   for (const section of SECTIONS) {
     const entries = profile.sections[section]
@@ -262,10 +285,10 @@ export function scrubForModel(
   text: string,
   profile: Profile
 ): { text: string; restore: (s: string) => string } {
-  const { swap, restoreMap } = nameSwapper(profile)
+  const { clean, restoreMap } = nameSwapper(profile)
   // Contacts before names, so a name inside an address cannot split it.
   return {
-    text: swap(stripContacts(text)),
+    text: clean(text),
     // Only an exact token restores; a shortened or altered one ("[Teammate]") stays as written.
     // shortcut: a message that already contains a token ("ask [Manager 1]") is restored to a real name; owner-only output, escape typed tokens if it misleads.
     restore: (s) => s.replace(BRACKET, (m) => restoreMap.get(m.toLowerCase()) ?? m)

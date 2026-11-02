@@ -123,14 +123,14 @@ Es el centro del pitch de IA responsable.
 5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo aprendido por Pip solo se guarda si la persona lo aprueba.
 
 **Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
-- Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
+- Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Los **alias** (`aliases`, opcionales en cada persona y en el perfil) entran en la misma pasada: un alias se busca entero, con o sin "@" ("@srivera" y "srivera" dan `[Manager]`), antes de quitar los @handles; los del perfil dan `[Me]`. Al restaurar siempre sale el nombre completo. Se ignoran los alias con menos de 2 letras o dígitos, el nombre completo de otra persona gana y una clave que comparten dos personas es `[someone]`. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
 - **Al volver la respuesta solo se restaura el token exacto** (`[Manager]` → el nombre). Se probó una restauración tolerante de tokens acortados y se quitó: abría la puerta a mostrar a la persona equivocada. El prompt exige copiar los tokens tal cual.
 - El texto entre `<message>` es no confiable; la etiqueta se quita hasta que no quede nada reconstruible. Lo que llega de Claude se valida con Zod.
 - La cacería de alfabetos se cortó en la ronda 6 a propósito; lo que sigue son límites aceptados.
 
 **Límites conocidos** (del más probable al menos), para el texto de ayuda de la interfaz y la revisión del equipo:
-1. **Lo que no está en el perfil sale tal cual:** apodos y formas cortas ("Sammy", "JP"), iniciales y usuarios ("srivera"), posesivos sin apóstrofe, y cualquiera que no se haya agregado. **Pendiente: alias por persona en la sección People** (cambia `src/shared/schemas.ts`, así que necesita PR de los tres).
-2. **Nombres que cambian con la gramática** (caso en ruso, polaco, finés: "od Anny") no se detectan. Se resolverán con alias.
+1. **Lo que no está en el perfil sale tal cual:** posesivos sin apóstrofe y cualquier nombre, apodo o usuario que no se haya agregado. Para eso existen los **alias** en People (también los de la persona misma, que dan `[Me]`): apodos y formas cortas ("Sammy", "JP"), @handles ("@srivera"), usuarios ("srivera") y formas con gramática ("Anny") se agregan como alias de esa persona.
+2. **Nombres que cambian con la gramática** (caso en ruso, polaco, finés: "od Anny") no se detectan solos. La salida es agregar cada forma como alias ("Anny").
 3. **Nombres chinos, japoneses o coreanos guardados sin espacio** dejan salir una parte ("田中さん"). Guardar "田中 太郎" lo arregla; hay que decirlo en la ayuda.
 4. Prefijos pegados en árabe y hebreo ("ومحمد") se escapan.
 5. Nombres disfrazados a propósito (letras parecidas de otro alfabeto) pasan; los mensajes normales no los traen.
@@ -138,7 +138,7 @@ Es el centro del pitch de IA responsable.
 7. `Ł`, `Ø`, `ı`, `ß`, `æ` no se pliegan ("Łukasz" ≠ "Lukasz").
 8. **Sobre-limpieza:** un nombre de un solo carácter chino ("明") también tapa "明天"; nombres que son palabras ("Will", "Mark") tapan la palabra. Como se restaura el nombre completo, la respuesta puede nombrar a alguien que no estaba en el mensaje.
 9. Un nombre compartido por dos personas se muestra como `[someone]`; un token completo escrito a mano en el mensaje se restaura al nombre de esa persona.
-10. Claude ve el texto cambiado: @mención → `[handle]` (no se restaura), "½" → "1⁄2", rachas de dígitos → `[phone]`.
+10. Claude ve el texto cambiado: @mención que no es alias → `[handle]` (no se restaura), "½" → "1⁄2", rachas de dígitos → `[phone]`.
 11. Un texto de 8000 caracteres hostil bloquea main ~0.8 s antes de rechazarse; las pruebas de rendimiento tienen un límite de 500 ms y podrían fallar en CI lento.
 
 ## 6. Datos
@@ -164,7 +164,7 @@ Es nivel 3. Para el Launchpad basta con las keys en la Mac del demo. **Sigue abi
 
 ## 8. Idioma
 
-**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. **D prepara `es.json` para las pruebas con usuarios en México.** Pip responde en el idioma del mensaje.
+**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. **D prepara `es.json` para las pruebas con usuarios en México.** Pip responde en el idioma del mensaje. El equipo verificó que Jev funciona en español.
 
 ## 9. Demo
 
@@ -198,9 +198,7 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - ¿El pitch será en inglés o en español?
 - ¿Podemos citar a nuestra contacto de Specialisterne con su nombre?
 - Confirmar las citas del pitch contra el audio de la entrevista (vienen de una transcripción automática).
-- ¿Jev funciona en español? (sigue sin verificarse; el triage y la fecha solo se probaron en inglés)
-- Modelo por defecto: ¿Haiku o Sonnet? Falta decidir con corridas reales de `npm run ai:lite` y `ai:compare`.
+- Modelo por defecto: ¿Haiku o Sonnet? Las corridas de `npm run ai:lite` y `ai:compare` ya se hicieron; los resultados viven en local y se compartieron con el equipo (no están en el repo). Falta tomar la decisión.
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
 - Interfaz del triage y los botones (arriba): migrar `DecodeCard` y `TaskCard`.
-- Alias y apodos por persona (privacidad, límite 1).
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).

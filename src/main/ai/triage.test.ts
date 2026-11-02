@@ -166,6 +166,15 @@ describe('createTriager', () => {
     expect(await role('Ask Alex about it.')).toBeNull()
     expect(await role('Kim: can you send the report?')).toBeNull()
     expect(await role('Thanks, Sam')).toBeNull() // the owner is not a sender in people
+    // An alias sign-off restores to the full name, so the role is found.
+    const withAlias: Profile = {
+      ...profile,
+      people: profile.people.map((p) =>
+        p.name === 'Alex Morgan' ? { ...p, aliases: ['Ally'] } : p
+      )
+    }
+    const aliasRole = await createTriager({ jev: fake().jev, now })('Thanks, Ally', withAlias)
+    expect(aliasRole.senderRole).toBe('Manager')
     // A typed shortened token never pins the message on a real colleague.
     expect(await role('The numbers are in. Thanks, [Teammate]')).toBeNull()
     // Nor does a fullwidth or zero-width variant, even when Dana is mentioned.
