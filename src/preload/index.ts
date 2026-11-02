@@ -22,7 +22,8 @@ const api: PipApi = {
   generateSummary: (recipient) => ipcRenderer.invoke(IPC.summaryGenerate, recipient),
   exportSummaryPdf: () => ipcRenderer.invoke(IPC.summaryExportPdf),
   openHome: () => ipcRenderer.send(IPC.homeOpen),
-  setOverlayInteractive: (interactive) => ipcRenderer.send(IPC.overlayInteractive, interactive)
+  setOverlayInteractive: (interactive) => ipcRenderer.send(IPC.overlayInteractive, interactive),
+  setOverlayBounds: (bounds) => ipcRenderer.send(IPC.overlayBounds, bounds)
 }
 
 contextBridge.exposeInMainWorld('api', api)

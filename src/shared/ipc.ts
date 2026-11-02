@@ -10,6 +10,16 @@ import type {
   Summary
 } from './schemas'
 
+export interface Bounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Smallest overlay window: a card stays readable (includes the transparent p-8 around it). */
+export const OVERLAY_MIN = { width: 320, height: 240 }
+
 export const IPC = {
   /** main → overlay: text the person selected and sent with the hotkey. */
   captured: 'pip:captured',
@@ -28,7 +38,9 @@ export const IPC = {
   summaryExportPdf: 'summary:export-pdf',
   homeOpen: 'home:open',
   /** overlay → main: whether the pointer is over Pip, so clicks elsewhere fall through to the app below. */
-  overlayInteractive: 'overlay:interactive'
+  overlayInteractive: 'overlay:interactive',
+  /** overlay → main: move or resize the overlay window as the person drags a card, its edges or Pip. */
+  overlayBounds: 'overlay:bounds'
 } as const
 
 export interface PipApi {
@@ -51,4 +63,6 @@ export interface PipApi {
   openHome(): void
   /** Overlay only: true while the pointer is over a Pip surface; ignored from other windows. */
   setOverlayInteractive(interactive: boolean): void
+  /** Overlay only: move/resize the window (screen px); main keeps it on screen and at least OVERLAY_MIN. */
+  setOverlayBounds(bounds: Bounds): void
 }

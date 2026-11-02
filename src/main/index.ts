@@ -2,7 +2,7 @@ import { app, shell, BrowserWindow, globalShortcut, ipcMain, screen } from 'elec
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { IPC } from '@shared/ipc'
+import { IPC, OVERLAY_MIN } from '@shared/ipc'
 import { captureSelection } from './capture'
 import { registerMockHandlers } from './mock'
 
@@ -16,6 +16,8 @@ if (!app.requestSingleInstanceLock()) app.exit()
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
 const OVERLAY = { width: 448, height: 400, margin: 16 }
+// The window's transparent padding (p-8) may go past the screen edge while dragging; the card may not.
+const OVERLAY_PAD = 32
 
 // Clicks on the overlay's transparent area go to the app underneath. `forward` keeps mouse moves
 // reaching the renderer, which reports when the pointer is over Pip. Linux can't forward them, so
@@ -133,6 +135,8 @@ function openHome(): void {
     }
   })
   home = win
+  // Keep the title "Pip's House" instead of the page <title>.
+  win.on('page-title-updated', (e) => e.preventDefault())
   win.on('closed', () => {
     if (home === win) home = null
   })
@@ -167,6 +171,31 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!CLICK_THROUGH || !win || win !== overlay) return
     win.setIgnoreMouseEvents(!interactive, { forward: true })
+  })
+
+  // Dragging a card or Pip moves the overlay; dragging a card's edge resizes it. A transparent window
+  // can't use the OS resize or CSS drag regions (they'd swallow the mouse moves click-through needs),
+  // so the renderer sends the bounds it wants and this keeps them sane.
+  ipcMain.on(IPC.overlayBounds, (event, b: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || typeof b !== 'object' || b === null) return
+    const { x, y, width, height } = b as Record<string, unknown>
+    const nums = [x, y, width, height]
+    if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n))) return
+    const [bx, by, bw, bh] = nums as number[]
+    const { workArea: wa } = screen.getDisplayNearestPoint({
+      x: Math.round(bx + bw / 2),
+      y: Math.round(by + bh / 2)
+    })
+    const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
+    const w = Math.round(clamp(bw, OVERLAY_MIN.width, wa.width + 2 * OVERLAY_PAD))
+    const h = Math.round(clamp(bh, OVERLAY_MIN.height, wa.height + 2 * OVERLAY_PAD))
+    win.setBounds({
+      x: Math.round(clamp(bx, wa.x - OVERLAY_PAD, wa.x + wa.width - w + OVERLAY_PAD)),
+      y: Math.round(clamp(by, wa.y - OVERLAY_PAD, wa.y + wa.height - h + OVERLAY_PAD)),
+      width: w,
+      height: h
+    })
   })
 
   createOverlay()
