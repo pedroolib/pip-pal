@@ -9,7 +9,7 @@ describe('resolveModel', () => {
 
   it('maps haiku and sonnet', () => {
     expect(resolveModel('haiku')).toBe('claude-haiku-5-5')
-    expect(resolveModel('sonnet')).toBe(X
+    expect(resolveModel('sonnet')).toBe('claude-sonnet-5-5')
   })
 
   it('rejects an unknown value naming the valid ones', () => {
