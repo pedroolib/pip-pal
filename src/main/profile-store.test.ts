@@ -48,6 +48,32 @@ describe('profile store', () => {
     expect(ids(store.load())).toEqual(ids(store.load()))
   })
 
+  it('returns the parsed profile when persisting new ids fails, and save still throws', () => {
+    const store = createProfileStore(file)
+    const p = store.load()
+    delete p.sections.communication[0].id
+    writeFileSync(file, JSON.stringify(p))
+    mkdirSync(file + '.tmp') // makes every write fail
+    const loaded = store.load()
+    expect(loaded.sections.communication[0].id).toBeTruthy()
+    expect(readdirSync(dirname(file)).some((f) => f.endsWith('.bak'))).toBe(false)
+    expect(() => store.save(loaded)).toThrow()
+  })
+
+  it('keeps only the 3 newest backups', () => {
+    for (let i = 0; i < 5; i++) {
+      writeFileSync(file, `corrupt ${i}`)
+      createProfileStore(file).load()
+    }
+    const baks = readdirSync(dirname(file)).filter((f) => f.endsWith('.bak'))
+    expect(baks).toHaveLength(3)
+    expect(baks.sort().map((f) => readFileSync(join(dirname(file), f), 'utf8'))).toEqual([
+      'corrupt 2',
+      'corrupt 3',
+      'corrupt 4'
+    ])
+  })
+
   it('does not seed over a path it cannot read', () => {
     mkdirSync(file) // reading a directory fails with EISDIR, not ENOENT
     expect(() => createProfileStore(file).load()).toThrow()
