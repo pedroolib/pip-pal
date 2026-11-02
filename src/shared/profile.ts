@@ -40,23 +40,40 @@ export function forRecipient(profile: Profile, recipient: Recipient): Profile {
 /** Claude-ready text. Names of people become [Role]; pending entries are never included. */
 export function buildProfileContext(profile: Profile): string {
   const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // One pass over all names, so replacement text is never re-scanned. People override the owner.
-  const repl = new Map<string, string>()
-  const own = profile.name.trim()
-  if (own) repl.set(own.toLowerCase(), '[Me]')
+  // Replace all names in ONE pass, so replacement text is never re-scanned. People override the owner.
+  const own = profile.name.trim().toLowerCase()
+  const plain = new Map<string, string>() // name -> plain role text, no brackets
+  if (own) plain.set(own, 'Me')
   for (const p of profile.people) {
-    const name = p.name.trim()
-    if (name) repl.set(name.toLowerCase(), `[${p.role.trim()}]`)
+    const name = p.name.trim().toLowerCase()
+    if (name) plain.set(name, p.role.trim())
   }
   // Longest first so "Ana Maria" wins over "Ana".
-  const names = [...repl.keys()].sort((x, y) => y.length - x.length).map(escape)
+  const names = [...plain.keys()].sort((x, y) => y.length - x.length).map(escape)
   const re = names.length
     ? new RegExp(`(?<![\\p{L}\\p{N}_])(?:${names.join('|')})(?![\\p{L}\\p{N}_])`, 'giu')
     : null
+  // Names inside a role would leak through the replacement, so a role is scrubbed one level deep:
+  // another person's name becomes their plain role (any name left inside that becomes "Me" for the owner, else "someone"),
+  // and the person's own name becomes "this person", which keeps self-references from looping.
+  const scrubRole = (role: string, self: string, selfText: string): string =>
+    re
+      ? role.replace(re, (m) => {
+          const k = m.toLowerCase()
+          return k === self
+            ? selfText
+            : (plain.get(k) ?? '').replace(re, (n) =>
+                n.toLowerCase() === own && plain.get(own) === 'Me' ? 'Me' : 'someone'
+              )
+        })
+      : role
+  const repl = new Map<string, string>()
+  for (const [k, role] of plain)
+    repl.set(k, `[${k === own && role === 'Me' ? 'Me' : scrubRole(role, k, 'this person')}]`)
   const swap = (text: string): string =>
     re ? text.replace(re, (m) => repl.get(m.toLowerCase()) ?? m) : text
 
-  const lines: string[] = [`[Me], ${swap(profile.role)}`]
+  const lines: string[] = [`[Me], ${scrubRole(profile.role, own, 'Me')}`]
   for (const section of SECTIONS) {
     const entries = profile.sections[section]
     if (!entries?.length) continue

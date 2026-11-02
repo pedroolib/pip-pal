@@ -143,7 +143,23 @@ describe('buildProfileContext', () => {
       }),
       calmingStrategies: []
     })
-    expect(out).toContain("[Ana Maria's assistant] said hi to [Lead]")
+    expect(out).toContain("[Lead's assistant] said hi to [Lead]")
+  })
+
+  it('scrubs names inside roles: owner becomes Me, own name cannot leak or loop', () => {
+    const out = buildProfileContext({
+      ...profile,
+      role: 'Analyst working for Bo',
+      people: [
+        { name: 'Bo', role: 'Sam mentor' },
+        { name: 'Cy', role: 'Cy $& again' }
+      ],
+      sections: sections({ feedback: [{ text: 'Bo and Cy', origin: 'self', visibleTo: [] }] }),
+      calmingStrategies: []
+    })
+    expect(out).toContain('[Me], Analyst working for Me mentor')
+    expect(out).toContain('[Me mentor] and [this person $& again]')
+    expect(out).not.toMatch(/\b(sam|cy|bo)\b/i)
   })
 
   it('excludes pending', () => {
