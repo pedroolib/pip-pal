@@ -43,6 +43,9 @@ function createOverlay(): void {
     fullscreenable: false,
     skipTaskbar: true,
     autoHideMenuBar: true,
+    // Clicking or dragging Pip must not take the keyboard: the hotkey's ⌘C has to reach the app with
+    // the selection. The overlay has no text fields; give it focus back if one is ever added.
+    focusable: false,
     // macOS: a non-activating panel is what reliably floats over other apps' full-screen Spaces;
     // setVisibleOnAllWorkspaces alone only works some of the time.
     ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
@@ -95,11 +98,12 @@ async function capture(): Promise<void> {
   if (capturing) return
   capturing = true
   try {
-    const { text, fromSelection } = await captureSelection()
+    const { text, fromSelection, app: from } = await captureSelection()
     if (is.dev) {
       // Only a preview, so the terminal doesn't fill with whole messages.
       const source = fromSelection ? 'selection' : 'last copied'
-      console.log(`[capture] ${source}, ${text.length} chars: ${text.slice(0, 80)}…`)
+      const where = from ? ` (⌘C went to ${from})` : ''
+      console.log(`[capture] ${source}${where}, ${text.length} chars: ${text.slice(0, 80)}…`)
     }
     const win = overlay
     if (!text.trim() || !win) return

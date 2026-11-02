@@ -7,11 +7,13 @@ import { clipboard, ClipboardItem } from 'electron'
 const run = promisify(execFile)
 
 // JXA: wait up to 1 s for the person to let go of ⌃⇧ (otherwise the app gets ⌃⇧⌘C, which
-// copies nothing), then press ⌘C in the app in front. 0x1E0000 = Shift, Control, Option, Command.
+// copies nothing), then press ⌘C in the app in front and print that app's name.
+// 0x1E0000 = Shift, Control, Option, Command.
 const COPY_WHEN_KEYS_RELEASED = `
 ObjC.import('AppKit')
 for (let i = 0; i < 100 && ($.NSEvent.modifierFlags & 0x1e0000); i++) delay(0.01)
 Application('System Events').keystroke('c', { using: 'command down' })
+$.NSWorkspace.sharedWorkspace.frontmostApplication.localizedName.js
 `
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
@@ -20,6 +22,8 @@ export interface Capture {
   text: string
   /** false when the selection couldn't be read and this is the last copied text instead. */
   fromSelection: boolean
+  /** Mac only: the app ⌘C went to. If it is Pip (Electron while developing), Pip was in front. */
+  app?: string
 }
 
 export async function captureSelection(): Promise<Capture> {
@@ -38,10 +42,13 @@ async function captureMac(): Promise<Capture> {
   const lastCopied = await clipboard.readText()
   clipboard.clear()
   try {
-    await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])
+    const { stdout } = await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])
+    const app = stdout.trim()
     const text = await waitForText(500)
     // Empty clipboard: nothing was selected, so fall back to what the person copied last.
-    return text ? { text, fromSelection: true } : { text: lastCopied, fromSelection: false }
+    return text
+      ? { text, fromSelection: true, app }
+      : { text: lastCopied, fromSelection: false, app }
   } catch (err) {
     console.warn(
       '[capture] Could not simulate ⌘C; using the last copied text. Allow Accessibility for Terminal (dev) or Pip.',
