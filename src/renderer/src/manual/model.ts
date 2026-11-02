@@ -29,12 +29,15 @@ export function activeIndex(tops: number[], viewportH: number, remaining: number
   return active
 }
 
-/** Adds nicknames typed or pasted as "a, b": trimmed, empty and case-insensitive duplicates skipped. */
+/** Must match the scrubber's alias cap in src/shared/profile.ts: longer aliases are not hidden. */
+export const ALIAS_MAX = 40
+
+/** Adds nicknames typed or pasted as "a, b": trimmed, empty, over-long and case-insensitive duplicates skipped. */
 export function addAlias(list: string[], text: string): string[] {
   const out = [...list]
   for (const raw of text.split(',')) {
     const a = raw.trim()
-    if (a && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
+    if (a && a.length <= ALIAS_MAX && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
   }
   return out
 }

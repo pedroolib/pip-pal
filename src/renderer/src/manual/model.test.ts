@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeIndex, addAlias, removeAt, removeById, upsert } from './model'
+import { ALIAS_MAX, activeIndex, addAlias, removeAt, removeById, upsert } from './model'
 
 describe('manual list edits', () => {
   it('adds an item and gives it an id', () => {
@@ -71,5 +71,12 @@ describe('addAlias', () => {
   })
   it('splits pasted or leftover text on commas', () => {
     expect(addAlias(['a'], 'b, A,, c')).toEqual(['a', 'b', 'c'])
+  })
+  it('keeps a nickname of exactly the cap and skips one character more', () => {
+    expect(addAlias([], 'x'.repeat(ALIAS_MAX))).toEqual(['x'.repeat(ALIAS_MAX)])
+    expect(addAlias([], 'x'.repeat(ALIAS_MAX + 1))).toEqual([])
+  })
+  it('keeps only the short part of a pasted list', () => {
+    expect(addAlias([], `a, ${'x'.repeat(ALIAS_MAX + 1)}`)).toEqual(['a'])
   })
 })

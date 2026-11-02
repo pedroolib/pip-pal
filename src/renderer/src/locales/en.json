@@ -190,6 +190,7 @@
     "aliases": {
       "label": "Also called",
       "remove": "Remove {{alias}}",
+      "tooLong": "Nicknames can be up to 40 characters.",
       "hint": {
         "person": "Other names people use for them, like \"Ally\" or \"@alexr\". Pip hides these too. Press Enter or type a comma after each one.",
         "owner": "Names people call you, like \"Sammy\". Pip replaces them with [Me]. Press Enter or type a comma after each one."
