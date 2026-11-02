@@ -172,9 +172,9 @@ describe('createDecoder', () => {
   it('still requires Claude classification when Jev is unavailable', async () => {
     const f = fakes({ claude: [{ decode }] })
     await expect(createDecoder({ claude: f.claude, jev: null })('Hi.', 3, profile)).rejects.toThrow(
-      /invalid/
+      'Claude returned an invalid decode answer: required at classification.'
     )
-    expect(f.calls()).toBe(2)
+    expect(f.calls()).toBe(1)
   })
 
   it('falls back to Claude when Jev fails', async () => {
@@ -197,25 +197,24 @@ describe('createDecoder', () => {
     expect(out.classification.source).toBe('claude')
   })
 
-  it('retries once on invalid output, with the validation error', async () => {
-    const f = fakes({ claude: [{ nope: true }, { classification: claudeClassification, decode }] })
-    const out = await createDecoder(f)('New project.', 3, profile)
-    expect(f.calls()).toBe(2)
-    expect(out.decode.change?.type).toBe('project')
-    expect(f.sent.at(-1)).toMatch(/did not match the tool schema/)
+  it('rejects the first invalid answer with codes and paths only, no retry', async () => {
+    const bad = { decode: { ...decode, summary: 42, asks: 'LEAKED-OUTPUT' } }
+    const f = fakes({ claude: [bad, { classification: claudeClassification, decode }] })
+    const err = await createDecoder(f)('SECRET Alex plan', 3, profile).catch((e: Error) => e)
+    expect(f.calls()).toBe(1)
+    expect((err as Error).message).toBe(
+      'Claude returned an invalid decode answer: invalid_type at decode.summary; invalid_type at decode.asks.'
+    )
+    for (const leak of ['LEAKED-OUTPUT', '42', 'SECRET', 'Alex', 'Manager'])
+      expect(String(err)).not.toContain(leak)
   })
 
-  it('treats a response with no tool call (undefined) as invalid and retries once', async () => {
+  it('rejects an answer with no tool call (undefined) after exactly one call', async () => {
     const f = fakes({ claude: [undefined, { classification: claudeClassification, decode }] })
-    const out = await createDecoder(f)('New project.', 3, profile)
-    expect(f.calls()).toBe(2)
-    expect(out.decode.change?.type).toBe('project')
-  })
-
-  it('rejects after a second invalid output', async () => {
-    const f = fakes({ claude: [{ nope: true }] })
-    await expect(createDecoder(f)('New project.', 3, profile)).rejects.toThrow(/invalid/)
-    expect(f.calls()).toBe(2)
+    await expect(createDecoder(f)('New project.', 3, profile)).rejects.toThrow(
+      'Claude returned an invalid decode answer: no tool call in the answer.'
+    )
+    expect(f.calls()).toBe(1)
   })
 
   it.each([

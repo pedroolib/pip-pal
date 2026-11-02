@@ -107,25 +107,23 @@ async function classifyWithJev(
   }
 }
 
-// One retry with the validation error appended, then give up. Claude's classification is required only when Jev gave none.
+/** Issue codes and field paths only, never the model's output or the message. */
+export function describeIssues(error: z.ZodError): string {
+  return error.issues.map((i) => `${i.code} at ${i.path.join('.') || 'root'}`).join('; ')
+}
+
+// No retry: the first invalid answer rejects. Claude's classification is required only when Jev gave none.
 async function askClaude(
   claude: ClaudeClient,
   user: string,
   jevResult: Promise<unknown>
 ): Promise<z.infer<typeof ToolOutput>> {
-  const check = async (
-    raw: unknown
-  ): Promise<{ data: z.infer<typeof ToolOutput> } | { error: string }> => {
-    const parsed = ToolOutput.safeParse(raw)
-    if (!parsed.success) return { error: z.prettifyError(parsed.error) }
-    if (!parsed.data.classification && !(await jevResult))
-      return { error: '✖ Required\n  → at classification' }
-    return { data: parsed.data }
-  }
-  const first = await check(await claude.decode({ system: SYSTEM, user }))
-  if ('data' in first) return first.data
-  const retry = `${user}\n\nYour previous answer did not match the tool schema:\n${first.error}\nAnswer again through the tool.`
-  const second = await check(await claude.decode({ system: SYSTEM, user: retry }))
-  if ('data' in second) return second.data
-  throw new Error('Claude returned an invalid decode twice.')
+  const raw = await claude.decode({ system: SYSTEM, user })
+  const parsed = ToolOutput.safeParse(raw)
+  const invalid = (why: string): Error =>
+    new Error(`Claude returned an invalid decode answer: ${why}.`)
+  if (raw === undefined) throw invalid('no tool call in the answer')
+  if (!parsed.success) throw invalid(describeIssues(parsed.error))
+  if (!parsed.data.classification && !(await jevResult)) throw invalid('required at classification')
+  return parsed.data
 }

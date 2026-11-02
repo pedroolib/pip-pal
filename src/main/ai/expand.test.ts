@@ -89,18 +89,16 @@ describe('createExpander', () => {
     })
   })
 
-  it('sends one narrow tool per kind, with item limits in its schema', async () => {
+  it('sends one narrow tool per kind, with no item cap in its schema', async () => {
     const expected = {
-      steps: { name: 'list_steps', props: ['steps', 'profileUsed'], max: ['steps', 5] },
+      steps: { name: 'list_steps', props: ['steps', 'profileUsed'] },
       questions: {
         name: 'list_questions',
-        props: ['questions', 'profileUsed'],
-        max: ['questions', 2]
+        props: ['questions', 'profileUsed']
       },
       transition: {
         name: 'plan_transition',
-        props: ['plan', 'questionsToAsk', 'profileUsed'],
-        max: ['questionsToAsk', 3]
+        props: ['plan', 'questionsToAsk', 'profileUsed']
       }
     } as const
     for (const kind of ['steps', 'questions', 'transition'] as const) {
@@ -112,17 +110,24 @@ describe('createExpander', () => {
       expect(tool.input_schema.$schema).toBeUndefined()
       const props = tool.input_schema.properties as Record<string, { maxItems?: number }>
       expect(Object.keys(props).sort()).toEqual([...expected[kind].props].sort())
-      const [field, max] = expected[kind].max
-      expect(props[field].maxItems).toBe(max)
+      for (const p of Object.values(props)) expect(p.maxItems).toBeUndefined()
+      expect(f.sent[0]).toMatch(/how this person likes tasks broken down/)
+      expect(f.sent[0]).not.toMatch(/at most|3 to 5/)
       expect(f.sent[0]).toMatch(new RegExp(`<message>.*untrusted`, 's'))
     }
   })
 
-  it('caps the transition plan at 5 items', async () => {
-    const f = fake([answers.transition])
-    await createExpander({ claude: f.claude })('New project.', 'transition', 3, profile)
-    const props = f.tools[0].input_schema.properties as Record<string, { maxItems?: number }>
-    expect(props.plan.maxItems).toBe(5)
+  it('accepts a long answer: the model decides how many items', async () => {
+    const seven = { ...answers.steps, steps: Array(7).fill({ text: 'x', why: null }) }
+    const f = fake([seven])
+    const out = await createExpander({ claude: f.claude })('New project.', 'steps', 3, profile)
+    expect(out.kind === 'steps' && out.steps).toHaveLength(7)
+  })
+
+  it('accepts no questions when nothing is unclear', async () => {
+    const f = fake([{ questions: [], profileUsed: [] }])
+    const out = await createExpander({ claude: f.claude })('Meet at 3.', 'questions', 3, profile)
+    expect(out).toEqual({ kind: 'questions', questions: [], profileUsed: [] })
   })
 
   it('passes the spoons to the prompt and, when low, says the UI trims', async () => {
@@ -141,40 +146,36 @@ describe('createExpander', () => {
     expect(userOf(none)).toMatch(/Energy \(spoons, 1-5\): unknown\./)
   })
 
-  it('retries once with the field paths of the error, never the model output', async () => {
+  it('rejects the first invalid answer with codes and paths only, no retry', async () => {
     const bad = { steps: [{ text: 'LEAKED-OUTPUT', why: 42 }], profileUsed: [] }
     const f = fake([bad, answers.steps])
-    const out = await createExpander({ claude: f.claude })('New project.', 'steps', 3, profile)
-    expect(f.calls()).toBe(2)
-    expect(out.kind).toBe('steps')
-    const retry = f.sent.at(-2)!
-    expect(retry).toMatch(/did not match the tool schema/)
-    expect(retry).toMatch(/steps\.0\.why/)
-    expect(retry).not.toContain('LEAKED-OUTPUT')
-    expect(retry).not.toContain('42')
+    const err = await createExpander({ claude: f.claude })(
+      'SECRET Alex plan',
+      'steps',
+      3,
+      profile
+    ).catch((e: Error) => e)
+    expect(f.calls()).toBe(1)
+    expect((err as Error).message).toBe(
+      'Claude returned an invalid steps answer: invalid_type at steps.0.why.'
+    )
+    for (const leak of ['LEAKED-OUTPUT', '42', 'SECRET', 'Alex', 'Manager'])
+      expect(String(err)).not.toContain(leak)
   })
 
-  it('treats a response with no tool call as invalid and retries once', async () => {
+  it('rejects an answer with no tool call after exactly one call', async () => {
     const f = fake([undefined, answers.questions])
-    const out = await createExpander({ claude: f.claude })('New project.', 'questions', 3, profile)
-    expect(f.calls()).toBe(2)
-    expect(out.kind).toBe('questions')
-  })
-
-  it('rejects after a second invalid output', async () => {
-    const f = fake([{ nope: true }])
     await expect(
-      createExpander({ claude: f.claude })('New project.', 'transition', 3, profile)
-    ).rejects.toThrow(/invalid/)
-    expect(f.calls()).toBe(2)
+      createExpander({ claude: f.claude })('New project.', 'questions', 3, profile)
+    ).rejects.toThrow('Claude returned an invalid questions answer: no tool call in the answer.')
+    expect(f.calls()).toBe(1)
   })
 
-  it('rejects more items than the prompt allows', async () => {
-    const six = { ...answers.steps, steps: Array(6).fill({ text: 'x', why: null }) }
-    const f = fake([six])
+  it('rejects an empty step list', async () => {
+    const f = fake([{ steps: [], profileUsed: [] }])
     await expect(
       createExpander({ claude: f.claude })('New project.', 'steps', 3, profile)
-    ).rejects.toThrow(/invalid/)
+    ).rejects.toThrow(/too_small at steps/)
   })
 
   it('wraps the message in <message>, even against a nested closing tag', async () => {
@@ -240,9 +241,9 @@ describe('createExpander', () => {
       'Hi SAM, alex here. Dana and Rui moved to Atlas, cc dana.lopez@acme.com. ' +
       'Call +52 55 1234-5678 or see https://acme.com/wiki?page=atlas and www.acme.io/plan.'
     for (const kind of ['steps', 'questions', 'transition'] as const) {
-      const f = fake([{ nope: true }, answers[kind]]) // the retry prompt is checked too
+      const f = fake([answers[kind]])
       await createExpander({ claude: f.claude })(message, kind, 2, dirty)
-      expect(f.sent.length).toBe(6)
+      expect(f.sent.length).toBe(3)
       const secrets = [
         /\bsam\b/i,
         /\balex\b/i,

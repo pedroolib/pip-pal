@@ -16,7 +16,7 @@ const TOOL_NAME = 'decode_message'
  * `ask` takes any tool (the expander passes one per kind); `decode` is `ask` with the decode tool.
  */
 export function createClaudeClient(
-  // maxRetries 0: the decoder owns the retry. openTelemetry false: no message content in spans.
+  // maxRetries 0: nothing retries, an invalid answer rejects at once. openTelemetry false: no message content in spans.
   client: Pick<Anthropic, 'messages'> = new Anthropic({
     timeout: 30_000,
     maxRetries: 0,
@@ -44,7 +44,7 @@ export function createClaudeClient(
         // Docs: effort sets thinking depth and token spend; low suits latency-sensitive routes.
         output_config: { effort: 'low' }
       })
-      // A missing or truncated tool call fails validation in the caller, which retries once.
+      // A missing or truncated tool call fails validation in the caller, which rejects (no retry).
       return res.content.find((b) => b.type === 'tool_use')?.input
     } catch (e) {
       // Status and the API's own message only, never the request (it holds the user's text).
