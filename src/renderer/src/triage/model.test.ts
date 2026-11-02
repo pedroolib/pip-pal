@@ -135,7 +135,7 @@ describe('triageLines', () => {
     const neutral = lines({ tone: { value: 'neutral', p: 1 } })
     expect(say(neutral.tone.key)).toBe('Neutral')
     expect(neutral.tone.quote).toBeUndefined()
-    expect(say(lines({ tone: { value: 'worried', p: 1 } }).tone.key)).toBe('Worried')
+    expect(say(lines({ tone: { value: 'worried', p: 1 } }).tone.key)).toBe('Concerned')
     expect(say(lines({ tone: { value: 'upset', p: 1 } }).tone.key)).toBe('Upset')
     expect(lines({ tone: { value: 'upset', p: 1 }, evidence: {} }).tone.quote).toBeUndefined()
   })

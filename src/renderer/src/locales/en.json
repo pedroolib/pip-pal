@@ -59,7 +59,7 @@
     "tone": {
       "friendly": "Friendly",
       "neutral": "Neutral",
-      "worried": "Worried",
+      "worried": "Concerned",
       "upset": "Upset"
     },
     "addressee": { "group": "This is for the whole team", "nobody": "Not addressed to anyone" },
