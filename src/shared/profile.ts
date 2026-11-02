@@ -38,7 +38,8 @@ export function forRecipient(profile: Profile, recipient: Recipient): Profile {
 }
 
 const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu
-const HANDLE = /(?<![\p{L}\p{N}])@[\p{L}\p{N}](?:[\p{L}\p{N}._-]*[\p{L}\p{N}])?/gu // @mentions, minus trailing punctuation
+// @mentions, minus trailing punctuation; a letter or "_" first, so "@10am" stays a time.
+const HANDLE = /(?<![\p{L}\p{N}])@[\p{L}_](?:[\p{L}\p{N}._-]*[\p{L}\p{N}])?/gu
 const TAIL = `[^\\s<>"]*[^\\s<>".,;:!?)\\]']` // a URL tail never ends on sentence punctuation
 // shortcut: a bare domain (no scheme, no www.) is only caught for the TLDs listed here, so "startup.xyz" passes; widen the list when a real case shows up.
 const URL_RE = new RegExp(
@@ -53,6 +54,8 @@ const PHONE =
 
 // NFKC turns fullwidth letters into plain ones; format characters (zero-width, soft hyphen) hide names.
 // A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
+// shortcut: NFKC also rewrites the text Claude sees ("½" -> "1⁄2", "x²" -> "x2", "℃" -> "°C"); apply it only for matching if decodes suffer.
+// shortcut: Cyrillic look-alikes ("Dаna" with U+0430) are not folded to Latin; add a small skeleton map if one shows up.
 const normalize = (s: string): string =>
   s
     .replace(/´/g, "'")
@@ -81,26 +84,39 @@ const fold = (s: string): string =>
     .replace(new RegExp(`[${HYPHENS}]+`, 'g'), ' ')
     .trim()
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-// Latin base letter -> itself plus its accented forms, so a name matches with or without accents.
+// Latin base letter -> itself plus its accented forms (Latin-1 to Extended-B, and Extended Additional for "ễ", "Ḥ"),
+// so a name matches with or without accents.
 const VARIANTS = new Map<string, string>()
-for (let cp = 0xc0; cp <= 0x24f; cp++) {
-  const ch = String.fromCodePoint(cp)
-  const base = fold(ch)
-  if (base.length === 1 && base !== ch.toLowerCase()) {
-    VARIANTS.set(base, (VARIANTS.get(base) ?? base) + ch)
+for (const [lo, hi] of [
+  [0xc0, 0x24f],
+  [0x1e00, 0x1eff]
+]) {
+  for (let cp = lo; cp <= hi; cp++) {
+    const ch = String.fromCodePoint(cp)
+    const base = fold(ch)
+    if (base.length === 1 && base !== ch.toLowerCase()) {
+      VARIANTS.set(base, (VARIANTS.get(base) ?? base) + ch)
+    }
   }
 }
+// Each letter may carry combining marks NFKC leaves loose ("Olsen" + U+034F, "Dana" + U+0332).
+// The combining blocks, variation selectors and half marks are listed instead of \p{M}*, which V8 runs ~40x slower here.
+const MARKS =
+  '[\\u0300-\\u036f\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe00-\\ufe0f\\ufe20-\\ufe2f]*'
 const namePattern = (key: string): string =>
   key
     .split(' ')
     .map((w) =>
       [...w]
         .map((c) =>
-          c === "'" ? `[${APOSTROPHES}]?` : VARIANTS.has(c) ? `[${VARIANTS.get(c)}]` : escape(c)
+          c === "'"
+            ? `[${APOSTROPHES}]?`
+            : (VARIANTS.has(c) ? `[${VARIANTS.get(c)}]` : escape(c)) + MARKS
         )
         .join('')
     )
     .join(`[${HYPHENS}]+`)
+const hasLetter = (s: string): boolean => /[\p{L}\p{N}]/u.test(s)
 
 // Name particles stay in the full-name key but are never names on their own ("del" in "reunión del lunes").
 const PARTICLES = new Set(
@@ -121,20 +137,29 @@ function nameSwapper(profile: Profile): {
   const owner: Who = { role: 'Me', real: profile.name.trim() }
   const someone: Who = { role: 'someone', real: '' }
   const who = new Map<string, Who>() // folded full name -> person
-  if (fold(owner.real)) who.set(fold(owner.real), owner)
+  // A name with no letter or digit would become a pattern that matches the empty string.
+  if (hasLetter(fold(owner.real))) who.set(fold(owner.real), owner)
   for (const p of profile.people) {
     const k = fold(p.name)
     // A role holds no brackets or contact tokens, so its [token] stays one restorable unit.
     const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]]/g, '')
-    if (k) who.set(k, { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() })
+    if (hasLetter(k)) who.set(k, { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() })
   }
-  // Each word (2+ letters, not a particle) of a full name, and the name written without spaces ("samrivera"),
-  // points to the same person; a word two people share is just "someone".
+  // Each word (2+ letters, not a particle) of a full name, with and without its apostrophe part ("o'brien", "brien"),
+  // each hyphenated word written as one ("jeanpierre"), and the name without spaces ("samrivera")
+  // point to the same person; a word two people share is just "someone". A part restores to the full name.
   // shortcut: words match case-insensitively, so a person "Will" also swaps the verb "will"; this errs toward privacy, add a common-word case rule if decodes suffer.
   // shortcut: [someone] is never restored, so the user may see it literally; explain it in the system prompt if users ask.
+  // shortcut: nicknames not in the profile ("Sammy"), initial+surname usernames ("srivera") and possessives without an apostrophe ("Danas") pass; they need name detection.
   const all = new Map(who)
   for (const [k, w] of who) {
-    const words = k.split(/[ ']/).filter((x) => x.length >= 2 && !PARTICLES.has(x))
+    const hyphened = w.real
+      .split(/\s+/)
+      .filter((x) => /[‐‑-]/.test(x))
+      .map((x) => fold(x).replace(/ /g, ''))
+    const words = [...new Set([...k.split(' '), ...k.split(/[ ']/), ...hyphened])].filter(
+      (x) => x.length >= 2 && !PARTICLES.has(x) && hasLetter(x)
+    )
     for (const word of k.includes(' ') ? [...words, k.replace(/ /g, '')] : words) {
       if (who.has(word)) continue
       all.set(word, all.has(word) && all.get(word) !== w ? someone : w)
@@ -220,6 +245,7 @@ export function scrubForModel(
   // Contacts before names, so a name inside an address cannot split it.
   return {
     text: swap(stripContacts(text)),
+    // shortcut: a message that already contains a token ("ask [Manager 1]") is restored to a real name; owner-only output, escape typed tokens if it misleads.
     restore: (s) => s.replace(/\[[^\]]+\]/g, (m) => restoreMap.get(m.toLowerCase()) ?? m)
   }
 }

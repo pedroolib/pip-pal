@@ -406,6 +406,58 @@ describe('scrubForModel', () => {
     )
   })
 
+  it('matches Latin Extended Additional letters and names followed by a combining mark', () => {
+    const profile = p([
+      { name: 'Nguyễn Thị Hương', role: 'Lead' },
+      { name: 'Ḥasan Ṣāliḥ', role: 'Peer' },
+      { name: 'Olsen', role: 'Coach' }
+    ])
+    const scrub = (t: string): string => scrubForModel(t, profile).text
+    expect(scrub('Nguyễn said, NGUYỄN and Nguyen')).toBe('[Lead] said, [Lead] and [Lead]')
+    expect(scrub('Ḥasan Ṣāliḥ and Hasan')).toBe('[Peer] and [Peer]')
+    expect(scrub('Olsen͏, Olsen️ and Olsen̲ ok')).toBe('[Coach], [Coach] and [Coach] ok')
+    const { text, restore } = scrubForModel('Nguyễn Thị Hương said', profile)
+    expect(restore(text)).toBe('Nguyễn Thị Hương said')
+  })
+
+  it('matches apostrophe surnames inside longer names; a part restores to the full name', () => {
+    const profile = p([
+      { name: "Siobhán O'Brien", role: 'PM' },
+      { name: "Liam O'Neill", role: 'Peer' },
+      { name: "D'Angelo Smith", role: 'Lead' }
+    ])
+    const scrub = (t: string): string => scrubForModel(t, profile).text
+    expect(scrub('OBrien, O’Brien, Oʼbrien, ONeill, DAngelo')).toBe(
+      '[PM], [PM], [PM], [Peer], [Lead]'
+    )
+    const { text, restore } = scrubForModel('ask O’Brien and Liam', profile)
+    expect(restore(text)).toBe("ask Siobhán O'Brien and Liam O'Neill")
+  })
+
+  it('matches hyphenated first names written as one word', () => {
+    const profile = p([
+      { name: 'Jean-Pierre Dupont', role: 'Manager' },
+      { name: 'Mary-Kate Olsen', role: 'Peer' },
+      { name: 'Ana-Sofía García', role: 'Lead' }
+    ])
+    expect(scrubForModel('JeanPierre said, MaryKate and AnaSofía', profile).text).toBe(
+      '[Manager] said, [Peer] and [Lead]'
+    )
+  })
+
+  it('keeps clock times after @ and still removes handles', () => {
+    expect(scrubForModel('lunch @10am, cc @dana', p()).text).toBe('lunch @10am, cc [handle]')
+  })
+
+  it('skips names with no letters or digits instead of matching the empty string', () => {
+    const profile = p([
+      { name: "'", role: 'X' },
+      { name: '---', role: 'Y' },
+      { name: "'' ''", role: 'Z' }
+    ])
+    expect(scrubForModel('Hello. ok', profile).text).toBe('Hello. ok')
+  })
+
   it('keeps date plus time, still removes real phones next to it', () => {
     const scrub = (t: string): string => scrubForModel(t, p()).text
     for (const t of ['Meeting 2026-11-01 10:30', 'moved to 2026-11-01 14:30 or 09:00', 'at 10:30'])
@@ -517,5 +569,22 @@ describe('scrubForModel on real chat text', () => {
     const t = performance.now()
     scrubForModel(msg, big)
     expect(performance.now() - t).toBeLessThan(200)
+  })
+
+  it('scrubs hostile 8000-char messages with 200 hyphen and apostrophe names in well under 500 ms', () => {
+    const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
+    const many = Array.from({ length: 200 }, (_, i) => ({
+      name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} D'${syl[(i * 5) % 8]}ễn ${syl[(i >> 5) % 8]}'${syl[i % 7]}`,
+      role: `Role ${i}`
+    }))
+    const big = { ...profile, people: many }
+    const hostile = ["a'", 'a-', "ka'", 'kalo-', 'a̲', 'ễ', '@a.', '1-', ' a']
+    scrubForModel('warm up', big)
+    for (const unit of hostile) {
+      const msg = unit.repeat(8000).slice(0, 8000)
+      const t = performance.now()
+      scrubForModel(msg, big)
+      expect(performance.now() - t, unit).toBeLessThan(500)
+    }
   })
 })
