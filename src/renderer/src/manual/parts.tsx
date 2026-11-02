@@ -80,7 +80,7 @@ export function Row(props: {
       <div className="min-w-0 flex-1">
         <div className="max-w-[62ch] text-[17px] leading-[1.6]">{props.children}</div>
         {(props.shared || props.saved) && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {props.origin && props.shared && (
               <>
                 <OriginBadge origin={props.origin} />
@@ -140,6 +140,7 @@ function FieldError({
 /** Inline editor for an entry, strategy or person. One Save covers text and recipients. */
 export function Editor(props: {
   kind: Kind
+  title?: string
   initial?: Partial<Draft>
   onSave: (d: Draft) => Promise<boolean>
   onCancel: () => void
@@ -192,7 +193,9 @@ export function Editor(props: {
         noValidate
       >
         <p className="text-sm text-muted-foreground">{t(`manual.editor.hint.${props.kind}`)}</p>
-        {props.kind === 'owner' ? null : props.kind === 'person' ? (
+        {props.kind === 'owner' ? (
+          <strong className="text-[17px]">{props.title}</strong>
+        ) : props.kind === 'person' ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor={`${uid}-n`}>{t('manual.people.name')}</Label>

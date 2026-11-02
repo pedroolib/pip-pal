@@ -32,7 +32,7 @@ export function AliasField(props: {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-7"
+                  className="relative size-7 after:absolute after:-inset-2 after:content-['']"
                   aria-label={t('manual.aliases.remove', { alias: a })}
                   onClick={() => {
                     onChange(removeAt(aliases, i), text)
@@ -60,6 +60,7 @@ export function AliasField(props: {
           else onChange(aliases, v)
         }}
         onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return // IME: Enter confirms the composition, not the chip
           if (e.key === 'Enter' && text.trim()) {
             e.preventDefault() // add the chip instead of submitting the form
             onChange(addAlias(aliases, text), '')

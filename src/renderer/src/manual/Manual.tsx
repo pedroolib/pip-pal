@@ -429,6 +429,7 @@ function Manual(): React.JSX.Element {
             <Editor
               key={ownerKey}
               kind="owner"
+              title={you}
               initial={{ aliases: profile.aliases ?? [] }}
               onCancel={() => cancel(ownerKey)}
               onSave={(d) =>

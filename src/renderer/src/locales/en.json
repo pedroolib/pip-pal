@@ -177,7 +177,7 @@
     },
     "people": {
       "title": "People",
-      "note": "Only you see this list. Before Pip asks the AI for help, each name is replaced by the role, like [Manager]. Add nicknames and @handles too, so they are hidden as well.",
+      "note": "Only you see this list. Before Pip asks the AI for help, each name is replaced by the role, like [Manager]. Nicknames and @handles are hidden too. For example, Alex becomes [Manager] before Pip asks the AI.",
       "you": "{{name}} (you)",
       "alsoCalled": "Also called: {{aliases}}",
       "name": "Name",
@@ -191,8 +191,8 @@
       "label": "Also called",
       "remove": "Remove {{alias}}",
       "hint": {
-        "person": "Pip only hides names it knows. Add the nicknames, short names, @handles and usernames people use, like \"Ally\", \"@alexr\" or \"arod\", so those are replaced by the role too. Press Enter or comma after each one.",
-        "owner": "Nicknames people use for you, like \"Sammy\". Pip replaces them with [Me]. Press Enter or comma after each one."
+        "person": "Other names people use for them, like \"Ally\" or \"@alexr\". Pip hides these too. Press Enter after each one.",
+        "owner": "Names people call you, like \"Sammy\". Pip replaces them with [Me]. Press Enter after each one."
       }
     },
     "empty": "Nothing here yet. Add what helps you, or ask your coach.",
