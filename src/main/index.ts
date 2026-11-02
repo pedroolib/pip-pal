@@ -112,6 +112,11 @@ function createOverlay(): void {
     overlay = null
     setEscape(false)
   })
+  // A reload or crash skips React's cleanup, so the bubble could never release the shortcut.
+  mainWindow.webContents.on('render-process-gone', () => setEscape(false))
+  mainWindow.webContents.on('did-start-navigation', (_e, _url, _inPlace, isMainFrame) => {
+    if (isMainFrame) setEscape(false)
+  })
 
   // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
   // and for the Casa de Pip window, which load the same page.

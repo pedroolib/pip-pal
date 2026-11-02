@@ -95,6 +95,7 @@ Detalles de diseño en [design/README.md](design/README.md).
 - Cada botón abre su **propia tarjeta acoplada**: los Pips quedan en columna abajo a la derecha, con una tarjeta abierta a la vez ("mitosis": Pip se divide por acción). La tarjeta muestra "thinking" hasta que llega la expansión (Claude puede tardar 10–15 s), así que `expand` se llama por tipo, en paralelo.
 - Pip aparece al llamarlo y se queda donde está.
 - **Reglas para quien construya la interfaz:** (1) todo texto del modelo se muestra como **texto plano** (nada de HTML, Markdown ni enlaces automáticos; `suggestedQuestion` es texto listo para enviar); (2) manejar el rechazo "still working"; (3) pasar a `expand('questions', …, unclear)` las pistas del triage (`deadline`, `what_or_who`); (4) recortar a 3 pasos con pocas cucharas; (5) mostrar la `evidence` del tono solo si no es neutral (el tono es una elección forzada y siempre trae cita).
+- Contrato: `PipApi.triage(text)` y `PipApi.expand(text, kind, spoons, unclear?)`, con fixtures en `src/shared/fixtures/demo.triage.json` y `demo.expansion.*.json`; `mock-api.ts` los sirve en el navegador.
 
 **Qué muestra la burbuja del triage** (borrador en revisión, 2026-11-02; aún no es final; el diseño y el prompt para Claude Design están en [design/triage-bubble.md](design/triage-bubble.md)). Cada línea responde una duda de la persona; lo que repite otra línea o solo sirve al código no se muestra.
 
@@ -111,7 +112,6 @@ Detalles de diseño en [design/README.md](design/README.md).
 | `senderRole` | Opcional y discreto ("From: [Manager]") | Contexto sin adivinar: es null si el mensaje no nombra al remitente. |
 | `type`, `isNewTask`, `source` y todas las `p` | No | Las etiquetas, los botones y los umbrales del código ya los usan; un "0.73" es falsa precisión. |
 | `evidence` de fecha, urgencia y cambio | No en la burbuja (a lo más un tooltip) | Satura. |
-- Contrato: `PipApi.triage(text)` y `PipApi.expand(text, kind, spoons, unclear?)`, con fixtures en `src/shared/fixtures/demo.triage.json` y `demo.expansion.*.json`; `mock-api.ts` los sirve en el navegador.
 
 **Lo que sabemos de Jev** (investigado el 1 de noviembre; reconfirmar en https://docs.typesafe.ai):
 - Modelo "System One": recibe estado y preguntas tipadas (`choice`, `score`, `noul`) y devuelve respuestas con probabilidades. Nunca devuelve un tipo inválido.
