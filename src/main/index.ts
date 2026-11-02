@@ -1,9 +1,18 @@
-import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
+import { app, shell, BrowserWindow, globalShortcut, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '@shared/ipc'
+import { captureSelection } from './capture'
 import { registerMockHandlers } from './mock'
+
+// Explicit Control: `CommandOrControl` would become ⌘ on Mac (docs/DECISIONS.md, notes for A).
+// shortcut: fixed until there is a settings screen to change it.
+const HOTKEY = 'Control+Shift+Space'
+
+// One Pip at a time. Global shortcuts don't work on Wayland, so a compositor bind runs
+// `pip-pal --capture`; that second launch only hands the request to this one and exits.
+if (!app.requestSingleInstanceLock()) app.exit()
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
 const OVERLAY = { width: 448, height: 400, margin: 16 }
@@ -78,6 +87,27 @@ function createOverlay(): void {
   }
 }
 
+// Hotkey pressed: read the selection and hand it to the overlay. Ignores presses while one is running.
+let capturing = false
+async function capture(): Promise<void> {
+  if (capturing) return
+  capturing = true
+  try {
+    const { text, fromSelection } = await captureSelection()
+    if (is.dev) {
+      // Only a preview, so the terminal doesn't fill with whole messages.
+      const source = fromSelection ? 'selection' : 'last copied'
+      console.log(`[capture] ${source}, ${text.length} chars: ${text.slice(0, 80)}…`)
+    }
+    const win = overlay
+    if (!text.trim() || !win) return
+    win.showInactive()
+    win.webContents.send(IPC.captured, text)
+  } finally {
+    capturing = false
+  }
+}
+
 // Pip's House: a normal opaque window (My Manual, later summaries and settings).
 let home: BrowserWindow | null = null
 function openHome(): void {
@@ -140,6 +170,12 @@ app.whenReady().then(() => {
   })
 
   createOverlay()
+  if (!globalShortcut.register(HOTKEY, () => void capture())) {
+    console.warn(`[capture] ${HOTKEY} is taken by another app; use \`pip-pal --capture\` instead.`)
+  }
+  app.on('second-instance', (_, argv) => {
+    if (argv.includes('--capture')) void capture()
+  })
   ipcMain.on(IPC.homeOpen, openHome)
   // shortcut: opened at launch until the tray/hotkey opens it; replace when the shell lands
   openHome()
@@ -162,6 +198,8 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
