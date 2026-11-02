@@ -154,8 +154,8 @@ export function Pip({
   return (
     <svg
       viewBox="0 0 64 64"
-      width={size}
-      height={size}
+      width={`${size / 16}rem`}
+      height={`${size / 16}rem`}
       overflow="visible"
       role="img"
       aria-label={t(`pip.moods.${mood}`)}

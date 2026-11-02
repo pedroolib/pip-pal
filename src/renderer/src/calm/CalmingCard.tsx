@@ -42,7 +42,7 @@ export function CalmingCard({
   const minutes = strategy.minutes
 
   return (
-    <Card className="max-w-sm gap-4 p-5 shadow-lg">
+    <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
       <div className="flex items-start gap-3">
         <Pip mood={running ? 'quiet' : 'gentle'} size={44} />
         <div className="flex flex-col gap-1">

@@ -28,7 +28,7 @@ export function CheckInCard({
   if (picked !== null) {
     const low = picked <= LOW_SPOONS
     return (
-      <Card className="max-w-sm gap-3 p-5 shadow-lg">
+      <Card className="min-h-0 w-full overflow-y-auto gap-3 p-5 shadow-lg">
         <div className="flex items-center gap-3">
           <Pip mood={low ? 'gentle' : 'happy'} size={44} />
           <p className="font-bold" role="status">
@@ -43,7 +43,7 @@ export function CheckInCard({
   }
 
   return (
-    <Card className="max-w-sm gap-4 p-5 shadow-lg">
+    <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
       <div className="flex items-center gap-3">
         <Pip mood="gentle" size={44} />
         <div>
