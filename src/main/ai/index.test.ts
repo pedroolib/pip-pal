@@ -123,6 +123,32 @@ describe('one running call per key', () => {
     expect(await s.ai.expand('b', 'steps', 3)).toEqual({ real: 'expand' })
   })
 
+  it('joins the same text and spoons, refuses the same text with other spoons, and clears after', async () => {
+    const s = setup(keys)
+    const d = deferred<never>()
+    s.realExpand.mockReturnValueOnce(d.promise)
+    const first = s.ai.expand('same', 'steps', 3)
+    const again = s.ai.expand('same', 'steps', 3)
+    const e = await s.ai.expand('same', 'steps', 4).catch((x: Error) => x)
+    expect((e as Error).message).toMatch(/still working/)
+    d.resolve({ real: 'late' } as never)
+    expect(await first).toEqual({ real: 'late' })
+    expect(await again).toEqual({ real: 'late' })
+    expect(s.realExpand).toHaveBeenCalledTimes(1)
+    await s.ai.expand('same', 'steps', 4)
+    expect(s.realExpand).toHaveBeenCalledTimes(2)
+  })
+
+  it('treats null spoons and 3 as different calls', async () => {
+    const s = setup(keys)
+    const d = deferred<never>()
+    s.realExpand.mockReturnValueOnce(d.promise)
+    const first = s.ai.expand('same', 'steps', null)
+    await expect(s.ai.expand('same', 'steps', 3)).rejects.toThrow(/still working/)
+    d.resolve({} as never)
+    await first
+  })
+
   it('lets 3 expands and 1 triage run at once, but not two for one key', async () => {
     const s = setup(keys)
     const ds = [deferred<never>(), deferred<never>(), deferred<never>(), deferred<never>()]

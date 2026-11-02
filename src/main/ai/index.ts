@@ -15,20 +15,20 @@ function checkText(text: unknown): asserts text is string {
     throw new Error(`The selected text is too long (over ${MAX_CHARS} characters).`)
 }
 
-// One running call per key: the same text joins the running call, a different text is refused.
+// One running call per key: the same input joins the running call, a different input is refused.
 function oneAtATime<T>(
-  running: Map<string, { text: string; promise: Promise<T> }>,
+  running: Map<string, { input: string; promise: Promise<T> }>,
   key: string,
-  text: string,
+  input: string,
   start: () => Promise<T>
 ): Promise<T> {
   const current = running.get(key)
   if (current) {
-    if (current.text === text) return current.promise
+    if (current.input === input) return current.promise
     return Promise.reject(new Error('Pip is still working on another text. Try again in a moment.'))
   }
   const promise = start().finally(() => running.delete(key))
-  running.set(key, { text, promise })
+  running.set(key, { input, promise })
   return promise
 }
 
@@ -53,8 +53,8 @@ export function createAiHandlers({
   if (!triager) log('TYPESAFE_API_KEY not set: triage uses the demo fixture.')
   if (!expander) log('ANTHROPIC_API_KEY not set: expand uses the demo fixtures.')
 
-  const triaging = new Map<string, { text: string; promise: ReturnType<PipApi['triage']> }>()
-  const expanding = new Map<string, { text: string; promise: ReturnType<PipApi['expand']> }>()
+  const triaging = new Map<string, { input: string; promise: ReturnType<PipApi['triage']> }>()
+  const expanding = new Map<string, { input: string; promise: ReturnType<PipApi['expand']> }>()
 
   return {
     async triage(text) {
@@ -68,7 +68,7 @@ export function createAiHandlers({
       if (!ActionKind.safeParse(kind).success) throw new Error('Unknown action kind.')
       if (spoons !== null && !(Number.isInteger(spoons) && spoons >= 1 && spoons <= 5))
         throw new Error('Spoons must be null or a whole number from 1 to 5.')
-      return oneAtATime(expanding, kind, text, async () =>
+      return oneAtATime(expanding, kind, `${spoons}:${text}`, async () =>
         expander ? expander(text, kind, spoons, load()) : api.expand(text, kind, spoons)
       )
     }
