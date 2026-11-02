@@ -51,6 +51,8 @@ const URL_RE = new RegExp(
 // shortcut: a phone written exactly like a valid date ("5551-12-25 67") keeps its date-shaped part; tighten if one shows up.
 const PHONE =
   /(?<![\d+])(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d))|(?<![\d+])\+?\(?\d[\d\s().-]{5,}\d(?!\w)/g
+const phone = (m: string, date?: string): string =>
+  date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'
 
 // NFKC turns fullwidth letters into plain ones; format characters (zero-width, soft hyphen) hide names.
 // A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
@@ -71,7 +73,7 @@ function stripContacts(text: string, aliases: Set<string> = new Set()): string {
     .replace(EMAIL, () => '[email]')
     .replace(HANDLE, (m) => (aliases.has(fold(m.slice(1))) ? m : '[handle]'))
     .replace(URL_RE, () => '[link]')
-    .replace(PHONE, (m, date) => (date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'))
+    .replace(PHONE, phone)
 }
 
 // Case, accents, apostrophes, hyphens and spacing folded, so "JOSE", "O’Brien" / "O'Brien", "Dana-Lee" / "Dana Lee","José" and "José" share one key.
@@ -153,8 +155,8 @@ function nameSwapper(profile: Profile): {
   if (hasLetter(fold(owner.real))) who.set(fold(owner.real), owner)
   for (const p of profile.people) {
     const k = fold(p.name)
-    // A role holds no brackets or contact tokens, so its [token] stays one restorable unit.
-    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]]/g, '')
+    // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit.
+    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]@]/g, '')
     if (hasLetter(k)) who.set(k, { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() })
   }
   // Each word (2+ letters, not a particle) of a full name, with and without its apostrophe part ("o'brien", "brien"),
@@ -190,11 +192,14 @@ function nameSwapper(profile: Profile): {
   for (const [w, list] of owned) {
     for (const a of list ?? []) {
       const k = fold(a).replace(/^@/, '').trim()
-      // Under 2 letters or digits ("J", "@a") would swap single letters all over the text.
-      if (!w || (k.match(/[\p{L}\p{N}]/gu) ?? []).length < 2) continue
+      // PHONE runs before the swap, so an alias's 7+ digit run is matched as "[phone]" ("srivera8675309" -> "srivera[phone]").
+      const key = k.replace(PHONE, phone)
+      // Under 2 letters or digits ("J", "@a") would swap single letters all over the text; over 100 would break the regex.
+      const size = (key.replace(/\[phone\]/g, '').match(/[\p{L}\p{N}]/gu) ?? []).length
+      if (!w || size < 2 || k.length > 100) continue
       aliases.add(k)
-      if (who.has(k)) continue
-      all.set(k, all.has(k) && all.get(k) !== w ? someone : w)
+      if (who.has(key)) continue
+      all.set(key, all.has(key) && all.get(key) !== w ? someone : w)
     }
   }
   // Longest first so "Ana Maria" wins over "Ana". Digits and "_" count as boundaries, so "sam_rivera" and "sam123" match.
@@ -254,7 +259,9 @@ function nameSwapper(profile: Profile): {
     restoreMap.set(t.toLowerCase(), w.real)
   })
   const swap = (text: string): string => (re ? text.replace(re, (m) => token.get(find(m))!) : text)
-  const clean = (text: string): string => swap(stripContacts(text, aliases))
+  // A kept alias handle the swap missed (a mark outside MARKS after it) still never leaves; tokens never hold "@" + letter.
+  const clean = (text: string): string =>
+    swap(stripContacts(text, aliases)).replace(HANDLE, () => '[handle]')
   return { clean, scrubRole, owner, restoreMap }
 }
 

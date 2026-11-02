@@ -694,6 +694,52 @@ describe('aliases', () => {
       expect(out).not.toMatch(leak)
   })
 
+  it('never sends a kept alias handle the swap missed: it falls back to [handle]', () => {
+    const odd: Profile = {
+      ...profile,
+      aliases: ['@srivera'],
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['@alexr'] }]
+    }
+    expect(scrub('@alexrँ hi', odd)).toBe('[handle]ँ hi')
+    expect(scrub('@alexrा hi', odd)).toBe('[handle]ा hi')
+    expect(scrub('@alexr\u{E0100}', odd)).toBe('[handle]\u{E0100}')
+    expect(scrub('@srivera॑ ok', odd)).toBe('[handle]॑ ok')
+    const ctx = buildProfileContext({
+      ...odd,
+      role: 'Analyst, works with @alexrँ',
+      sections: sections({ feedback: [{ text: 'ask @alexrँ', origin: 'coach', visibleTo: [] }] }),
+      calmingStrategies: [
+        { label: 'walk with @srivera॑', minutes: 5, origin: 'self', visibleTo: [] }
+      ]
+    })
+    expect(ctx).not.toMatch(/alexr|srivera/i)
+    // A role never yields a token holding "@", so the fallback cannot break a token.
+    const at: Profile = { ...odd, people: [{ name: 'Alex Morgan', role: '@[handle]ops' }] }
+    const r = scrubForModel('Alex said', at)
+    expect(r.text).toBe('[ops] said')
+    expect(r.restore(r.text)).toBe('Alex Morgan said')
+  })
+
+  it('matches an alias with a 7+ digit run bare or with @, so its stem never leaks', () => {
+    const digits: Profile = {
+      ...profile,
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['@srivera8675309'] }]
+    }
+    expect(scrub('ping @srivera8675309', digits)).toBe('ping [Manager]')
+    expect(scrub('ping srivera8675309 or call 555 123 4567', digits)).toBe(
+      'ping [Manager] or call [phone]'
+    )
+    expect(scrub('@srivera8675309x', digits)).toBe('[handle]')
+  })
+
+  it('ignores aliases over 100 characters instead of failing every scrub', () => {
+    const long: Profile = {
+      ...profile,
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['a-'.repeat(5000) + 'b', 'Ally'] }]
+    }
+    expect(scrub('hi Ally', long)).toBe('hi [Manager]')
+  })
+
   it('scrubs hostile 8000-char messages with 20 people x 10 aliases in well under 1 s', () => {
     const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
     const many = Array.from({ length: 20 }, (_, i) => ({
