@@ -22,6 +22,20 @@ describe('createClaudeClient', () => {
     expect(p.system).toMatch(/^S\n\n.*decode_message/)
   })
 
+  it('ask() sends the given tool and names it in the closing rule', async () => {
+    const create = vi.fn(async (...args: unknown[]) => ({
+      args,
+      content: [{ type: 'tool_use', input: { b: 2 } }]
+    }))
+    const tool = { name: 'list_steps', description: 'D', input_schema: { type: 'object' as const } }
+    const out = await createClaudeClient(fake(create)).ask({ system: 'S', user: 'U', tool })
+    expect(out).toEqual({ b: 2 })
+    const p = create.mock.calls[0][0] as Record<string, unknown>
+    expect(p.tools).toEqual([tool])
+    expect(p.tool_choice).toEqual({ type: 'auto' })
+    expect(p.system).toMatch(/^S\n\nAnswer only by calling the list_steps tool\./)
+  })
+
   it('returns undefined without a tool_use block, which the decoder treats as invalid', async () => {
     const c = createClaudeClient(fake(async () => ({ content: [{ type: 'text', text: 'hi' }] })))
     expect(await c.decode({ system: 'S', user: 'U' })).toBeUndefined()

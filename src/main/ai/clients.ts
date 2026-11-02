@@ -1,6 +1,7 @@
 // The real SDK clients. Keys come only from process.env (each SDK reads its own variable), in main only.
 // Logging is off in both: their debug levels would print request bodies.
 import Anthropic from '@anthropic-ai/sdk'
+import type { ClaudeToolClient } from './expand'
 import { TypeSafeClient } from '@typesafe-ai/sdk'
 import { z } from 'zod'
 import { JEV_TIMEOUT_MS, ToolOutput, type ClaudeClient, type JevClient } from './decoder'
@@ -9,7 +10,10 @@ import { resolveModel } from './models'
 
 const TOOL_NAME = 'decode_message'
 
-/** Reads ANTHROPIC_API_KEY. The model is resolved per call, so a bad PIP_MODEL fails the decode, not startup. */
+/**
+ * Reads ANTHROPIC_API_KEY. The model is resolved per call, so a bad PIP_MODEL fails the call, not startup.
+ * `ask` takes any tool (the expander passes one per kind); `decode` is `ask` with the decode tool.
+ */
 export function createClaudeClient(
   // maxRetries 0: the decoder owns the retry. openTelemetry false: no message content in spans.
   client: Pick<Anthropic, 'messages'> = new Anthropic({
@@ -18,40 +22,39 @@ export function createClaudeClient(
     openTelemetry: false,
     logLevel: 'off'
   })
-): ClaudeClient {
+): ClaudeClient & ClaudeToolClient {
   const schema = z.toJSONSchema(ToolOutput)
   delete schema.$schema
-  const tool = {
+  const decodeTool = {
     name: TOOL_NAME,
     description: 'Return the decoded message and its classification.',
     input_schema: schema as Anthropic.Tool.InputSchema
   }
-  return {
-    async decode({ system, user }) {
-      try {
-        const res = await client.messages.create({
-          model: resolveModel(),
-          max_tokens: 8192,
-          system: `${system}\n\nAnswer only by calling the ${TOOL_NAME} tool. Do not write any other text.`,
-          messages: [{ role: 'user', content: user }],
-          tools: [tool],
-          // Sonnet 5.5 rejects a forced tool_choice (type "tool" or "any") with a 400; auto plus the rule above replaces it.
-          tool_choice: { type: 'auto' },
-          // Docs: effort sets thinking depth and token spend; low suits latency-sensitive routes.
-          output_config: { effort: 'low' }
-        })
-        // A missing or truncated tool call fails validation in the decoder, which retries once.
-        return res.content.find((b) => b.type === 'tool_use')?.input
-      } catch (e) {
-        // Status and the API's own message only, never the request (it holds the user's text).
-        if (e instanceof Anthropic.APIError) {
-          const detail = (e.error as { error?: { message?: string } } | undefined)?.error?.message
-          throw new Error(`Claude API error ${e.status}: ${detail ?? 'no message'}`, { cause: e })
-        }
-        throw e
+  const ask: ClaudeToolClient['ask'] = async ({ system, user, tool }) => {
+    try {
+      const res = await client.messages.create({
+        model: resolveModel(),
+        max_tokens: 8192,
+        system: `${system}\n\nAnswer only by calling the ${tool.name} tool. Do not write any other text.`,
+        messages: [{ role: 'user', content: user }],
+        tools: [tool],
+        // Sonnet 5.5 rejects a forced tool_choice (type "tool" or "any") with a 400; auto plus the rule above replaces it.
+        tool_choice: { type: 'auto' },
+        // Docs: effort sets thinking depth and token spend; low suits latency-sensitive routes.
+        output_config: { effort: 'low' }
+      })
+      // A missing or truncated tool call fails validation in the caller, which retries once.
+      return res.content.find((b) => b.type === 'tool_use')?.input
+    } catch (e) {
+      // Status and the API's own message only, never the request (it holds the user's text).
+      if (e instanceof Anthropic.APIError) {
+        const detail = (e.error as { error?: { message?: string } } | undefined)?.error?.message
+        throw new Error(`Claude API error ${e.status}: ${detail ?? 'no message'}`, { cause: e })
       }
+      throw e
     }
   }
+  return { ask, decode: (req) => ask({ ...req, tool: decodeTool }) }
 }
 
 /** Reads TYPESAFE_API_KEY. Failures and timeouts reject; the decoder then uses Claude's classification. */
