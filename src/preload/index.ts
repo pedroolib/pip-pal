@@ -21,7 +21,8 @@ const api: PipApi = {
   listAchievements: () => ipcRenderer.invoke(IPC.achievementList),
   generateSummary: (recipient) => ipcRenderer.invoke(IPC.summaryGenerate, recipient),
   exportSummaryPdf: () => ipcRenderer.invoke(IPC.summaryExportPdf),
-  openHome: () => ipcRenderer.send(IPC.homeOpen)
+  openHome: () => ipcRenderer.send(IPC.homeOpen),
+  setOverlayInteractive: (interactive) => ipcRenderer.send(IPC.overlayInteractive, interactive)
 }
 
 contextBridge.exposeInMainWorld('api', api)

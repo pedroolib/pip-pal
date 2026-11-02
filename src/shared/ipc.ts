@@ -26,7 +26,9 @@ export const IPC = {
   achievementList: 'achievement:list',
   summaryGenerate: 'summary:generate',
   summaryExportPdf: 'summary:export-pdf',
-  homeOpen: 'home:open'
+  homeOpen: 'home:open',
+  /** overlay → main: whether the pointer is over Pip, so clicks elsewhere fall through to the app below. */
+  overlayInteractive: 'overlay:interactive'
 } as const
 
 export interface PipApi {
@@ -47,4 +49,6 @@ export interface PipApi {
   /** Prints the open summary to PDF; resolves to the saved path, or null if cancelled. */
   exportSummaryPdf(): Promise<string | null>
   openHome(): void
+  /** Overlay only: true while the pointer is over a Pip surface; ignored from other windows. */
+  setOverlayInteractive(interactive: boolean): void
 }
