@@ -47,6 +47,7 @@ function Overlay(): React.JSX.Element {
   const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
   const frame = useRef<HTMLDivElement>(null)
+  const resized = useRef(false)
   // The check-in card fills the window and its text is sized to fit it.
   useFitFont(frame, view === 'checkIn', view)
   // The bubble keeps its design size: the window is fitted to it, not the other way round, so the
@@ -116,22 +117,28 @@ function Overlay(): React.JSX.Element {
   }, [view])
 
   // The window is fitted to the bubble, keeping its top-left; docked, it shrinks back around Pip;
-  // the check-in gets its own size.
+  // the check-in gets its own size back only if Pip resized the window (else a first launch or a
+  // snooze re-open would move it, or undo a size the person dragged).
   useEffect(() => {
     const el = frame.current
-    // Esc docks the window small, so a later check-in must get its own size back.
-    if (view === 'checkIn') api.setOverlayBounds({ x: screenX, y: screenY, ...CHECKIN_SIZE })
+    if (view === 'checkIn' && resized.current) {
+      resized.current = false
+      api.setOverlayBounds({ x: screenX, y: screenY, ...CHECKIN_SIZE })
+    }
     if (view === 'docked' && atCursor) {
+      resized.current = true
       api.setOverlayBounds({ x: screenX, y: screenY, width: 0, height: 0 })
     }
     if (view !== 'triage' || !el) return
-    const fit = (): void =>
+    const fit = (): void => {
+      resized.current = true
       api.setOverlayBounds({
         x: screenX,
         y: screenY,
         width: BUBBLE_WIDTH + 2 * PAD,
         height: Math.ceil(el.getBoundingClientRect().height) + 2 * PAD
       })
+    }
     const observer = new ResizeObserver(fit)
     observer.observe(el)
     return () => observer.disconnect()
