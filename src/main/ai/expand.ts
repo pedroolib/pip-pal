@@ -20,6 +20,11 @@ const OUTPUTS = {
   transition: Transition.omit({ kind: true }).extend({ plan: Transition.shape.plan.min(1) })
 }
 
+// TODO(prompts, from the ai:lite run on 2026-11-02; Haiku liked better, both improvable): never assume who sent the
+// message (both models wrote "Alex", the profile's manager, as the sender); no steps that coach tone or masking
+// ("add a friendly line") unless asked; copy [Role] tokens exactly (Haiku wrote "[Teammate]" for
+// "[Teammate on the forecasting project]", so restore missed it); no pedantic gaps ("which Monday", "which year");
+// plan is 13–18 lines, keep it as short as the profile suggests. Re-run `npm run ai:lite` after each change.
 const BASE = `You are Pip, a companion for an autistic adult in their first year of work. They selected a work message and asked for one specific kind of help with it.
 
 Rules:
