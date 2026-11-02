@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 import samJson from '@shared/fixtures/sam.profile.json'
 import { Profile } from '@shared/schemas'
 import { MAX_CHARS } from './decoder'
-import { createExpander, type ClaudeTool, type ClaudeToolClient } from './expand'
+import { createExpander, type ClaudeJsonClient } from './expand'
 
 const profile = Profile.parse(samJson) // owner Sam; people Alex (Manager), Dana, Rui
 const now = (): Date => new Date('2026-11-02T09:00:00Z')
@@ -33,22 +34,22 @@ const answers = {
 
 // The fake records every string it is handed, so tests can prove what would leave the machine.
 function fake(replies: unknown[]): {
-  claude: ClaudeToolClient
+  claude: ClaudeJsonClient
   sent: string[]
-  tools: ClaudeTool[]
+  schemas: z.ZodType[]
   calls: () => number
 } {
   const sent: string[] = []
-  const tools: ClaudeTool[] = []
+  const schemas: z.ZodType[] = []
   let i = 0
-  const claude: ClaudeToolClient = {
-    ask: async ({ system, user, tool }) => {
-      sent.push(system, user, JSON.stringify(tool))
-      tools.push(tool)
+  const claude: ClaudeJsonClient = {
+    ask: async ({ system, user, schema }) => {
+      sent.push(system, user, JSON.stringify(z.toJSONSchema(schema).properties))
+      schemas.push(schema)
       return replies[Math.min(i++, replies.length - 1)]
     }
   }
-  return { claude, sent, tools, calls: () => i }
+  return { claude, sent, schemas, calls: () => i }
 }
 const userOf = (f: { sent: string[] }): string => f.sent.find((s) => s.includes('Profile:'))!
 
@@ -89,30 +90,23 @@ describe('createExpander', () => {
     })
   })
 
-  it('sends one narrow tool per kind, with no item cap in its schema', async () => {
+  it('sends one narrow schema per kind, with no item cap and no tool wording', async () => {
     const expected = {
-      steps: { name: 'list_steps', props: ['steps', 'profileUsed'] },
-      questions: {
-        name: 'list_questions',
-        props: ['questions', 'profileUsed']
-      },
-      transition: {
-        name: 'plan_transition',
-        props: ['plan', 'questionsToAsk', 'profileUsed']
-      }
+      steps: ['steps', 'profileUsed'],
+      questions: ['questions', 'profileUsed'],
+      transition: ['plan', 'questionsToAsk', 'profileUsed']
     } as const
     for (const kind of ['steps', 'questions', 'transition'] as const) {
       const f = fake([answers[kind]])
       await createExpander({ claude: f.claude })('New project.', kind, 3, profile)
-      const tool = f.tools[0]
-      expect(tool.name).toBe(expected[kind].name)
-      expect(tool.input_schema.type).toBe('object')
-      expect(tool.input_schema.$schema).toBeUndefined()
-      const props = tool.input_schema.properties as Record<string, { maxItems?: number }>
-      expect(Object.keys(props).sort()).toEqual([...expected[kind].props].sort())
+      const json = z.toJSONSchema(f.schemas[0])
+      expect(json.type).toBe('object')
+      const props = json.properties as Record<string, { maxItems?: number }>
+      expect(Object.keys(props).sort()).toEqual([...expected[kind]].sort())
       for (const p of Object.values(props)) expect(p.maxItems).toBeUndefined()
       expect(f.sent[0]).toMatch(/how this person likes tasks broken down/)
       expect(f.sent[0]).not.toMatch(/at most|3 to 5/)
+      expect(f.sent[0]).not.toMatch(/\btool\b/i)
       expect(f.sent[0]).toMatch(new RegExp(`<message>.*untrusted`, 's'))
     }
   })
@@ -163,11 +157,11 @@ describe('createExpander', () => {
       expect(String(err)).not.toContain(leak)
   })
 
-  it('rejects an answer with no tool call after exactly one call', async () => {
+  it('rejects an empty answer after exactly one call', async () => {
     const f = fake([undefined, answers.questions])
     await expect(
       createExpander({ claude: f.claude })('New project.', 'questions', 3, profile)
-    ).rejects.toThrow('Claude returned an invalid questions answer: no tool call in the answer.')
+    ).rejects.toThrow('Claude returned an invalid questions answer: invalid_type at root.')
     expect(f.calls()).toBe(1)
   })
 

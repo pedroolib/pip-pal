@@ -198,11 +198,6 @@ try {
     save([{ model: 'jev', runs, fields, actions, summary }])
   } else if (expandMode) {
     const KINDS = ['steps', 'questions', 'transition']
-    const TOOL_KIND = {
-      list_steps: 'steps',
-      list_questions: 'questions',
-      plan_transition: 'transition'
-    }
     let claude
     if (dry) {
       // The first questions call returns garbage so the invalid path shows up.
@@ -211,8 +206,14 @@ try {
       )
       let garbled = false
       claude = {
-        async ask({ tool }) {
-          const kind = TOOL_KIND[tool.name]
+        async ask({ schema }) {
+          // The kind shows in the Zod schema's top-level fields.
+          const fields = Object.keys(schema.shape)
+          const kind = fields.includes('plan')
+            ? 'transition'
+            : fields.includes('steps')
+              ? 'steps'
+              : 'questions'
           if (!garbled && kind === 'questions') {
             garbled = true
             return { nope: 1 }

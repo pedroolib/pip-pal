@@ -219,10 +219,10 @@ describe('createDecoder', () => {
       expect(String(err)).not.toContain(leak)
   })
 
-  it('rejects an answer with no tool call (undefined) after exactly one call', async () => {
+  it('rejects an empty answer after exactly one call', async () => {
     const f = fakes({ claude: [undefined, { classification: claudeClassification, decode }] })
     await expect(createDecoder(f)('New project.', 3, profile)).rejects.toThrow(
-      'Claude returned an invalid decode answer: no tool call in the answer.'
+      'Claude returned an invalid decode answer: invalid_type at root.'
     )
     expect(f.calls()).toBe(1)
   })
