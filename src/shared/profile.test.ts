@@ -237,6 +237,7 @@ describe('buildProfileContext', () => {
 
       ## learning
       - Learns best from a written example, then trying it alone. (coach)
+      - Prefers a task broken into small, concrete steps, each one saying what done looks like, so nothing is left to guess. (coach)
 
       ## changes
       - Needs the why of a change first, then who to ask and by when. (coach)

@@ -40,7 +40,8 @@
       { "text": "Spots patterns and errors others miss; follows processes carefully.", "origin": "coach", "visibleTo": ["coach", "manager"] }
     ],
     "learning": [
-      { "text": "Learns best from a written example, then trying it alone.", "origin": "coach", "visibleTo": ["coach", "manager"] }
+      { "text": "Learns best from a written example, then trying it alone.", "origin": "coach", "visibleTo": ["coach", "manager"] },
+      { "text": "Prefers a task broken into small, concrete steps, each one saying what done looks like, so nothing is left to guess.", "origin": "coach", "visibleTo": ["coach", "manager"] }
     ],
     "changes": [
       { "text": "Needs the why of a change first, then who to ask and by when.", "origin": "coach", "visibleTo": ["coach", "manager"] },

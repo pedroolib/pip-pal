@@ -162,6 +162,20 @@ describe('createExpander', () => {
     expect(system).not.toMatch(/\d|at most|up to|no more than/i)
   })
 
+  it('questions: a gap counts only if it changes what the person does and cannot be worked out; transition never repeats', async () => {
+    const q = fake([answers.questions])
+    await createExpander({ claude: q.claude })('New project.', 'questions', 3, profile)
+    expect(q.sent[0]).toMatch(/would change what the person does/)
+    expect(q.sent[0]).toMatch(/date of today/)
+    expect(q.sent[0]).toMatch(/never ask which Monday/i)
+    expect(q.sent[0]).not.toMatch(/\d|at most|up to|no more than/i)
+    const t = fake([answers.transition])
+    await createExpander({ claude: t.claude })('Moving desks.', 'transition', 3, profile)
+    expect(t.sent[0]).toMatch(/only when no action already asks it/)
+    expect(t.sent[0]).toMatch(/restate the message/)
+    expect(t.sent[0]).not.toMatch(/\d|at most|up to|no more than/i)
+  })
+
   it('tells the model the flagged unclear parts, only for questions', async () => {
     const focus = 'Focus on: when it is due; what exactly is wanted or who does it.'
     const q = fake([answers.questions])
