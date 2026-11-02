@@ -5,7 +5,92 @@
     "done": "Done",
     "stuck": "I'm stuck",
     "then": "Then {{step}}",
-    "canWait": "The rest can wait"
+    "canWait": "The rest can wait",
+    "minimize": "Tuck the card away",
+    "allDone": "All done for now",
+    "allDoneBody": "Every step is finished. Nice, steady work.",
+    "restWaiting_one": "{{count}} more step can wait for another time.",
+    "restWaiting_other": "{{count}} more steps can wait for another time.",
+    "close": "Close"
+  },
+  "checkIn": {
+    "title": "How many spoons do you have right now?",
+    "hint": "Spoons are your energy. There's no wrong answer.",
+    "spoons_one": "{{count}} spoon",
+    "spoons_other": "{{count}} spoons",
+    "notNow": "Not now",
+    "low": "Thanks for telling me. I'll keep today's plans short.",
+    "thanks": "Thanks. Good to know.",
+    "continue": "Continue"
+  },
+  "calm": {
+    "offer": "{{strategy}} helps you. {{minutes}} min, then {{then}}?",
+    "whySelf": "From your manual: you said this helps you settle.",
+    "whyCoach": "From your manual: you and your coach picked this.",
+    "start": "Start {{minutes}} min",
+    "skip": "Skip",
+    "ready": "I'm ready",
+    "left_one": "{{count}} minute left",
+    "left_other": "{{count}} minutes left",
+    "step1": "step 1",
+    "thisStep": "this step"
+  },
+  "dock": {
+    "open": "Open Pip",
+    "stepDone": "Step {{n}} done"
+  },
+  "decode": {
+    "eyebrow": "Got it. Here's what they need",
+    "change": "Change: {{type}}",
+    "changeTypes": {
+      "none": "none",
+      "project": "project",
+      "leader": "new lead",
+      "priorities": "priorities",
+      "other": "other"
+    },
+    "tone": "Tone: {{tone}}",
+    "toneUrgent": "Tone: {{tone}}, urgent",
+    "toneNotUrgent": "Tone: {{tone}}, not urgent",
+    "tones": {
+      "friendly": "friendly",
+      "neutral": "neutral",
+      "urgent": "urgent",
+      "frustrated": "frustrated",
+      "unclear": "unclear"
+    },
+    "inferred": "(inferred)",
+    "stepsTitle": "Your steps",
+    "canWait_one": "The rest can wait ({{count}} step)",
+    "canWait_other": "The rest can wait ({{count}} steps)",
+    "ask": {
+      "title": "Ask, don't guess",
+      "copy": "Copy question",
+      "copied": "Copied"
+    },
+    "expected": "What's expected, and why",
+    "changePlan": "Getting through the change",
+    "questions": "Questions you could ask",
+    "usedManual": "Used your manual",
+    "start": "Start step 1",
+    "later": "Save for later",
+    "fromCache": "Saved answer, the connection was slow."
+  },
+  "pip": {
+    "moods": {
+      "calm": "Pip, calm",
+      "thinking": "Pip, thinking",
+      "happy": "Pip, happy",
+      "gentle": "Pip, gentle",
+      "showing": "Pip, showing you something",
+      "quiet": "Pip, paused",
+      "hello": "Pip, saying hello",
+      "celebrate": "Pip, celebrating",
+      "sleepy": "Pip, winding down",
+      "reading": "Pip, reading your selection",
+      "listening": "Pip, listening",
+      "thanks": "Pip, saying thanks"
+    }
   },
   "manual": {
     "title": "My manual",

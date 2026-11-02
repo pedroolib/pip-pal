@@ -1,12 +1,25 @@
-import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
+import { app, shell, BrowserWindow, globalShortcut, ipcMain, powerMonitor, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { IPC } from '@shared/ipc'
+import { IPC, OVERLAY_MIN } from '@shared/ipc'
+import { captureSelection } from './capture'
+import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers } from './mock'
+import { openStorage } from './storage'
+
+// Explicit Control: `CommandOrControl` would become ⌘ on Mac (docs/DECISIONS.md, notes for A).
+// shortcut: fixed until there is a settings screen to change it.
+const HOTKEY = 'Control+Shift+Space'
+
+// One Pip at a time. Global shortcuts don't work on Wayland, so a compositor bind runs
+// `pip-pal --capture`; that second launch only hands the request to this one and exits.
+if (!app.requestSingleInstanceLock()) app.exit()
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
 const OVERLAY = { width: 448, height: 400, margin: 16 }
+// The window's transparent padding (p-8) may go past the screen edge while dragging; the card may not.
+const OVERLAY_PAD = 32
 
 // Clicks on the overlay's transparent area go to the app underneath. `forward` keeps mouse moves
 // reaching the renderer, which reports when the pointer is over Pip. Linux can't forward them, so
@@ -32,6 +45,9 @@ function createOverlay(): void {
     fullscreenable: false,
     skipTaskbar: true,
     autoHideMenuBar: true,
+    // Clicking or dragging Pip must not take the keyboard: the hotkey's ⌘C has to reach the app with
+    // the selection. The overlay has no text fields; give it focus back if one is ever added.
+    focusable: false,
     // macOS: a non-activating panel is what reliably floats over other apps' full-screen Spaces;
     // setVisibleOnAllWorkspaces alone only works some of the time.
     ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
@@ -75,6 +91,28 @@ function createOverlay(): void {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+// Hotkey pressed: read the selection and hand it to the overlay. Ignores presses while one is running.
+let capturing = false
+async function capture(): Promise<void> {
+  if (capturing) return
+  capturing = true
+  try {
+    const { text, fromSelection, app: from } = await captureSelection()
+    if (is.dev) {
+      // Only a preview, so the terminal doesn't fill with whole messages.
+      const source = fromSelection ? 'selection' : 'last copied'
+      const where = from ? ` (⌘C went to ${from})` : ''
+      console.log(`[capture] ${source}${where}, ${text.length} chars: ${text.slice(0, 80)}…`)
+    }
+    const win = overlay
+    if (!text.trim() || !win) return
+    win.showInactive()
+    win.webContents.send(IPC.captured, text)
+  } finally {
+    capturing = false
   }
 }
 
@@ -133,7 +171,8 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  registerMockHandlers()
+  const storage = openStorage()
+  registerMockHandlers(storage)
 
   ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -141,7 +180,52 @@ app.whenReady().then(() => {
     win.setIgnoreMouseEvents(!interactive, { forward: true })
   })
 
+  // Dragging a card or Pip moves the overlay; dragging a card's edge resizes it. A transparent window
+  // can't use the OS resize or CSS drag regions (they'd swallow the mouse moves click-through needs),
+  // so the renderer sends the bounds it wants and this keeps them sane.
+  ipcMain.on(IPC.overlayBounds, (event, b: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || typeof b !== 'object' || b === null) return
+    const { x, y, width, height } = b as Record<string, unknown>
+    const nums = [x, y, width, height]
+    if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n))) return
+    const [bx, by, bw, bh] = nums as number[]
+    const { workArea: wa } = screen.getDisplayNearestPoint({
+      x: Math.round(bx + bw / 2),
+      y: Math.round(by + bh / 2)
+    })
+    const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
+    const w = Math.round(clamp(bw, OVERLAY_MIN.width, wa.width + 2 * OVERLAY_PAD))
+    const h = Math.round(clamp(bh, OVERLAY_MIN.height, wa.height + 2 * OVERLAY_PAD))
+    win.setBounds({
+      x: Math.round(clamp(bx, wa.x - OVERLAY_PAD, wa.x + wa.width - w + OVERLAY_PAD)),
+      y: Math.round(clamp(by, wa.y - OVERLAY_PAD, wa.y + wa.height - h + OVERLAY_PAD)),
+      width: w,
+      height: h
+    })
+  })
+
   createOverlay()
+  // Spoons check-ins at 9, 13 and 17 h. Shown without taking focus, like a captured message.
+  const checkIns = startCheckInSchedule({
+    listCheckIns: () => storage.checkIns.list(),
+    onDue: (slot) => {
+      if (is.dev) console.log(`[check-in] ${slot} is due`)
+      const win = overlay
+      if (!win) return
+      win.showInactive()
+      win.webContents.send(IPC.checkInDue, slot)
+    },
+    times: is.dev ? parseCheckInTimes(process.env['PIP_CHECK_IN_TIMES']) : undefined
+  })
+  powerMonitor.on('resume', checkIns.resume)
+  app.on('will-quit', checkIns.stop)
+  if (!globalShortcut.register(HOTKEY, () => void capture())) {
+    console.warn(`[capture] ${HOTKEY} is taken by another app; use \`pip-pal --capture\` instead.`)
+  }
+  app.on('second-instance', (_, argv) => {
+    if (argv.includes('--capture')) void capture()
+  })
   ipcMain.on(IPC.homeOpen, openHome)
   // shortcut: opened at launch until the tray/hotkey opens it; replace when the shell lands
   openHome()
@@ -164,6 +248,8 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
+
+app.on('will-quit', () => globalShortcut.unregisterAll())
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
