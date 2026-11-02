@@ -90,6 +90,8 @@ function openHome(): void {
     }
   })
   home = win
+  // Keep the title "Pip's House" instead of the page <title>.
+  win.on('page-title-updated', (e) => e.preventDefault())
   win.on('closed', () => {
     if (home === win) home = null
   })
