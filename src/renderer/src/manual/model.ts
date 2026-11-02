@@ -37,7 +37,8 @@ export function addAlias(list: string[], text: string): string[] {
   const out = [...list]
   for (const raw of text.split(',')) {
     const a = raw.trim()
-    if (a && a.length <= ALIAS_MAX && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
+    if (a && a.length <= ALIAS_MAX && !out.some((x) => x.toLowerCase() === a.toLowerCase()))
+      out.push(a)
   }
   return out
 }
