@@ -1,6 +1,6 @@
 # Burbuja del triage
 
-Borrador en revisión (2026-11-02). Es lo que aparece junto al cursor al seleccionar texto y pulsar `Control+Shift+Space`. Los datos salen de `Triage` (`src/shared/schemas.ts`); qué campo se muestra y por qué está en [DECISIONS.md §4](../DECISIONS.md). Este archivo dice cómo se ve.
+Implementada (2026-11-02). Es lo que aparece junto al cursor al seleccionar texto y pulsar `Control+Shift+Space`. Los datos salen de `Triage` (`src/shared/schemas.ts`); qué campo se muestra y por qué está en [DECISIONS.md §4](../DECISIONS.md). Este archivo dice cómo se ve.
 
 ## Ideas
 
@@ -19,12 +19,21 @@ No se pregunta a Jev porque el código ya lo sabe con una regla. Jev elige cuál
 
 **5. La etiqueta de cambio va dentro de su botón**, como encabezado, igual que "ASK, DON'T GUESS" en el suyo. Así ya no queda flotando fuera del botón.
 
+**6. El botón de preguntas dice sobre qué va a preguntar.** Debajo de "Help me ask what's unclear" va una línea "About: when it's due", "About: what to do or with whom" o las dos juntas. Sale de las partes poco claras (`deadline`, `what_or_who`), las mismas que deciden el `?`.
+
+**7. La evidencia se ve a pedido.** La etiqueta de la fecha (o de la urgencia, si no hay fecha) lleva un subrayado punteado y un tooltip (shadcn `Tooltip`) con la frase del mensaje que la respalda (`evidence.deadline` / `evidence.urgency`). Aparece al pasar el mouse y con el foco del teclado, y se abre **arriba** de la línea para no tapar "worth asking". Sin evidencia no hay subrayado ni tooltip.
+
+**8. La cita del tono se corta a 2 líneas.** Si es más larga, termina en "…" y la cita completa está en un tooltip (con foco de teclado). Una cita corta es texto normal.
+
+**9. No hay botón de cerrar.** Esc cierra la burbuja y Pip queda acoplado donde estaba. Nada en la interfaz lo menciona. *Idea en desarrollo: puede cambiar según evaluemos la UX.* Como el overlay nunca toma el foco, main registra Esc como atajo global solo mientras la burbuja está abierta (y `pip-pal --dismiss` hace lo mismo); en un navegador normal basta un `keydown`. Ver [DECISIONS.md §3](../DECISIONS.md).
+
+**10. Los botones todavía no hacen nada.** Se ven y se pueden enfocar, pero qué pasa al pulsarlos (¿expandir la tarjeta o "mitosis" de Pip?) está sin decidir.
+
 ## Estructura
 
 ```
  (Pip)  ┌─────────────────────────────────────────────┐
-        │ 📅  Before Mon, Nov 9                    ×  │
-        │     (?) worth asking                        │
+        │ 📅  Before Mon, Nov 9  (?) worth asking     │
         │ 💬  Probably just a confirmation            │
         │ 🙂  Friendly · "Hey Sam, heads up"          │
         │ ─────────────────────────────────────────── │
@@ -43,7 +52,7 @@ No se pregunta a Jev porque el código ya lo sabe con una regla. Jev elige cuál
         └─────────────────────────────────────────────┘
 ```
 
-Arriba van los hechos (cuándo, si hay que contestar, con qué tono) y abajo las acciones, en el orden de `actions`. Un botón `maybe` va con menos peso visual que un `primary`, pero se ve igual de clickeable.
+Arriba van los hechos (cuándo, si hay que contestar, con qué tono) y abajo las acciones, en el orden de `actions`. Un botón `maybe` va con borde punteado y letra normal, con menos peso visual que un `primary`, pero se ve igual de clickeable.
 
 ## Reglas de cada línea
 
@@ -52,10 +61,11 @@ Arriba van los hechos (cuándo, si hay que contestar, con qué tono) y abajo las
 | Fecha | Si hay `deadline` | "Due {date}" o "Before {date}" |
 | Urgencia | Solo si **no** hay `deadline` | "Today", "This week" o "No rush" |
 | Respuesta | Siempre | "Needs a reply", "Just confirm" o "No reply needed"; si Jev duda: "Probably needs a reply", etc. |
-| Tono | Siempre | La etiqueta del tono; la cita solo si no es neutral |
+| Tono | Siempre | La etiqueta del tono; la cita solo si no es neutral, cortada a 2 líneas |
 | A quién va | Solo si `addressee` es `group` ("This is for the whole team") o `nobody` ("Not addressed to anyone") | — |
-| Remitente | Solo si `senderRole` no es null | "From: {role}", discreto |
+| Remitente | Solo si `senderRole` no es null | "From: {role}", discreto, arriba de todo |
 | `?` worth asking | Fecha dudosa (`deadline` en `unsure` o `deadlineUnclear` alto) y el botón de preguntas existe | "worth asking" |
+| About (en el botón de preguntas) | Si hay partes poco claras (`deadlineUnclear` o `whatOrWhoUnclear` altos, o `deadline` en `unsure`) | "About: when it's due", "About: what to do or with whom" o ambas |
 
 ## Prompt para Claude Design
 
@@ -67,7 +77,6 @@ Arriba van los hechos (cuándo, si hay que contestar, con qué tono) y abajo las
 > 1. Facts, one per line, each with a small icon: when ("Before Mon, Nov 9"), whether to reply ("Probably just a confirmation"), tone ("Friendly", followed by the quote that shows why: "Hey Sam, heads up").
 > 2. A divider.
 > 3. Action buttons, full width, stacked: "Plan for this change" with the eyebrow "CHANGE: PROJECT"; "Break it into steps"; "Help me ask what's unclear" with the eyebrow "ASK, DON'T GUESS" and the line "About: when it's due".
-> 4. A close (×) button.
 >
 > **The key idea.** Any fact Pip is unsure about carries the same small "?" mark as the "Ask, don't guess" button, with the words "worth asking". The doubt and the question must read as the same thing. Only the date can be marked this way. Other doubts are worded softly ("Probably…") with no mark.
 >

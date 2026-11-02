@@ -39,6 +39,48 @@
     "open": "Open Pip",
     "stepDone": "Step {{n}} done"
   },
+  "bubble": {
+    "due": "Due {{date}}",
+    "before": "Before {{date}}",
+    "worthAsking": "worth asking",
+    "urgency": { "today": "Today", "this_week": "This week", "no_rush": "No rush" },
+    "urgencyMaybe": {
+      "today": "Probably today",
+      "this_week": "Probably this week",
+      "no_rush": "Probably no rush"
+    },
+    "reply": { "yes": "Needs a reply", "confirm_only": "Just confirm", "no": "No reply needed" },
+    "replyMaybe": {
+      "yes": "Probably needs a reply",
+      "confirm_only": "Probably just a confirmation",
+      "no": "Probably no reply needed"
+    },
+    "tone": {
+      "friendly": "Friendly",
+      "neutral": "Neutral",
+      "worried": "Worried",
+      "upset": "Upset"
+    },
+    "addressee": { "group": "This is for the whole team", "nobody": "Not addressed to anyone" },
+    "from": "From: {{role}}",
+    "quote": " · “{{quote}}”",
+    "actions": {
+      "transition": "Plan for this change",
+      "steps": "Break it into steps",
+      "questions": "Help me ask what's unclear"
+    },
+    "eyebrow": {
+      "transition": "Change: {{type}}",
+      "transitionAny": "Change",
+      "questions": "Ask, don't guess"
+    },
+    "about": {
+      "deadline": "About: when it's due",
+      "what_or_who": "About: what to do or with whom",
+      "both": "About: when it's due and what to do or with whom"
+    },
+    "error": "Pip couldn't read this one. Try again in a moment."
+  },
   "decode": {
     "eyebrow": "Got it. Here's what they need",
     "change": "Change: {{type}}",

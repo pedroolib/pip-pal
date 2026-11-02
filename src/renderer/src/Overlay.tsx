@@ -1,21 +1,18 @@
-// The overlay: check-in → decode card → (calming) → task card, one step at a time → Pip docked.
-import { useEffect, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { LOW_SPOONS, type CalmingStrategy, type CheckIn, type Decoded } from '@shared/schemas'
-import { api } from '@renderer/api'
-import { CalmingCard } from '@renderer/calm/CalmingCard'
+// The overlay: check-in → triage bubble next to the cursor (Esc closes it) → Pip docked.
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { CheckIn, Triage } from '@shared/schemas'
+import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { SNOOZE_MS, slotFor } from '@renderer/checkin/model'
-import { DecodeCard } from '@renderer/decode/DecodeCard'
-import { planSteps } from '@renderer/decode/model'
 import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
 import { useFitFont } from '@renderer/overlay/useFitFont'
 import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
 import { cn } from '@renderer/lib/utils'
 import { DockedPip } from '@renderer/pip/DockedPip'
-import { TaskCard } from '@renderer/task/TaskCard'
+import { TriageBubble } from '@renderer/triage/TriageBubble'
+import { previewTriage } from '@renderer/triage/samples'
 
-// `?spoons=2` in the URL previews the low-energy plan in a plain browser.
+// `?spoons=2` in the URL skips the check-in in a plain browser.
 function spoonsOverride(): number | null {
   const v = Number(new URLSearchParams(location.search).get('spoons'))
   return Number.isInteger(v) && v >= 1 && v <= 5 ? v : null
@@ -30,52 +27,63 @@ function todaysSpoons(checkIns: CheckIn[]): number | null {
   return latest?.spoons ?? null
 }
 
-type View = 'checkIn' | 'decode' | 'calm' | 'task' | 'docked'
+type View = 'checkIn' | 'triage' | 'docked'
+
+// The window's transparent padding around the bubble (p-[32px] below), and the bubble's width at
+// 16px: its w-96 card, Pip (44) and the gap (8). The window is sized to these, not measured, so a
+// window that starts too narrow can't keep the card squeezed.
+const PAD = 32
+const BUBBLE_WIDTH = 436
 
 function Overlay(): React.JSX.Element {
-  const { t } = useTranslation()
   const drag = useWindowDrag()
   const [view, setView] = useState<View | null>(null)
-  const [spoons, setSpoons] = useState<number | null>(null)
-  const [decoded, setDecoded] = useState<Decoded | null>(null)
-  const [strategy, setStrategy] = useState<CalmingStrategy | null>(null)
-  const [calmThen, setCalmThen] = useState<'step1' | 'thisStep'>('step1')
-  const [calmOffered, setCalmOffered] = useState(false)
-  const [started, setStarted] = useState(false)
-  const [current, setCurrent] = useState(0)
-  const spoonsRef = useRef<number | null>(null)
+  const [triage, setTriage] = useState<Triage | null>(null)
+  const [error, setError] = useState(false)
+  // Once a bubble has opened at the cursor, Pip docks where it was instead of in the screen corner.
+  const [atCursor, setAtCursor] = useState(false)
+  const checkedIn = useRef(false)
+  const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // The open card fills the window and its text is sized to fit it (docked Pip keeps the default).
   const frame = useRef<HTMLDivElement>(null)
-  useFitFont(
-    frame,
-    view !== null && view !== 'docked',
-    `${view}:${current}:${decoded?.decode.summary}`
-  )
+  // The check-in card fills the window and its text is sized to fit it.
+  useFitFont(frame, view === 'checkIn', view)
+  // The bubble keeps its design size: the window is fitted to it, not the other way round, so the
+  // window-based root size (main.css) must not scale it.
+  useLayoutEffect(() => {
+    if (view !== 'triage') return
+    document.documentElement.style.fontSize = '16px'
+    return () => {
+      document.documentElement.style.fontSize = ''
+    }
+  }, [view])
 
-  const showDecoded = (next: Decoded): void => {
-    setDecoded(next)
-    setStarted(false)
-    setCurrent(0)
-    setCalmOffered(false)
-    setView('decode')
+  const capture = (text: string): void => {
+    const id = ++request.current
+    setAtCursor(true)
+    setTriage(null)
+    setError(false)
+    setView('triage')
+    // In a plain browser `?triage=<sample>` stands in for the hotkey's selection (see samples.ts).
+    const preview = inBrowser && previewTriage(new URLSearchParams(location.search).get('triage'))
+    ;(preview || api.triage(text))
+      .then((result) => id === request.current && setTriage(result))
+      .catch(() => id === request.current && setError(true))
   }
-  const decode = (text: string): void => {
-    api.decode(text, spoonsRef.current).then(showDecoded)
-  }
+  // Nothing opens by itself in the app: after the check-in Pip docks and waits for the hotkey.
+  const afterCheckIn = (): void => (inBrowser ? capture('') : setView('docked'))
 
   useEffect(() => {
-    Promise.all([api.listCheckIns(), api.getProfile()]).then(([checkIns, profile]) => {
-      const s = spoonsOverride() ?? todaysSpoons(checkIns)
-      spoonsRef.current = s
-      setSpoons(s)
-      setStrategy(profile.calmingStrategies[0] ?? null)
-      if (s === null) setView('checkIn')
-      // shortcut: decode the demo message on launch until the hotkey capture lands (module A)
-      else api.decode('', s).then(showDecoded)
+    api.listCheckIns().then((checkIns) => {
+      checkedIn.current = spoonsOverride() !== null || todaysSpoons(checkIns) !== null
+      if (checkedIn.current) afterCheckIn()
+      else setView('checkIn')
     })
-    const offCaptured = api.onCaptured(decode)
-    const offDue = api.onCheckInDue(() => setView('checkIn'))
+    const offCaptured = api.onCaptured(capture)
+    const offDue = api.onCheckInDue(() => {
+      setAtCursor(false)
+      setView('checkIn')
+    })
     return () => {
       offCaptured()
       offDue()
@@ -85,16 +93,53 @@ function Overlay(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // While the bubble is open Esc closes it. The overlay is never focused, so main sends a dismiss
+  // when it catches Escape (or a second launch with --dismiss); the keydown is for a plain browser.
+  useEffect(() => {
+    if (view !== 'triage') return
+    api.setBubbleOpen(true)
+    const close = (): void => {
+      request.current++ // a late answer must not reopen what was closed
+      setView('docked')
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') close()
+    }
+    const offDismiss = api.onDismiss(close)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      api.setBubbleOpen(false)
+      offDismiss()
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [view])
+
+  // The window is fitted to the bubble, keeping its top-left; docked, it shrinks back around Pip.
+  useEffect(() => {
+    const el = frame.current
+    if (view === 'docked' && atCursor) {
+      api.setOverlayBounds({ x: screenX, y: screenY, width: 0, height: 0 })
+    }
+    if (view !== 'triage' || !el) return
+    const fit = (): void =>
+      api.setOverlayBounds({
+        x: screenX,
+        y: screenY,
+        width: BUBBLE_WIDTH + 2 * PAD,
+        height: Math.ceil(el.getBoundingClientRect().height) + 2 * PAD
+      })
+    const observer = new ResizeObserver(fit)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [view, atCursor])
+
   if (!view) return <></>
 
   const answer = (n: number): void => {
     const at = new Date()
     api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons: n })
-    spoonsRef.current = n
-    setSpoons(n)
-    if (decoded) setView('decode')
-    // shortcut: stand-in for the hotkey capture, so the demo flows check-in → message
-    else decode('')
+    checkedIn.current = true
+    afterCheckIn()
   }
   // Asks once more later, then leaves it: Pip never insists.
   const snoozeCheckIn = (): void => {
@@ -103,79 +148,36 @@ function Overlay(): React.JSX.Element {
     snooze.current = setTimeout(() => setView((v) => (v === 'docked' ? 'checkIn' : v)), SNOOZE_MS)
   }
 
-  const plan = decoded ? planSteps(decoded.decode.steps, spoons) : { now: [], later: [] }
-  const finished = current >= plan.now.length
-  const low = spoons !== null && spoons <= LOW_SPOONS
-
-  const start = (): void => {
-    setStarted(true)
-    if (strategy && !calmOffered && (low || decoded?.decode.change)) {
-      setCalmOffered(true)
-      setCalmThen('step1')
-      setView('calm')
-    } else setView('task')
-  }
-  const stuck = (): void => {
-    if (!strategy) return setView('decode')
-    setCalmThen('thisStep')
-    setView('calm')
-  }
-  const done = (): void => {
-    api.addAchievement({
-      at: new Date().toISOString(),
-      kind: 'step_done',
-      label: plan.now[current].text
-    })
-    setCurrent(current + 1)
-  }
+  const corner = view === 'checkIn' || (view === 'docked' && !atCursor)
 
   return (
-    <div data-overlay-root className="flex h-screen items-end justify-end p-[32px]">
-      {/* Drag any card or Pip to move the overlay, or a card's edge to resize it; tall cards scroll. */}
+    <div
+      data-overlay-root
+      className={cn('flex h-screen p-[32px]', corner ? 'items-end justify-end' : 'items-start')}
+    >
+      {/* Drag any card or Pip to move the overlay, or the check-in's edge to resize it. */}
       <div
         {...drag}
         ref={frame}
         className={cn(
-          'relative flex max-h-full w-full flex-col items-end select-none',
-          view !== 'docked' &&
+          'relative flex flex-col select-none',
+          corner ? 'max-h-full w-full items-end' : 'w-fit',
+          view === 'checkIn' &&
             'h-full [&>[data-slot=card]]:flex-1 [&>[data-slot=card]]:justify-between'
         )}
       >
-        {view !== 'docked' && <ResizeEdges />}
+        {view === 'checkIn' && <ResizeEdges />}
         {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
-        {view === 'decode' && decoded && (
-          <DecodeCard
-            decoded={decoded}
-            spoons={spoons}
-            onStart={start}
-            onLater={() => setView('docked')}
-          />
-        )}
-        {view === 'calm' && strategy && (
-          <CalmingCard
-            strategy={strategy}
-            then={t(`calm.${calmThen}`)}
-            onDone={() => setView('task')}
-          />
-        )}
-        {view === 'task' && decoded && (
-          <TaskCard
-            title={decoded.decode.asks[0] ?? decoded.decode.summary}
-            steps={plan.now}
-            laterCount={plan.later.length}
-            current={current}
-            due={decoded.decode.deadline?.text ?? null}
-            onDone={done}
-            onStuck={stuck}
-            onMinimize={() => setView('docked')}
-          />
-        )}
+        {view === 'triage' && <TriageBubble triage={triage} error={error} />}
         {view === 'docked' && (
           <DockedPip
-            mood={started && finished ? 'happy' : 'calm'}
-            progress={started ? current / plan.now.length : null}
-            doneStep={current > 0 ? current : null}
-            onOpen={() => setView(!decoded ? 'checkIn' : started && !finished ? 'task' : 'decode')}
+            mood="calm"
+            progress={null}
+            doneStep={null}
+            onOpen={() => {
+              if (triage || error) setView('triage')
+              else if (!checkedIn.current) setView('checkIn')
+            }}
           />
         )}
       </div>
