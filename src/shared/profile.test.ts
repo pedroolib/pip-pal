@@ -587,4 +587,54 @@ describe('scrubForModel on real chat text', () => {
       expect(performance.now() - t, unit).toBeLessThan(500)
     }
   })
+
+  describe('scripts without spaces', () => {
+    const cjk = [
+      { name: '김민수', role: 'Peer', msg: ['김민수 said hi', '김민수가 왔어요'] },
+      { name: '王伟', role: 'Lead', msg: ['王伟说明天开会'] },
+      { name: '田中', role: 'Buddy', msg: ['田中さんが言いました'] },
+      { name: 'สมชาย', role: 'HR', msg: ['สมชายบอกว่า'] },
+      { name: 'Dana', role: 'Coach', msg: ['D҉a҉n҉a҉ sent it'] }
+    ]
+    for (const c of cjk)
+      for (const msg of c.msg)
+        it(`scrubs and restores "${c.name}" in "${msg}"`, () => {
+          const p = { ...profile, people: [{ name: c.name, role: c.role }] }
+          const { text, restore } = scrubForModel(msg, p)
+          expect(text.normalize('NFC')).not.toContain(c.name)
+          expect(text).not.toMatch(/D.?a.?n.?a/)
+          // restore gives back the stored name, so marks the sender added are dropped
+          expect(restore(text)).toBe(msg.replace(/D.*?a.*?n.*?a.*?(?= sent)/u, 'Dana'))
+        })
+
+    it('keeps the word boundary for Latin keys next to a CJK key', () => {
+      const p = {
+        ...profile,
+        people: [
+          { name: 'Sam', role: 'Peer' },
+          { name: '王伟', role: 'Lead' }
+        ]
+      }
+      expect(scrubForModel('Samsung and 王伟说 Sam', p).text).toMatch(/^Samsung and .+ .+$/)
+      expect(scrubForModel('Samsung', p).text).toBe('Samsung')
+    })
+
+    it('stays under 500 ms with a CJK key among 200 hostile names', () => {
+      const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
+      const many = [
+        { name: '王伟', role: 'Lead' },
+        ...Array.from({ length: 200 }, (_, i) => ({
+          name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} D'${syl[(i * 5) % 8]}ễn`,
+          role: `Role ${i}`
+        }))
+      ]
+      const big = { ...profile, people: many }
+      scrubForModel('warm up', big)
+      for (const unit of ["a'", 'a-', '王', ' a']) {
+        const t = performance.now()
+        scrubForModel(unit.repeat(8000).slice(0, 8000), big)
+        expect(performance.now() - t, unit).toBeLessThan(500)
+      }
+    })
+  })
 })

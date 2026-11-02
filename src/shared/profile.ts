@@ -79,6 +79,7 @@ const fold = (s: string): string =>
   normalize(s)
     .normalize('NFD')
     .replace(/\p{M}/gu, '')
+    .normalize('NFC')
     .toLowerCase()
     .replace(new RegExp(`[${APOSTROPHES}]`, 'g'), "'")
     .replace(new RegExp(`[${HYPHENS}]+`, 'g'), ' ')
@@ -102,7 +103,7 @@ for (const [lo, hi] of [
 // Each letter may carry combining marks NFKC leaves loose ("Olsen" + U+034F, "Dana" + U+0332).
 // The combining blocks, variation selectors and half marks are listed instead of \p{M}*, which V8 runs ~40x slower here.
 const MARKS =
-  '[\\u0300-\\u036f\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe00-\\ufe0f\\ufe20-\\ufe2f]*'
+  '[\\u0300-\\u036f\\u0483-\\u0489\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe00-\\ufe0f\\ufe20-\\ufe2f]*'
 const namePattern = (key: string): string =>
   key
     .split(' ')
@@ -166,10 +167,17 @@ function nameSwapper(profile: Profile): {
     }
   }
   // Longest first so "Ana Maria" wins over "Ana". Digits and "_" count as boundaries, so "sam_rivera" and "sam123" match.
-  const names = [...all.keys()].sort((x, y) => y.length - x.length).map(namePattern)
-  const re = names.length
-    ? new RegExp(`(?<![\\p{L}\\p{M}])(?:${names.join('|')})(?![\\p{L}\\p{M}])`, 'giu')
-    : null
+  // Scripts written without spaces (and Korean particles) glue names to the next word, so those keys skip the word boundary.
+  // shortcut: Arabic/Hebrew prefixes glued to a name still leak; add those scripts to `unspaced` if that matters.
+  const unspaced = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{sc=Thai}]/u
+  const keys = [...all.keys()].sort((x, y) => y.length - x.length)
+  const spaced = keys.filter((k) => !unspaced.test(k)).map(namePattern)
+  const glued = keys.filter((k) => unspaced.test(k)).map(namePattern)
+  const alts = [
+    ...(spaced.length ? [`(?<![\\p{L}\\p{M}])(?:${spaced.join('|')})(?![\\p{L}\\p{M}])`] : []),
+    ...glued
+  ]
+  const re = alts.length ? new RegExp(alts.join('|'), 'giu') : null
   // Looked up without apostrophes, since the pattern lets "OBrien" match "O'Brien".
   const bare = new Map([...all].map(([k, w]) => [k.replace(/'/g, ''), w]))
   const find = (m: string): Who => bare.get(fold(m).replace(/'/g, '')) ?? someone
