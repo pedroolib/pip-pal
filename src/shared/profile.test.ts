@@ -420,6 +420,20 @@ describe('scrubForModel', () => {
     expect(restore(text)).toBe('Nguyễn Thị Hương said')
   })
 
+  it.each([
+    ['สมศักดิ์', 'สมศักดิ์ said', '[Lead] said'],
+    ['สมศักดิ์', 'สมศักดิ์บอกว่า', '[Lead]บอกว่า'],
+    ['राहुल शर्मा', 'राहुल said', '[Lead] said'],
+    ['ごとう', 'ごとうさんが言いました', '[Lead]さんが言いました'],
+    ['ガブリエル', 'ガブリエル said', '[Lead] said'],
+    ['রহিম', 'রহিম said', '[Lead] said'],
+    ['கார்த்திக்', 'கார்த்திக் said', '[Lead] said']
+  ])('scrubs and restores %s spelled with its own combining marks', (name, message, scrubbed) => {
+    const { text, restore } = scrubForModel(message, p([{ name, role: 'Lead' }]))
+    expect(text).toBe(scrubbed)
+    expect(restore(text)).toBe(message.replace('राहुल said', 'राहुल शर्मा said')) // a name part restores to the full name
+  })
+
   it('matches apostrophe surnames inside longer names; a part restores to the full name', () => {
     const profile = p([
       { name: "Siobhán O'Brien", role: 'PM' },

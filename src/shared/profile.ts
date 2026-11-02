@@ -78,7 +78,7 @@ const HYPHENS = '\\s‐‑-' // whitespace, U+2010, U+2011, hyphen-minus
 const fold = (s: string): string =>
   normalize(s)
     .normalize('NFD')
-    .replace(/\p{M}/gu, '')
+    .replace(/(?<=\p{Script=Latin}\p{M}*)\p{M}/gu, '') // only Latin accents fold; Thai, Devanagari, kana marks are part of the letter
     .normalize('NFC')
     .toLowerCase()
     .replace(new RegExp(`[${APOSTROPHES}]`, 'g'), "'")
