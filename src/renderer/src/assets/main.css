@@ -71,6 +71,35 @@
   }
 }
 
+/* Pip bobs gently and blinks every few seconds (src/renderer/src/pip/Pip.tsx). */
+@keyframes pip-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes pip-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+.pip-bob {
+  animation: pip-bob 4s ease-in-out infinite;
+}
+.pip-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pip-blink 5s infinite;
+}
+
 /* Honour the OS "reduce motion" setting for Pip and every shadcn animation. */
 @media (prefers-reduced-motion: reduce) {
   *,
