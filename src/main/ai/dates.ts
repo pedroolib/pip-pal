@@ -100,7 +100,8 @@ const RULES: [RegExp, (m: RegExpExecArray) => Part | null][] = [
     /(?<![\d/])(\d{1,2})\/(\d{1,2})(?:\/(\d{4}|\d{2}))?(?![\d/])/g,
     (m) => ({ day: calendar(Number(m[2]), Number(m[1]), m[3]) })
   ],
-  // Weekdays: a bare one is the next on or after today; "this" is this week's, "next" the following week's.
+  // Weekdays: a bare one is the next after today (said on a Monday, "Monday" is next week's; today is "today");
+  // "this" is this week's, "next" the following week's.
   [
     new RegExp(
       `${B}(?:(this|next|este|esta|el\\s+pr[óo]ximo|pr[óo]ximo|el)\\s+)?${WEEKDAY}(\\s+que\\s+viene|\\s+next\\s+week)?${E}`,
@@ -115,7 +116,7 @@ const RULES: [RegExp, (m: RegExpExecArray) => Part | null][] = [
           const today = (now.getDay() + 6) % 7
           if (week === 'next') return plusDays(now, 7 - today + w)
           if (week === 'current') return plusDays(now, w - today)
-          return plusDays(now, (w - today + 7) % 7)
+          return plusDays(now, (w - today + 7) % 7 || 7)
         }
       }
     }

@@ -53,6 +53,8 @@ describe('findDateCandidates', () => {
     expect(at('el próximo viernes')).toBe('2026-11-13')
     expect(at('el viernes que viene')).toBe('2026-11-13')
     expect(at('today')).toBe('2026-11-04')
+    expect(at('starting Wednesday')).toBe('2026-11-11')
+    expect(at('this Wednesday')).toBe('2026-11-04')
   })
 
   it('reads month names in EN and ES, numeric day/month, and rolls past dates to next year', () => {

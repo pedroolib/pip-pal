@@ -2,7 +2,7 @@
   "type": { "value": "change", "p": 0.88 },
   "needsReply": { "value": "confirm_only", "p": 0.62 },
   "urgency": { "value": "this_week", "p": 0.74, "explicit": false },
-  "deadline": { "text": "Monday", "date": "2026-11-02", "explicit": false },
+  "deadline": { "text": "Monday", "date": "2026-11-09", "explicit": false },
   "tone": { "value": "friendly", "p": 0.91 },
   "isNewTask": 0.82,
   "isChange": 0.99,
