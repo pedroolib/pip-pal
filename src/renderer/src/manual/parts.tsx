@@ -343,7 +343,6 @@ export function Block(props: {
   onAdd: () => void
   children: React.ReactNode
 }): React.JSX.Element {
-  const { t } = useTranslation()
   const footer = !props.formOpen && (
     <div className="border-t px-3 py-1">
       <Button variant="ghost" className="min-h-11 text-primary" onClick={props.onAdd}>
