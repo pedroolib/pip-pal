@@ -63,6 +63,10 @@ Electron tiene ventanas transparentes, `globalShortcut` y portapapeles maduros, 
 - **Tailwind puro para lo visual y el layout:** la barra de 5 segmentos (el `Progress` de shadcn es continuo), las etiquetas, el `<kbd>`.
 - El tema vive en las variables CSS de `src/renderer/src/assets/main.css`. El look por defecto de shadcn es genérico; con Harbor deja de serlo.
 
+**Flujo del overlay: check-in → burbuja → acoplado.** La burbuja de triage reemplaza a las vistas de decode, calma y tarea. Los botones de acción todavía no hacen nada.
+
+**La burbuja se abre junto al cursor y se cierra con Esc** (idea en desarrollo: puede cambiar según evaluemos la UX). El overlay nunca recibe foco, así que no oye teclas. Por eso Esc se registra como atajo global solo mientras la burbuja está abierta, y se suelta al cerrar, al cerrar el overlay y al salir. También se cierra con `pip-pal --dismiss`. En Hyprland el cursor se pide con `hyprctl cursorpos`; en otros sistemas, a Electron.
+
 Detalles de diseño en [design/README.md](design/README.md).
 
 ## 4. IA

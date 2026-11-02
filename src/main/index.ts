@@ -1,8 +1,9 @@
 import { app, shell, BrowserWindow, globalShortcut, ipcMain, powerMonitor, screen } from 'electron'
+import { execFile } from 'child_process'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { IPC, OVERLAY_MIN } from '@shared/ipc'
+import { IPC, OVERLAY_MIN, type Bounds } from '@shared/ipc'
 import { captureSelection } from './capture'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers } from './mock'
@@ -27,6 +28,48 @@ const OVERLAY_PAD = 32
 const CLICK_THROUGH = process.platform !== 'linux'
 
 let overlay: BrowserWindow | null = null
+
+// Keeps the window on the display's work area; only the transparent padding may go past the edge.
+function clampBounds({ x, y, width, height }: Bounds): Bounds {
+  const { workArea: wa } = screen.getDisplayNearestPoint({
+    x: Math.round(x + width / 2),
+    y: Math.round(y + height / 2)
+  })
+  const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
+  const w = Math.round(clamp(width, OVERLAY_MIN.width, wa.width + 2 * OVERLAY_PAD))
+  const h = Math.round(clamp(height, OVERLAY_MIN.height, wa.height + 2 * OVERLAY_PAD))
+  return {
+    x: Math.round(clamp(x, wa.x - OVERLAY_PAD, wa.x + wa.width - w + OVERLAY_PAD)),
+    y: Math.round(clamp(y, wa.y - OVERLAY_PAD, wa.y + wa.height - h + OVERLAY_PAD)),
+    width: w,
+    height: h
+  }
+}
+
+// shortcut: under Hyprland Electron reports a stale cursor, so ask the compositor; any failure falls back to Electron's.
+function cursorPoint(): Promise<{ x: number; y: number }> {
+  const fallback = screen.getCursorScreenPoint()
+  if (process.platform !== 'linux' || !process.env['HYPRLAND_INSTANCE_SIGNATURE']) {
+    return Promise.resolve(fallback)
+  }
+  return new Promise((resolve) => {
+    execFile('hyprctl', ['cursorpos'], { timeout: 500 }, (err, stdout) => {
+      const [x, y] = stdout.split(',').map((n) => Number.parseInt(n, 10))
+      resolve(err || !Number.isFinite(x) || !Number.isFinite(y) ? fallback : { x, y })
+    })
+  })
+}
+
+// Esc is global only while the bubble is open: the overlay is never focused, so it can't hear keys,
+// and a permanent Escape shortcut would steal it from every other app.
+function setEscape(on: boolean): void {
+  globalShortcut.unregister('Escape')
+  if (!on) return
+  globalShortcut.register('Escape', () => {
+    globalShortcut.unregister('Escape')
+    overlay?.webContents.send(IPC.dismiss)
+  })
+}
 
 // The overlay: transparent, frameless and docked bottom-right, floating over every app.
 function createOverlay(): void {
@@ -67,6 +110,7 @@ function createOverlay(): void {
   overlay = mainWindow
   mainWindow.on('closed', () => {
     overlay = null
+    setEscape(false)
   })
 
   // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
@@ -109,6 +153,12 @@ async function capture(): Promise<void> {
     }
     const win = overlay
     if (!text.trim() || !win) return
+    // The bubble opens next to the cursor, its card just inside the transparent padding.
+    const cursor = await cursorPoint()
+    const { width, height } = win.getBounds()
+    win.setBounds(
+      clampBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
+    )
     win.showInactive()
     win.webContents.send(IPC.captured, text)
   } finally {
@@ -190,19 +240,13 @@ app.whenReady().then(() => {
     const nums = [x, y, width, height]
     if (!nums.every((n) => typeof n === 'number' && Number.isFinite(n))) return
     const [bx, by, bw, bh] = nums as number[]
-    const { workArea: wa } = screen.getDisplayNearestPoint({
-      x: Math.round(bx + bw / 2),
-      y: Math.round(by + bh / 2)
-    })
-    const clamp = (v: number, min: number, max: number): number => Math.min(Math.max(v, min), max)
-    const w = Math.round(clamp(bw, OVERLAY_MIN.width, wa.width + 2 * OVERLAY_PAD))
-    const h = Math.round(clamp(bh, OVERLAY_MIN.height, wa.height + 2 * OVERLAY_PAD))
-    win.setBounds({
-      x: Math.round(clamp(bx, wa.x - OVERLAY_PAD, wa.x + wa.width - w + OVERLAY_PAD)),
-      y: Math.round(clamp(by, wa.y - OVERLAY_PAD, wa.y + wa.height - h + OVERLAY_PAD)),
-      width: w,
-      height: h
-    })
+    win.setBounds(clampBounds({ x: bx, y: by, width: bw, height: bh }))
+  })
+
+  ipcMain.on(IPC.bubbleOpen, (event, open: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || typeof open !== 'boolean') return
+    setEscape(open)
   })
 
   createOverlay()
@@ -225,6 +269,7 @@ app.whenReady().then(() => {
   }
   app.on('second-instance', (_, argv) => {
     if (argv.includes('--capture')) void capture()
+    if (argv.includes('--dismiss')) overlay?.webContents.send(IPC.dismiss)
   })
   ipcMain.on(IPC.homeOpen, openHome)
   // shortcut: opened at launch until the tray/hotkey opens it; replace when the shell lands

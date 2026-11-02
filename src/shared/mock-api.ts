@@ -69,6 +69,8 @@ export function createMockApi(): PipApi {
     exportSummaryPdf: async () => null,
     openHome: () => {},
     setOverlayInteractive: () => {},
-    setOverlayBounds: () => {}
+    setOverlayBounds: () => {},
+    onDismiss: () => () => {},
+    setBubbleOpen: () => {}
   }
 }

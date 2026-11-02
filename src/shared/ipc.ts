@@ -46,7 +46,11 @@ export const IPC = {
   /** overlay → main: whether the pointer is over Pip, so clicks elsewhere fall through to the app below. */
   overlayInteractive: 'overlay:interactive',
   /** overlay → main: move or resize the overlay window as the person drags a card, its edges or Pip. */
-  overlayBounds: 'overlay:bounds'
+  overlayBounds: 'overlay:bounds',
+  /** main → overlay: close the open bubble (Esc or `pip-pal --dismiss`). */
+  dismiss: 'pip:dismiss',
+  /** overlay → main: whether the triage bubble is open; Esc is a global shortcut only while it is. */
+  bubbleOpen: 'overlay:bubble-open'
 } as const
 
 export interface PipApi {
@@ -82,4 +86,8 @@ export interface PipApi {
   setOverlayInteractive(interactive: boolean): void
   /** Overlay only: move/resize the window (screen px); main keeps it on screen and at least OVERLAY_MIN. */
   setOverlayBounds(bounds: Bounds): void
+  /** Returns an unsubscribe function. */
+  onDismiss(cb: () => void): () => void
+  /** Overlay only: tell main the bubble opened or closed; ignored from other windows. */
+  setBubbleOpen(open: boolean): void
 }
