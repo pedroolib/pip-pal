@@ -68,7 +68,7 @@ try {
           garbled = true
           return { nope: 1 }
         }
-        const isChange = /moving|pasas|instead|pulled forward/i.test(user.split('\nMessage:\n')[1])
+        const isChange = /moving|pasas|instead|pulled forward/i.test(user.split('<message>')[1])
         const classification = { ...demo.classification, isChange: isChange ? 0.9 : 0.1 }
         delete classification.source
         return {

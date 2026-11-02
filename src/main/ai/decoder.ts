@@ -65,7 +65,7 @@ export function createDecoder({
       buildProfileContext(profile),
       '',
       '<message>',
-      scrubbed.text,
+      scrubbed.text.replace(/<\/?message>/gi, () => ''), // the message cannot close its own wrapper
       '</message>'
     ].join('\n')
 

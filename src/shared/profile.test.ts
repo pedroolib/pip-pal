@@ -190,13 +190,70 @@ describe('buildProfileContext', () => {
     })
     expect(out.split('\n')[0]).toBe('[Me], Analyst, [email]')
     expect(out).toContain('- Email [email] or call [phone]; wiki [link] (self)')
-    expect(out).toContain('- [Manager at [phone]] helps (self)')
+    expect(out).toContain('- [Manager at] helps (self)')
     expect(out).toContain('- Call mom at [phone] (5 min) (self)')
     expect(out).not.toMatch(/@|555|acme|https/)
   })
 
   it('excludes pending', () => {
     expect(buildProfileContext(profile)).not.toContain('PENDINGTEXT')
+  })
+
+  it('keeps the Sam context byte-identical (no identifiers in it)', () => {
+    expect(buildProfileContext(Profile.parse(sam))).toMatchInlineSnapshot(`
+      "[Me], Junior data analyst, 4 months in (first job)
+
+      ## experience
+      - Degree in statistics. Built personal projects in Python and SQL before this job. (coach)
+
+      ## languages
+      - Spanish (native), English (professional, prefers it in writing). (coach)
+
+      ## communication
+      - Prefers written instructions over spoken ones; spoken requests are easy to lose. (coach)
+      - Is direct in writing; short replies can read as cold even when they are not meant to. (coach)
+
+      ## teamwork
+      - Works best with one clear owner per task and a known person to ask. (coach)
+
+      ## feedback
+      - Wants feedback that is specific and written down, with an example of what good looks like. (coach)
+
+      ## stress
+      - Vague deadlines ("when you get a chance", "soon") are the main stress trigger. (coach)
+      - Under stress, delays replying to messages instead of asking. (coach)
+
+      ## relationships
+      - Builds trust slowly; one-to-one works better than group chats. (coach)
+
+      ## sensory
+      - Open-plan noise after lunch is draining; noise-cancelling headphones help. (coach)
+
+      ## motivations
+      - Clean, correct data and knowing the work is used by someone. (self)
+
+      ## strengths
+      - Spots patterns and errors others miss; follows processes carefully. (coach)
+
+      ## learning
+      - Learns best from a written example, then trying it alone. (coach)
+
+      ## changes
+      - Needs the why of a change first, then who to ask and by when. (coach)
+      - Same-day changes are hard; a few days' notice makes a big difference. (self)
+
+      ## adjustments
+      - Instructions in writing, with an explicit deadline. (coach)
+      - Lunch 30 minutes before the team to avoid the busy cafeteria. (coach)
+
+      ## managerTips
+      - Follow a spoken request with a two-line message: what, by when. (coach)
+
+      ## calmingStrategies
+      - Listen to calm music (10 min) (self)
+      - Colouring (15 min) (self)
+      - Short walk outside (10 min) (coach)"
+    `)
   })
 })
 
@@ -309,6 +366,78 @@ describe('scrubForModel', () => {
     expect(scrubForModel('alex@corp.com', p([alex])).text).toBe('[email]')
   })
 
+  it('removes @handles and catches usernames built from a name', () => {
+    const profile = { ...p([alex]), name: 'Sam Rivera' }
+    const scrub = (t: string): string => scrubForModel(t, profile).text
+    expect(scrub('cc @samrivera and @j.doe-2.')).toBe('cc [handle] and [handle].')
+    expect(scrub('sam_rivera, rivera_s, SamRivera, sam123')).toBe(
+      '[Me]_[Me], [Me]_s, [Me], [Me]123'
+    )
+    expect(scrub('mail sam@corp.com')).toBe('mail [email]')
+  })
+
+  it('swaps two-letter name words but never particles', () => {
+    const profile = {
+      ...p([
+        { name: 'Jo Park', role: 'Peer' },
+        { name: 'María del Carmen', role: 'Lead' }
+      ]),
+      name: 'Li Bo'
+    }
+    const scrub = (t: string): string => scrubForModel(t, profile).text
+    expect(scrub('Hi Li, Jo said')).toBe('Hi [Me], [Peer] said')
+    expect(scrub('María del Carmen: reunión del lunes')).toBe('[Lead]: reunión del lunes')
+  })
+
+  it('swaps hyphenated names whole, spaced, and by each part', () => {
+    const { text, restore } = scrubForModel(
+      'Dana-Lee, Dana Lee, Dana and Lee; Dana‑Lee',
+      p([{ name: 'Dana-Lee', role: 'Coach' }])
+    )
+    expect(text).toBe('[Coach], [Coach], [Coach] and [Coach]; [Coach]')
+    expect(restore('[Coach]')).toBe('Dana-Lee')
+  })
+
+  it('matches straight, curly and missing apostrophes', () => {
+    const scrub = (t: string): string =>
+      scrubForModel(t, p([{ name: "O'Brien", role: 'Lead' }])).text
+    expect(scrub("O’Brien, OBrien, O'Brien, O´Brien and O‘Brien’s")).toBe(
+      '[Lead], [Lead], [Lead], [Lead] and [Lead]’s'
+    )
+  })
+
+  it('keeps date plus time, still removes real phones next to it', () => {
+    const scrub = (t: string): string => scrubForModel(t, p()).text
+    for (const t of ['Meeting 2026-11-01 10:30', 'moved to 2026-11-01 14:30 or 09:00', 'at 10:30'])
+      expect(scrub(t)).toBe(t)
+    expect(scrub('2026-11-01 5512345678, call 555-123-4567: ok')).toBe(
+      '2026-11-01 [phone], call [phone]: ok'
+    )
+  })
+
+  it('removes zero-width, soft-hyphen and fullwidth tricks', () => {
+    expect(scrubForModel('S​am, Sa­m and Ｓａｍ', p()).text).toBe('[Me], [Me] and [Me]')
+  })
+
+  it('keeps tokens unique and bracket-free whatever the roles are', () => {
+    const profile = p([
+      { name: 'Eve', role: 'Me' },
+      { name: 'Ana', role: 'Manager' },
+      { name: 'Bob', role: 'manager' },
+      { name: 'Cy', role: 'Manager 1' },
+      { name: 'Di', role: 'email' },
+      { name: 'Flo', role: '[Lead]' },
+      { name: 'Gus', role: 'call 555-123-4567' },
+      { name: 'Hal', role: 'Hal' }
+    ])
+    const msg = 'Sam, Eve, Ana, Bob, Cy, Di, Flo, Gus, Hal'
+    const { text, restore } = scrubForModel(msg, profile)
+    const tokens = text.split(', ')
+    expect(new Set(tokens.map((t) => t.toLowerCase())).size).toBe(tokens.length)
+    for (const t of tokens) expect(t).toMatch(/^\[[^[\]]+\]$/)
+    expect(restore(text)).toBe(msg)
+  })
+
   it('restoreDecoded restores every string and keeps the shape', () => {
     const d = structuredClone(demo) as unknown as Parameters<typeof restoreDecoded>[0]
     d.decode.summary = 'Ask [Manager] about it'
@@ -316,5 +445,77 @@ describe('scrubForModel', () => {
     expect(out.decode.summary).toBe('Ask Alex about it')
     expect(out.fromCache).toBe(d.fromCache)
     expect(Object.keys(out)).toEqual(Object.keys(d))
+  })
+})
+
+describe('scrubForModel on real chat text', () => {
+  const people = [
+    { name: 'Dana-Lee Park', role: 'Peer' },
+    { name: "Siobhán O'Neill", role: 'Coach' },
+    { name: 'María del Carmen Ruiz', role: 'Lead' },
+    { name: 'Jean-Pierre Dupont', role: 'Manager' },
+    { name: 'Zoë Ng', role: 'HR' },
+    { name: 'Ed', role: 'Buddy' }
+  ]
+  const profile: Profile = {
+    name: 'Li Bo',
+    role: 'Analyst',
+    people,
+    sections: sections({}),
+    calmingStrategies: []
+  }
+  // Output folded the way a reader sees it: no accents, any apostrophe or hyphen splits words.
+  const plain = (s: string): string =>
+    s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[’'-]/g, ' ')
+  const words = (name: string): string[] =>
+    plain(name)
+      .split(' ')
+      .filter((w) => w.length >= 2 && !['de', 'del', 'la'].includes(w))
+
+  // Slack, Teams and Outlook shapes: "Name:" prefix, @mention, curly quotes, ALL CAPS, possessives.
+  const shapes = (name: string): string[] => {
+    const parts = name.split(/[\s-]+/)
+    const first = parts[0]
+    const last = parts[parts.length - 1]
+    return [
+      `${name}: moving standup to 2026-11-01 14:30 or 09:00`,
+      `@${first} can you check? cc @${name.replace(/\s+/g, '.').toLowerCase()}`,
+      `Per ${last}’s note, “${first}” owns it. Ask ${last}.`,
+      `${name.toUpperCase()} WILL COVER, CALL +52 55 1234 5678 OR (555) 123-4567`,
+      `Thanks ${name.replace(/'/g, '’')}! ${first}, ${last}; ${last}'s doc at 10:30`
+    ]
+  }
+
+  for (const who of [{ name: profile.name, role: 'Me' }, ...people]) {
+    it(`never sends any word of "${who.name}"`, () => {
+      for (const msg of shapes(who.name)) {
+        const out = plain(scrubForModel(msg, profile).text)
+        for (const w of words(who.name))
+          expect(out, msg).not.toMatch(new RegExp(`(?<!\\p{L})${w}(?!\\p{L})`, 'u'))
+        expect(out, msg).not.toMatch(/1234|4567/)
+      }
+    })
+
+    it(`round-trips "${who.name}" and keeps the date and time`, () => {
+      const msg = `${who.name} moved it to 2026-11-01 10:30.`
+      const { text, restore } = scrubForModel(msg, profile)
+      expect(text).toContain('2026-11-01 10:30.')
+      expect(restore(text)).toBe(msg)
+    })
+  }
+
+  it('scrubs an 8000-char message with 50 people in well under 200 ms', () => {
+    const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
+    const many = Array.from({ length: 50 }, (_, i) => ({
+      name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} O'${syl[(i * 5) % 8]}ñez`,
+      role: `Role ${i}`
+    }))
+    const line = many.map((x) => `${x.name}, 2026-11-01 10:30 +52 55 1234 5678 `).join('')
+    const msg = (line + 'a-1 '.repeat(2000)).slice(0, 8000)
+    const big = { ...profile, people: many }
+    scrubForModel('warm up', big)
+    const t = performance.now()
+    scrubForModel(msg, big)
+    expect(performance.now() - t).toBeLessThan(200)
   })
 })

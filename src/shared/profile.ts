@@ -38,6 +38,7 @@ export function forRecipient(profile: Profile, recipient: Recipient): Profile {
 }
 
 const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu
+const HANDLE = /(?<![\p{L}\p{N}])@[\p{L}\p{N}](?:[\p{L}\p{N}._-]*[\p{L}\p{N}])?/gu // @mentions, minus trailing punctuation
 const TAIL = `[^\\s<>"]*[^\\s<>".,;:!?)\\]']` // a URL tail never ends on sentence punctuation
 // shortcut: a bare domain (no scheme, no www.) is only caught for the TLDs listed here, so "startup.xyz" passes; widen the list when a real case shows up.
 const URL_RE = new RegExp(
@@ -45,21 +46,40 @@ const URL_RE = new RegExp(
   'giu'
 )
 // shortcut: any run of 7+ digits split by spaces/dashes reads as a phone ("tasks 10 20 30 40" too); safe for privacy but may drop meaning, tighten if decodes suffer.
-const PHONE = /(?<![\d+])\+?\(?\d[\d\s().-]{5,}\d(?!\w)/g
-const ISO_DATES = /^\d{4}-\d{2}-\d{2}(?:\s+\d{4}-\d{2}-\d{2})*$/
+// An ISO date is matched first and kept, so "2026-11-01 10:30" is never read as a phone.
+// shortcut: a phone written exactly like a valid date ("5551-12-25 67") keeps its date-shaped part; tighten if one shows up.
+const PHONE =
+  /(?<![\d+])(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d))|(?<![\d+])\+?\(?\d[\d\s().-]{5,}\d(?!\w)/g
 
-/** NFC text with emails, links and phone numbers removed. Emails first: they may sit inside URLs. */
+// NFKC turns fullwidth letters into plain ones; format characters (zero-width, soft hyphen) hide names.
+// A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
+const normalize = (s: string): string =>
+  s
+    .replace(/´/g, "'")
+    .normalize('NFKC')
+    .replace(/\p{Cf}/gu, '')
+
+/** Normalized text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs. */
 function stripContacts(text: string): string {
-  return text
-    .normalize('NFC')
+  return normalize(text)
     .replace(EMAIL, () => '[email]')
+    .replace(HANDLE, () => '[handle]')
     .replace(URL_RE, () => '[link]')
-    .replace(PHONE, (m) => (m.replace(/\D/g, '').length < 7 || ISO_DATES.test(m) ? m : '[phone]'))
+    .replace(PHONE, (m, date) => (date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'))
 }
 
-// Case, accents and spacing folded, so "JOSE", "José" and "José" share one key.
+// Case, accents, apostrophes, hyphens and spacing folded, so "JOSE", "O’Brien" / "O'Brien", "Dana-Lee" / "Dana Lee","José" and "José" share one key.
+const APOSTROPHES = "'’‘ʼ`"
+const HYPHENS = '\\s‐‑-' // whitespace, U+2010, U+2011, hyphen-minus
+// shortcut: ł/ø/ı/ß/æ have no NFD base letter, so "Łukasz" does not match "Lukasz"; add a small fold map when a user needs it.
 const fold = (s: string): string =>
-  s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
+  normalize(s)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(new RegExp(`[${APOSTROPHES}]`, 'g'), "'")
+    .replace(new RegExp(`[${HYPHENS}]+`, 'g'), ' ')
+    .trim()
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 // Latin base letter -> itself plus its accented forms, so a name matches with or without accents.
 const VARIANTS = new Map<string, string>()
@@ -73,8 +93,20 @@ for (let cp = 0xc0; cp <= 0x24f; cp++) {
 const namePattern = (key: string): string =>
   key
     .split(' ')
-    .map((w) => [...w].map((c) => (VARIANTS.has(c) ? `[${VARIANTS.get(c)}]` : escape(c))).join(''))
-    .join('\\s+')
+    .map((w) =>
+      [...w]
+        .map((c) =>
+          c === "'" ? `[${APOSTROPHES}]?` : VARIANTS.has(c) ? `[${VARIANTS.get(c)}]` : escape(c)
+        )
+        .join('')
+    )
+    .join(`[${HYPHENS}]+`)
+
+// Name particles stay in the full-name key but are never names on their own ("del" in "reunión del lunes").
+const PARTICLES = new Set(
+  'de del la las los da di du do dos das le el y e van von der den bin'.split(' ')
+)
+const RESERVED = new Set(['me', 'someone', 'email', 'phone', 'link', 'handle'])
 
 type Who = { role: string; real: string } // role: plain text, no brackets; real: the name restore gives back
 
@@ -92,22 +124,30 @@ function nameSwapper(profile: Profile): {
   if (fold(owner.real)) who.set(fold(owner.real), owner)
   for (const p of profile.people) {
     const k = fold(p.name)
-    if (k) who.set(k, { role: stripContacts(p.role.trim()), real: p.name.trim() })
+    // A role holds no brackets or contact tokens, so its [token] stays one restorable unit.
+    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]]/g, '')
+    if (k) who.set(k, { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() })
   }
-  // Each word (3+ letters) of a full name points to the same person; a word two people share is just "someone".
+  // Each word (2+ letters, not a particle) of a full name, and the name written without spaces ("samrivera"),
+  // points to the same person; a word two people share is just "someone".
+  // shortcut: words match case-insensitively, so a person "Will" also swaps the verb "will"; this errs toward privacy, add a common-word case rule if decodes suffer.
+  // shortcut: [someone] is never restored, so the user may see it literally; explain it in the system prompt if users ask.
   const all = new Map(who)
   for (const [k, w] of who) {
-    for (const word of k.split(' ')) {
-      if (word.length < 3 || who.has(word)) continue
+    const words = k.split(/[ ']/).filter((x) => x.length >= 2 && !PARTICLES.has(x))
+    for (const word of k.includes(' ') ? [...words, k.replace(/ /g, '')] : words) {
+      if (who.has(word)) continue
       all.set(word, all.has(word) && all.get(word) !== w ? someone : w)
     }
   }
-  // Longest first so "Ana Maria" wins over "Ana".
+  // Longest first so "Ana Maria" wins over "Ana". Digits and "_" count as boundaries, so "sam_rivera" and "sam123" match.
   const names = [...all.keys()].sort((x, y) => y.length - x.length).map(namePattern)
   const re = names.length
-    ? new RegExp(`(?<![\\p{L}\\p{M}\\p{N}_])(?:${names.join('|')})(?![\\p{L}\\p{M}\\p{N}_])`, 'giu')
+    ? new RegExp(`(?<![\\p{L}\\p{M}])(?:${names.join('|')})(?![\\p{L}\\p{M}])`, 'giu')
     : null
-  const find = (m: string): Who => all.get(fold(m)) ?? someone
+  // Looked up without apostrophes, since the pattern lets "OBrien" match "O'Brien".
+  const bare = new Map([...all].map(([k, w]) => [k.replace(/'/g, ''), w]))
+  const find = (m: string): Who => bare.get(fold(m).replace(/'/g, '')) ?? someone
   // Names inside a role would leak through the replacement, so a role is scrubbed one level deep:
   // another person's name becomes their plain role (any name left inside that becomes "Me" for the owner, else "someone"),
   // and the person's own name becomes "this person", which keeps self-references from looping.
@@ -127,11 +167,19 @@ function nameSwapper(profile: Profile): {
   const restoreMap = new Map<string, string>()
   if (owner.real) restoreMap.set('[me]', owner.real)
   const people = [...new Set(who.values())].filter((w) => w !== owner)
-  const base = people.map((w) => scrubRole(w.role, w, 'this person'))
+  // A role that is empty or reads like a fixed token becomes "person", so it cannot take over [Me] or [email].
+  const base = people.map((w) => {
+    const b = scrubRole(w.role, w, 'this person')
+    return !b || RESERVED.has(b.toLowerCase()) ? 'person' : b
+  })
+  const used = new Set([...RESERVED].map((r) => `[${r}]`))
   people.forEach((w, i) => {
     const same = people.filter((_, j) => base[j].toLowerCase() === base[i].toLowerCase())
-    // People sharing a role get numbered tokens, so restore stays one-to-one.
-    const t = same.length > 1 ? `[${base[i]} ${same.indexOf(w) + 1}]` : `[${base[i]}]`
+    // People sharing a role get numbered tokens; a suffix covers clashes like "Manager" x2 next to "Manager 1".
+    const b = same.length > 1 ? `${base[i]} ${same.indexOf(w) + 1}` : base[i]
+    let t = `[${b}]`
+    for (let n = 2; used.has(t.toLowerCase()); n++) t = `[${b} ${n}]`
+    used.add(t.toLowerCase())
     token.set(w, t)
     restoreMap.set(t.toLowerCase(), w.real)
   })
