@@ -205,6 +205,13 @@ describe('createDecoder', () => {
     expect(f.sent.at(-1)).toMatch(/did not match the tool schema/)
   })
 
+  it('treats a response with no tool call (undefined) as invalid and retries once', async () => {
+    const f = fakes({ claude: [undefined, { classification: claudeClassification, decode }] })
+    const out = await createDecoder(f)('New project.', 3, profile)
+    expect(f.calls()).toBe(2)
+    expect(out.decode.change?.type).toBe('project')
+  })
+
   it('rejects after a second invalid output', async () => {
     const f = fakes({ claude: [{ nope: true }] })
     await expect(createDecoder(f)('New project.', 3, profile)).rejects.toThrow(/invalid/)

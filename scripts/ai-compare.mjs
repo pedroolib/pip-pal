@@ -144,6 +144,10 @@ try {
   console.table(
     Object.fromEntries(report.map(({ model, summary }) => [model + (dry ? ' (dry)' : ''), summary]))
   )
+  for (const { model, runs } of report) {
+    const failed = runs.find((r) => r.error) // error text only, never message content
+    if (failed) console.log(`${model}: first error (${failed.id}): ${failed.error}`)
+  }
   mkdirSync(resolve(root, 'scripts/.out'), { recursive: true })
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
   const file = resolve(root, `scripts/.out/compare-${stamp}.json`)
