@@ -20,7 +20,8 @@
     "build:mac": "electron-vite build && electron-builder --mac",
     "build:linux": "electron-vite build && electron-builder --linux",
     "test": "vitest run",
-    "ai:compare": "node scripts/ai-compare.mjs"
+    "ai:compare": "node scripts/ai-compare.mjs",
+    "ai:lite": "node scripts/compare-lite.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
