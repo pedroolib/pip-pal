@@ -91,6 +91,22 @@ Detalles de diseño en [design/README.md](design/README.md).
 - Cada botón abre su **propia tarjeta acoplada**: los Pips quedan en columna abajo a la derecha, con una tarjeta abierta a la vez ("mitosis": Pip se divide por acción). La tarjeta muestra "thinking" hasta que llega la expansión (Claude puede tardar 10–15 s), así que `expand` se llama por tipo, en paralelo.
 - Pip aparece al llamarlo y se queda donde está.
 - **Reglas para quien construya la interfaz:** (1) todo texto del modelo se muestra como **texto plano** (nada de HTML, Markdown ni enlaces automáticos; `suggestedQuestion` es texto listo para enviar); (2) manejar el rechazo "still working"; (3) pasar a `expand('questions', …, unclear)` las pistas del triage (`deadline`, `what_or_who`); (4) recortar a 3 pasos con pocas cucharas; (5) mostrar la `evidence` del tono solo si no es neutral (el tono es una elección forzada y siempre trae cita).
+
+**Qué muestra la burbuja del triage** (borrador en revisión, 2026-11-02; aún no es final; el diseño y el prompt para Claude Design están en [design/triage-bubble.md](design/triage-bubble.md)). Cada línea responde una duda de la persona; lo que repite otra línea o solo sirve al código no se muestra.
+
+| Campo | Se muestra | Por qué |
+|---|---|---|
+| `deadline` | Sí: "Due Fri, Nov 6" si `explicit`, "Before Mon, Nov 9" si no (en el triage `explicit: false` solo sale de una fecha de inicio, "starting Monday"). Fecha con `Intl.DateTimeFormat`: día de la semana, día y mes | Es lo primero que hace falta saber. "Before" dice qué es la fecha sin preguntarle nada nuevo a Jev, y el día y el mes evitan leer "Monday" como hoy. |
+| `needsReply` | Sí: "Needs a reply", "Just confirm" o "No reply needed" | Responde "¿tengo que contestar?". |
+| `tone` | Sí, como etiqueta, con su `evidence` pegada como la razón: Friendly · "Hey Sam, heads up"; sin cita si es neutral (regla 5) | Baja la ansiedad de leer el tono. Una cita suelta no se entiende; pegada a la etiqueta, deja que la persona juzgue. |
+| `urgency` | **Solo si no hay `deadline`** ("Friendly, this week") | Con fecha, la urgencia repite lo mismo: "Monday" y "this week" dicen lo mismo y duplican el "not sure". |
+| `isChange` + `changeType` | Sí, "CHANGE: PROJECT" como encabezado dentro del botón de plan | Los cambios son el centro del producto; dentro del botón sigue el mismo patrón que "ASK, DON'T GUESS". |
+| `actions` | Sí, los botones en ese orden; "maybe" con menos peso | El orden ya lo calcula el código. |
+| `unsure`, `deadlineUnclear`, `whatOrWhoUnclear` | Nunca como números. La fecha dudosa lleva el `?` del botón "Ask, don't guess" y "worth asking", y el botón dice qué preguntará ("About: when it's due"). Otras dudas van en palabras ("Probably just a confirmation"), sin `?`. Sin botón de preguntas no hay `?` | La duda y la pregunta se ven como lo mismo. El `?` solo va donde el botón sí pregunta (las pistas `deadline` y `what_or_who`, regla 3), para no prometer una pregunta que no llega. |
+| `addressee` | Solo si es `group` o `nobody` | Quita la presión de contestar lo que no es para la persona; `me` no aporta nada. |
+| `senderRole` | Opcional y discreto ("From: [Manager]") | Contexto sin adivinar: es null si el mensaje no nombra al remitente. |
+| `type`, `isNewTask`, `source` y todas las `p` | No | Las etiquetas, los botones y los umbrales del código ya los usan; un "0.73" es falsa precisión. |
+| `evidence` de fecha, urgencia y cambio | No en la burbuja (a lo más un tooltip) | Satura. |
 - Contrato: `PipApi.triage(text)` y `PipApi.expand(text, kind, spoons, unclear?)`, con fixtures en `src/shared/fixtures/demo.triage.json` y `demo.expansion.*.json`; `mock-api.ts` los sirve en el navegador.
 
 **Lo que sabemos de Jev** (investigado el 1 de noviembre; reconfirmar en https://docs.typesafe.ai):

@@ -6,6 +6,7 @@ Referencias visuales del concepto (de Canva: https://canva.link/dv2bgf5xclz1mch)
 |---|---|
 | [task-card-reference.png](task-card-reference.png) | La tarjeta de tarea objetivo: Pip asomándose, título y paso, barra de 5 segmentos, "NOW", instrucción, Done / I'm stuck / reloj, "Then…". |
 | [harbor-components.png](harbor-components.png) | Paleta Harbor y componentes: tarjeta de tarea, tarjeta de pasos ("Here's what Laura needs"), Pip acoplado con anillo de progreso y la píldora "Step 3 done". |
+| [triage-bubble.md](triage-bubble.md) | La burbuja del triage (borrador): ideas, estructura, reglas por línea y el prompt para Claude Design. |
 | [pip-moods.png](pip-moods.png) | Los 12 estados de ánimo de Pip **actuales**. Se va a redibujar (abajo). |
 
 ## Cómo se construye la tarjeta
