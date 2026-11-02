@@ -281,6 +281,15 @@ function Manual(): React.JSX.Element {
 
   const people = profile.people
   const setPeople = (list: typeof people): Profile => ({ ...profile, people: list })
+  const noEmpty = (a: string[]): string[] | undefined => (a.length ? a : undefined)
+  const alsoCalled = (a?: string[]): React.ReactNode =>
+    !!a?.length && (
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t('manual.people.alsoCalled', { aliases: a.join(', ') })}
+      </p>
+    )
+  const ownerKey = `${PEOPLE}:owner`
+  const you = t('manual.people.you', { name: profile.name })
 
   const nav: { id: string; label: string; count?: number }[] = [
     ...SECTIONS.map((s) => ({
@@ -416,19 +425,50 @@ function Manual(): React.JSX.Element {
           addLabel={t('manual.people.add')}
           onAdd={() => add(PEOPLE, `${PEOPLE}:${NEW}`)}
         >
+          {editing === ownerKey ? (
+            <Editor
+              key={ownerKey}
+              kind="owner"
+              title={you}
+              initial={{ aliases: profile.aliases ?? [] }}
+              onCancel={() => cancel(ownerKey)}
+              onSave={(d) =>
+                commit({ ...profile, aliases: noEmpty(d.aliases) }, ownerKey, ownerKey)
+              }
+            />
+          ) : (
+            <Row
+              key={ownerKey}
+              rowKey={ownerKey}
+              shared={null}
+              saved={tick(ownerKey)}
+              what={you}
+              onEdit={() => setEditing(ownerKey)}
+            >
+              <strong>{you}</strong>
+              {alsoCalled(profile.aliases)}
+            </Row>
+          )}
           {people.map((p, i) => {
             const key = `${PEOPLE}:${i}`
             return editing === key ? (
               <Editor
                 key={key}
                 kind="person"
-                initial={{ name: p.name, role: p.role }}
+                initial={{ name: p.name, role: p.role, aliases: p.aliases ?? [] }}
                 onCancel={() => cancel(key)}
                 onSave={(d) =>
                   commit(
                     setPeople(
                       people.map((x, j) =>
-                        j === i ? { name: d.name.trim(), role: d.role.trim() } : x
+                        j === i
+                          ? {
+                              ...x,
+                              name: d.name.trim(),
+                              role: d.role.trim(),
+                              aliases: noEmpty(d.aliases)
+                            }
+                          : x
                       )
                     ),
                     key,
@@ -456,6 +496,7 @@ function Manual(): React.JSX.Element {
                 }
               >
                 <strong>{p.name}</strong>, {p.role}
+                {alsoCalled(p.aliases)}
               </Row>
             )
           })}
@@ -466,7 +507,10 @@ function Manual(): React.JSX.Element {
               onSave={(d) => {
                 const key = `${PEOPLE}:${people.length}`
                 return commit(
-                  setPeople([...people, { name: d.name.trim(), role: d.role.trim() }]),
+                  setPeople([
+                    ...people,
+                    { name: d.name.trim(), role: d.role.trim(), aliases: noEmpty(d.aliases) }
+                  ]),
                   key,
                   key
                 )

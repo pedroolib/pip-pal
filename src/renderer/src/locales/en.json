@@ -149,7 +149,8 @@
       "hint": {
         "entry": "What should Pip know about how you work?",
         "strategy": "Something small that helps you settle, and for how long.",
-        "person": "Pip swaps this name for the role before asking the AI."
+        "person": "Pip swaps this name for the role before asking the AI.",
+        "owner": "Pip swaps these names for [Me] before asking the AI."
       }
     },
     "validation": "Write something first, or cancel.",
@@ -176,13 +177,24 @@
     },
     "people": {
       "title": "People",
-      "note": "Only you see this list. Before Pip asks the AI for help, each name is replaced by the role, like [Manager].",
+      "note": "Only you see this list. Before Pip asks the AI for help, each name is replaced by the role, like [Manager]. Add the other names people use too, like \"Ally\" or \"@alexr\". When a message says \"Ally\", Pip knows it means Alex and sends [Manager] instead.",
+      "you": "{{name}} (you)",
+      "alsoCalled": "Also called: {{aliases}}",
       "name": "Name",
       "role": "Role",
       "add": "Add a person",
       "deleteTitle": "Delete this person?",
       "keep": "Keep person",
       "confirm": "Delete person"
+    },
+    "aliases": {
+      "label": "Also called",
+      "remove": "Remove {{alias}}",
+      "tooLong": "Nicknames can be up to 100 characters.",
+      "hint": {
+        "person": "Other names people use for them, like \"Ally\" or \"@alexr\". Pip hides these too. Press Enter or type a comma after each one.",
+        "owner": "Names people call you, like \"Sammy\". Pip replaces them with [Me]. Press Enter or type a comma after each one."
+      }
     },
     "empty": "Nothing here yet. Add what helps you, or ask your coach.",
     "emptyEnergy": "Pip fills this in from your check-ins. You can also write your own.",

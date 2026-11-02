@@ -1,4 +1,6 @@
 // Pure list edits for the manual. New items get an id here, never in the UI.
+import { ALIAS_MAX, aliasKey } from '@shared/profile'
+
 type WithId = { id?: string }
 
 /** Replaces the item with the same id, or appends it (with a fresh id) when it is new. */
@@ -27,4 +29,41 @@ export function activeIndex(tops: number[], viewportH: number, remaining: number
     if (top <= line) active = i
   })
   return active
+}
+
+/**
+ * Adds nicknames typed or pasted as "a, b": trimmed; empty parts, case-insensitive duplicates and
+ * aliases the scrubber would ignore (`aliasKey`: under 2 letters or digits, over ALIAS_MAX once folded) are skipped.
+ */
+export function addAlias(list: string[], text: string): string[] {
+  const out = [...list]
+  for (const raw of text.split(',')) {
+    const a = raw.trim()
+    if (aliasKey(a) !== null && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
+  }
+  return out
+}
+
+/** True when a part of the text was skipped only for being too long: its first ALIAS_MAX characters would pass `aliasKey`. */
+export function hasTooLongAlias(text: string): boolean {
+  // shortcut: text that only exceeds the cap once folded (e.g. ligatures) gets no message, upgrade if that matters
+  return text.split(',').some((raw) => {
+    const a = raw.trim()
+    return aliasKey(a) === null && aliasKey(a.slice(0, ALIAS_MAX)) !== null
+  })
+}
+
+/** Adds the parts of "a, b" as chips; parts skipped only for length come back in `left`, to be shortened, not lost. */
+export function splitAliases(list: string[], text: string): { aliases: string[]; left: string } {
+  const left = text
+    .split(',')
+    .filter(hasTooLongAlias)
+    .map((a) => a.trim())
+    .join(', ')
+  return { aliases: addAlias(list, text), left }
+}
+
+/** The aliases to save with the text left in the box, or null while that text holds a part over the cap. */
+export function aliasesToSave(list: string[], pending: string): string[] | null {
+  return hasTooLongAlias(pending) ? null : addAlias(list, pending)
 }

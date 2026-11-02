@@ -3,12 +3,27 @@ import sam from './fixtures/sam.profile.json'
 import { Profile, SECTIONS, type ProfileEntry } from './schemas'
 import demo from './fixtures/demo.decoded.json'
 import {
-  buildProfileContext,
+  ALIAS_MAX,
+  aliasKey,
+  buildProfileContext as contextNew,
   ensureIds,
   forRecipient,
   restoreDecoded,
-  scrubForModel
+  scrubForModel as scrubNew
 } from './profile'
+import * as reference from './__reference/profile'
+
+// Every scrub and context below is also checked byte for byte against the old one-big-regex matcher.
+const scrubForModel: typeof scrubNew = (text, profile) => {
+  const r = scrubNew(text, profile)
+  expect(r.text, text).toBe(reference.scrubForModel(text, profile).text)
+  return r
+}
+const buildProfileContext: typeof contextNew = (profile) => {
+  const out = contextNew(profile)
+  expect(out).toBe(reference.buildProfileContext(profile))
+  return out
+}
 
 const sections = (
   some: Partial<Record<(typeof SECTIONS)[number], ProfileEntry[]>>
@@ -598,6 +613,237 @@ describe('scrubForModel', () => {
   })
 })
 
+describe('aliases', () => {
+  const people: Profile['people'] = [
+    {
+      name: 'Alex Morgan',
+      role: 'Manager',
+      aliases: ['Ally', '@alexr', 'arod', '@alex.r', 'a_rod']
+    },
+    { name: 'Juan Pablo Ortiz', role: 'Lead', aliases: [' JP ', 'Jean-Pi', 'Big Al'] },
+    { name: 'Dana López', role: 'Coach', aliases: ['D’Lo', 'Al​ly2'] },
+    { name: 'Rui Costa', role: 'Buddy', aliases: ['Will'] }
+  ]
+  const profile: Profile = {
+    name: 'Sam Rivera',
+    role: 'Analyst',
+    aliases: ['Sammy'],
+    people,
+    sections: sections({}),
+    calmingStrategies: []
+  }
+  const scrub = (t: string, pr: Profile = profile): string => scrubForModel(t, pr).text
+
+  it('swaps person and owner aliases for their token, and restores the full name', () => {
+    const msg = 'hey Sammy, Ally wants the deck by 2026-11-01 10:30, ping @alexr or arod'
+    const { text, restore } = scrubForModel(msg, profile)
+    expect(text).toBe(
+      'hey [Me], [Manager] wants the deck by 2026-11-01 10:30, ping [Manager] or [Manager]'
+    )
+    expect(restore(text)).toBe(
+      'hey Sam Rivera, Alex Morgan wants the deck by 2026-11-01 10:30, ping Alex Morgan or Alex Morgan'
+    )
+  })
+
+  it('matches @aliases before handles are removed, bare or with @, and keeps unknown handles out', () => {
+    expect(scrub('ping @alexr.')).toBe('ping [Manager].')
+    expect(scrub('alexr and @arod and @Alex.R and @a_rod and a_rod')).toBe(
+      '[Manager] and [Manager] and [Manager] and [Manager] and [Manager]'
+    )
+    expect(scrub('cc @alexr2, @alexr_old and @kim.')).toBe('cc [handle], [handle] and [handle].')
+    expect(scrub('mail alexr@acme.com or arod.x@acme.com')).toBe('mail [email] or [email]')
+    // A kept handle glued to a mark still loses its name.
+    expect(scrub('x̲@alexr')).not.toMatch(/alexr/i)
+  })
+
+  it('matches aliases across case, two letters, hyphens, curly apostrophes, NFKC and zero-width', () => {
+    expect(scrub('jp and JP, Jean-Pi / jean pi / Jean‑Pi, JPEG')).toBe(
+      '[Lead] and [Lead], [Lead] / [Lead] / [Lead], JPEG'
+    )
+    expect(scrub("D'Lo, D’Lo and DLo")).toBe('[Coach], [Coach] and [Coach]')
+    expect(scrub('Ａｌｌｙ and Al​ly and ally2')).toBe('[Manager] and [Manager] and [Coach]')
+  })
+
+  it('matches an alias whole: no word splitting, no space-less form', () => {
+    expect(scrub('Big Al said Big-Al, not Al, Big or BigAl')).toBe(
+      '[Lead] said [Lead], not Al, Big or BigAl'
+    )
+  })
+
+  it('shortcut pinned: an alias that is a common word swaps that word too', () => {
+    expect(scrub('Will said he will')).toBe('[Buddy] said he [Buddy]')
+  })
+
+  it('lets full names win over aliases, and an alias sharing a name word becomes [someone]', () => {
+    const clash: Profile = {
+      ...profile,
+      people: [
+        { name: 'Alex Morgan', role: 'Manager', aliases: ['Rui Costa', 'Dana', 'morgan'] },
+        { name: 'Rui Costa', role: 'Buddy' },
+        { name: 'Dana López', role: 'Coach' }
+      ]
+    }
+    expect(scrub('Rui Costa, Dana, Morgan', clash)).toBe('[Buddy], [someone], [Manager]')
+  })
+
+  it('ignores aliases with fewer than two letters or digits, and never restores an alias token', () => {
+    const tiny: Profile = {
+      ...profile,
+      aliases: ['S', '@'],
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['J', '@a', '-', '', 'J.'] }]
+    }
+    expect(scrub('J said S and @a: a - J. ok', tiny)).toBe('J said S and [handle]: a - J. ok')
+    const { restore } = scrubForModel('Ally', profile)
+    expect(restore('[Ally] [alexr] [Manager]')).toBe('[Ally] [alexr] Alex Morgan')
+  })
+
+  it('swaps the aliases of a person whose name has no letter or digit, and restores the name as written', () => {
+    const fox: Profile = {
+      ...profile,
+      people: [{ name: '🦊', role: 'Lead', aliases: ['Ally', '@alexr'] }]
+    }
+    // Not via the differential wrapper: the reference skips this person and sends "Ally" (strictly more scrubbing here).
+    const { text, restore } = scrubNew('ask Ally and @alexr', fox)
+    expect(text).toBe('ask [Lead] and [Lead]')
+    expect(restore(text)).toBe('ask 🦊 and 🦊')
+    expect(reference.scrubForModel('ask Ally and @alexr', fox).text).toBe('ask Ally and [handle]')
+    for (const name of ['??', '—'])
+      expect(scrubNew('Ally', { ...fox, people: [{ ...fox.people[0], name }] }).text).toBe('[Lead]')
+  })
+
+  it('swaps aliases in the profile context and never sends the alias list', () => {
+    const out = buildProfileContext({
+      ...profile,
+      sections: sections({
+        feedback: [{ text: 'Ally and Sammy; ping @alexr', origin: 'coach', visibleTo: [] }]
+      })
+    })
+    expect(out).toContain('- [Manager] and [Me]; ping [Manager] (coach)')
+    for (const leak of [/ally/i, /sammy/i, /alexr/i, /arod/i, /jean/i, /\bjp\b/i])
+      expect(out).not.toMatch(leak)
+  })
+
+  it('never sends a kept alias handle the swap missed: it falls back to [handle]', () => {
+    const odd: Profile = {
+      ...profile,
+      aliases: ['@srivera'],
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['@alexr'] }]
+    }
+    expect(scrub('@alexrँ hi', odd)).toBe('[handle]ँ hi')
+    expect(scrub('@alexrा hi', odd)).toBe('[handle]ा hi')
+    expect(scrub('@alexr\u{E0100}', odd)).toBe('[handle]\u{E0100}')
+    expect(scrub('@srivera॑ ok', odd)).toBe('[handle]॑ ok')
+    const ctx = buildProfileContext({
+      ...odd,
+      role: 'Analyst, works with @alexrँ',
+      sections: sections({ feedback: [{ text: 'ask @alexrँ', origin: 'coach', visibleTo: [] }] }),
+      calmingStrategies: [
+        { label: 'walk with @srivera॑', minutes: 5, origin: 'self', visibleTo: [] }
+      ]
+    })
+    expect(ctx).not.toMatch(/alexr|srivera/i)
+    // A role never yields a token holding "@", so the fallback cannot break a token.
+    const at: Profile = { ...odd, people: [{ name: 'Alex Morgan', role: '@[handle]ops' }] }
+    const r = scrubForModel('Alex said', at)
+    expect(r.text).toBe('[ops] said')
+    expect(r.restore(r.text)).toBe('Alex Morgan said')
+  })
+
+  it('cleans "@" and brackets in a role to a space, so a name beside them is still swapped', () => {
+    const cases: [string, string][] = [
+      ['Alex@ops', 'ask [Manager ops]'],
+      ['lead@Sam', 'ask [lead Me]'],
+      ['dev@Morgan', 'ask [dev Manager]'],
+      ['Alex[x]', 'ask [Manager x]']
+    ]
+    for (const [role, want] of cases) {
+      const pr: Profile = {
+        ...profile,
+        people: [
+          { name: 'Alex Morgan', role: 'Manager' },
+          { name: 'Dana Lee', role }
+        ]
+      }
+      const r = scrubForModel('ask Dana', pr)
+      expect(r.text).toBe(want)
+      expect(r.restore(r.text)).toBe('ask Dana Lee')
+    }
+  })
+
+  it('matches an alias with a 7+ digit run bare or with @, so its stem never leaks', () => {
+    const digits: Profile = {
+      ...profile,
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['@srivera8675309'] }]
+    }
+    expect(scrub('ping @srivera8675309', digits)).toBe('ping [Manager]')
+    expect(scrub('ping srivera8675309 or call 555 123 4567', digits)).toBe(
+      'ping [Manager] or call [phone]'
+    )
+    expect(scrub('@srivera8675309x', digits)).toBe('[handle]')
+  })
+
+  it('ignores aliases over 100 characters (folded, without "@") instead of failing every scrub', () => {
+    const max = 'b'.repeat(100)
+    const hidden = 'd​'.repeat(60) // 120 typed, 60 once the zero-width spaces fold away
+    const long: Profile = {
+      ...profile,
+      people: [
+        {
+          name: 'Alex Morgan',
+          role: 'Manager',
+          aliases: [
+            'a-'.repeat(5000) + 'b',
+            'c'.repeat(101),
+            max,
+            '@' + 'e'.repeat(100),
+            hidden,
+            'Ally'
+          ]
+        }
+      ]
+    }
+    expect(scrub('hi Ally', long)).toBe('hi [Manager]')
+    expect(scrub(`hi ${max} and ${'e'.repeat(100)}`, long)).toBe('hi [Manager] and [Manager]')
+    expect(scrub(`hi ${'d'.repeat(60)}`, long)).toBe('hi [Manager]')
+    expect(scrub(`hi ${'c'.repeat(101)}`, long)).toBe(`hi ${'c'.repeat(101)}`)
+  })
+
+  it('aliasKey is the one rule for which aliases count', () => {
+    expect(ALIAS_MAX).toBe(100)
+    expect(aliasKey(' @Jean‑Pi ')).toBe('jean pi')
+    expect(aliasKey('b'.repeat(100))).toBe('b'.repeat(100))
+    expect(aliasKey('b'.repeat(101))).toBeNull()
+    expect(aliasKey('@' + 'b'.repeat(100))).toBe('b'.repeat(100))
+    expect(aliasKey('d​'.repeat(60))).toBe('d'.repeat(60))
+    expect(aliasKey('ﷺ'.repeat(10))).toBeNull() // 10 typed, 180 after NFKC
+    for (const tiny of ['J', '@a', '-', '', 'J.', '555 123 4567'])
+      expect(aliasKey(tiny), tiny).toBeNull()
+  })
+
+  it('scrubs hostile 8000-char messages with 20 people x 10 aliases in well under 1 s', () => {
+    const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
+    const many = Array.from({ length: 20 }, (_, i) => ({
+      name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} D'${syl[(i * 5) % 8]}ễn`,
+      role: `Role ${i}`,
+      aliases: Array.from(
+        { length: 10 },
+        (_, j) =>
+          `${j % 2 ? '@' : ''}${syl[j % 8]}${syl[(i + j) % 8]}${j % 3 ? '-' : "'"}${syl[i % 8]}${j}`
+      )
+    }))
+    const big: Profile = { ...profile, people: many }
+    const hostile = ["a'", 'a-', "ka'", 'kalo-', 'a̲', 'ễ', '@a.', '@ka', '1-', ' a']
+    scrubForModel('warm up', big)
+    for (const unit of hostile) {
+      const msg = unit.repeat(8000).slice(0, 8000)
+      const t = performance.now()
+      const out = scrubNew(msg, big).text
+      expect(performance.now() - t, unit).toBeLessThan(1000)
+      expect(out, unit).toBe(reference.scrubForModel(msg, big).text)
+    }
+  })
+})
+
 describe('scrubForModel on real chat text', () => {
   const people = [
     { name: 'Dana-Lee Park', role: 'Peer' },
@@ -665,8 +911,9 @@ describe('scrubForModel on real chat text', () => {
     const big = { ...profile, people: many }
     scrubForModel('warm up', big)
     const t = performance.now()
-    scrubForModel(msg, big)
+    const out = scrubNew(msg, big).text
     expect(performance.now() - t).toBeLessThan(200)
+    expect(out).toBe(reference.scrubForModel(msg, big).text)
   })
 
   it('scrubs hostile 8000-char messages with 200 hyphen and apostrophe names in well under 1 s', () => {
@@ -681,8 +928,9 @@ describe('scrubForModel on real chat text', () => {
     for (const unit of hostile) {
       const msg = unit.repeat(8000).slice(0, 8000)
       const t = performance.now()
-      scrubForModel(msg, big)
+      const out = scrubNew(msg, big).text
       expect(performance.now() - t, unit).toBeLessThan(1000)
+      expect(out, unit).toBe(reference.scrubForModel(msg, big).text)
     }
   })
 
@@ -760,10 +1008,235 @@ describe('scrubForModel on real chat text', () => {
       const big = { ...profile, people: many }
       scrubForModel('warm up', big)
       for (const unit of ["a'", 'a-', '王', ' a', 'Γ', 'П', 'م', 'ד', '字Dana']) {
+        const msg = unit.repeat(8000).slice(0, 8000)
         const t = performance.now()
-        scrubForModel(unit.repeat(8000).slice(0, 8000), big)
+        const out = scrubNew(msg, big).text
         expect(performance.now() - t, unit).toBeLessThan(1000)
+        expect(out, unit).toBe(reference.scrubForModel(msg, big).text)
       }
     })
+  })
+})
+
+describe('alias cap at 100 with a pathological profile', () => {
+  const L = 'bcdfghjklmnpqrs'
+  const id = (n: number): string => L[n % 15] + L[Math.floor(n / 15)]
+  const shapes: [string, (n: number) => string][] = [
+    ["'a-' x 50", (n) => 'a-'.repeat(49) + id(n)],
+    ["'a ' x 50", (n) => 'a '.repeat(49) + id(n)],
+    ["'a ' x 48 + q + i", (n) => 'a '.repeat(48) + 'q' + n]
+  ]
+  const hostile = ['a̲-', 'a-', 'a ', 'a', 'é̲', '@a.', '1 ', '[a] ', "a'", 'ễ', ' a']
+  for (const [label, alias] of shapes)
+    it(`scrubs hostile 8000-char messages in under 500 ms, 20 people x 10 aliases shaped ${label}`, () => {
+      const people = Array.from({ length: 20 }, (_, i) => ({
+        name: `Person ${i}`,
+        role: `Role ${i}`,
+        aliases: Array.from({ length: 10 }, (_, j) => alias(i * 10 + j))
+      }))
+      for (const a of people.flatMap((p) => p.aliases)) expect(a.length).toBeLessThanOrEqual(100)
+      const big: Profile = {
+        name: 'Sam Rivera',
+        role: 'Analyst',
+        people,
+        sections: sections({}),
+        calmingStrategies: []
+      }
+      expect(scrubForModel(`hi ${people[3].aliases[4]}!`, big).text).toBe('hi [Role 3]!')
+      for (const msg of [...hostile.map((u) => u.repeat(8000).slice(0, 8000)), 'a̲-'.repeat(2700)]) {
+        const t = performance.now()
+        scrubNew(msg, big)
+        // 'ễ' runs ~190 ms locally, mostly contact stripping; 1000 ms leaves room on a slow runner.
+        expect(performance.now() - t, msg.slice(0, 6)).toBeLessThan(
+          msg.startsWith('ễ') ? 1000 : 500
+        )
+      }
+    })
+
+  it('scrubs a run of 8000 marks in well under 2 s when a glued alias starts with two mark-taking characters (was ~35 s)', () => {
+    for (const [alias, mark] of [
+      ['̲̲さa', '̲'],
+      ['ιιさa', 'ͅ']
+    ]) {
+      const p: Profile = {
+        name: 'Sam Rivera',
+        role: 'Analyst',
+        people: [{ name: 'Alex Morgan', role: 'Lead', aliases: [alias] }],
+        sections: sections({}),
+        calmingStrategies: []
+      }
+      const msg = mark.repeat(8000)
+      const t = performance.now()
+      const out = scrubNew(msg, p).text
+      expect(performance.now() - t, alias).toBeLessThan(2500) // still quadratic, ~0.7 s locally
+      expect(out).toBe(msg)
+      expect(scrubForModel(`${alias} ok`, p).text).toBe('[Lead] ok')
+    }
+  })
+
+  it('ignores an alias with 3+ mark-taking characters in a row (98 marks + "さa" froze main ~70 s on 8000 marks)', () => {
+    const hostile = '\u0332'.repeat(98) + 'さa'
+    expect(aliasKey(hostile)).toBeNull()
+    expect(aliasKey('ιιιさa')).toBeNull() // "ι" takes U+0345 under `iu`
+    expect(aliasKey('\u0332\u0332さa')).toBe('\u0332\u0332さa')
+    expect(aliasKey('Jose\u0301')).toBe('jose')
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [{ name: 'Alex Morgan', role: 'Lead', aliases: [hostile, 'Jose\u0301'] }],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    const msg = '\u0332'.repeat(8000)
+    const t = performance.now()
+    expect(scrubNew(msg, p).text).toBe(msg)
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(scrubNew(`${hostile} ok`, p).text).toBe(`${hostile} ok`) // the reference still hid it
+    expect(scrubForModel('ask Jose\u0301 and José', p).text).toBe('ask [Lead] and [Lead]')
+  })
+
+  it('matches a 10,000-character name without running out of stack', () => {
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [{ name: 'f'.repeat(10000), role: 'Lead' }],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    expect(scrubNew(`hi ${'f'.repeat(10000)}!`, p).text).toBe('hi [Lead]!')
+  })
+
+  it('scrubs a run of 8000 marks fast when an alias holds a loose mark ("1̲x" took the old regex 30 ms, "1̲̲x" 50 s)', () => {
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [{ name: 'Alex Morgan', role: 'Lead', aliases: ['1\u0332x', '1\u0332 x', 'ab'] }],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    const msg = '1' + '\u0332'.repeat(7999)
+    const t = performance.now()
+    const out = scrubNew(msg, p).text
+    expect(performance.now() - t).toBeLessThan(500)
+    expect(out).toBe(reference.scrubForModel(msg, p).text)
+    expect(scrubForModel('1\u0332x and 1\u0332-x', p).text).toBe('[Lead] and [Lead]')
+  })
+})
+
+describe('trie matcher against the old one-big-regex matcher', () => {
+  let seed = 7
+  const rnd = (n: number): number => {
+    seed = (seed * 1103515245 + 12345) % 2 ** 31
+    return seed % n
+  }
+  const pick = <T>(xs: T[]): T => xs[rnd(xs.length)]
+  // Letters with accents, case and fold quirks, separators, apostrophes, format characters, loose marks, CJK, RTL, astral.
+  const wide = [
+    ...['ka', 'lo', 'mi', 'ra', 'su', 'an', 'a', 'e', 'o', 'ß', 'ł', 'ı', 'ς', 'σ', 'ι', 'k'],
+    ...['é', 'ễ', 'Ḥ', 'ñ', 'Ö', 'A', 'Ｄ', 'ａ', 'K', 'ſ', 'ǅ', 'İ', '1', '7', '0', '_', '.'],
+    ...['-', ' ', '‐', '‑', '–', "'", '’', '‘', 'ʼ', '`', '´', '​', '­', '̲', '́'],
+    ...['ͅ', '͏', '۞', 'ٰ', 'ा', '@', '[', ']', '王', '伟', 'さん', '김', 'ส'],
+    ...['م', 'ُ', 'ח', 'ָ', 'Γ', 'ώ', 'П', 'ё', '𠀋', '😀', '́́']
+  ]
+  // Few characters, so keys share prefixes and overlap: apostrophes, marks, sigma forms, digits after a word.
+  const tight = [
+    'a',
+    'b',
+    'ab',
+    "'",
+    '’',
+    ' ',
+    '-',
+    '1',
+    '_',
+    '\u0332',
+    '\u0345',
+    '\u06de',
+    'ς',
+    'σ',
+    'ι',
+    '@',
+    'さ'
+  ]
+  let bits = wide
+  const word = (): string => Array.from({ length: 1 + rnd(4) }, () => pick(bits)).join('')
+  const name = (): string => Array.from({ length: 1 + rnd(3) }, word).join(pick([' ', '-', ' ']))
+  // A message mixes names and aliases, sometimes bent (case, accents, separators, marks, cut short), with contacts and filler.
+  const bend = (s: string): string =>
+    pick([
+      (x: string) => x,
+      (x: string) => x.toUpperCase(),
+      (x: string) => x.normalize('NFD').replace(/\p{M}/gu, ''),
+      (x: string) => x.replace(/[ -]/g, () => pick([' ', '-', '‐', '‑', '  ', ''])),
+      (x: string) => x.replace(/'/g, () => pick(["'", '’', ''])),
+      (x: string) => [...x].map((c) => c + pick(['', '', '̲', 'ͅ', '۞'])).join(''),
+      (x: string) => x.slice(0, 1 + rnd(x.length)),
+      (x: string) => '@' + x
+    ])(s)
+  const filler = [
+    ...[' ', ', ', '. ', 'x', '1', '2026-11-01 10:30', '+52 55 1234 5678', 'dana@acme.com'],
+    ...['https://a.io/x', 'acme.com', '@kim', '[Manager]', '[Me]', 'ok', 'さん', 'が', 'said'],
+    ...['9', '_', "'s", '’', '-', '̲']
+  ]
+  it('picks the longest key that matches, even when a shorter one on another branch matches first', () => {
+    // "a'b" (optional apostrophe) and "ab 1x" both match "ab 1x"; the longer key wins, as in the old regex.
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [
+        { name: 'Alex Morgan', role: 'Lead', aliases: ["a'bcdz", "a'b"] },
+        { name: 'Dana Lee', role: 'Peer', aliases: ['ab 1x'] }
+      ],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    expect(scrubForModel('ab 1x and ab, then ab-1x', p).text).toBe('[Peer] and [Lead], then [Peer]')
+    // A mark after a digit stays in the key, so "b1̲x y" needs "1" to give the mark back, and it still wins
+    // over the shorter "b1x" (whose "1" swallows the mark; that span is no key, so it is [someone]: still hidden).
+    const marks: Profile = {
+      ...p,
+      people: [
+        { name: 'Alex Morgan', role: 'Lead', aliases: ['b1̲x y'] },
+        { name: 'Dana Lee', role: 'Peer', aliases: ['b1x'] }
+      ]
+    }
+    expect(scrubForModel('b1̲x y, b1̲x', marks).text).toBe('[Lead], [someone]')
+  })
+  it.each([
+    ['wide', wide],
+    ['tight', tight]
+  ])('gives byte-identical scrubs and profile contexts on a generated %s corpus', (_, chars) => {
+    bits = chars
+    for (let n = 0; n < 400; n++) {
+      const people = Array.from({ length: 1 + rnd(5) }, (_, i) => ({
+        name: name(),
+        role:
+          pick(['Manager', 'Lead', `Role ${i}`, 'lead@ops', '[x] dev', 'Me', '', 'a@b.com']) +
+          (rnd(3) ? '' : ' ' + word()),
+        aliases: Array.from({ length: rnd(4) }, () => (rnd(4) ? '' : '@') + name())
+      }))
+      const owner = { name: name(), aliases: rnd(2) ? [name()] : undefined }
+      const all = [
+        owner.name,
+        ...(owner.aliases ?? []),
+        ...people.flatMap((p) => [p.name, ...p.aliases])
+      ]
+      const msg = (): string =>
+        Array.from({ length: 2 + rnd(12) }, () => (rnd(2) ? bend(pick(all)) : pick(filler))).join(
+          pick(['', ' ', ' ', '-'])
+        )
+      const p: Profile = {
+        name: owner.name,
+        role: 'Analyst ' + msg(),
+        aliases: owner.aliases,
+        // A person whose name has no letter or digit is swapped by alias here but skipped by the reference
+        // (strictly more scrubbing), so such people are left out of the compared profile; their text stays in messages.
+        people: people.filter((x) => /[\p{L}\p{N}]/u.test(x.name)),
+        sections: sections({ feedback: [{ text: msg(), origin: 'coach', visibleTo: [] }] }),
+        calmingStrategies: [{ label: msg(), minutes: 5, origin: 'self', visibleTo: [] }]
+      }
+      buildProfileContext(p)
+      for (let m = 0; m < 6; m++) scrubForModel(msg(), p)
+    }
   })
 })

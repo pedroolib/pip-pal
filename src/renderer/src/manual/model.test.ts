@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { activeIndex, removeAt, removeById, upsert } from './model'
+import { ALIAS_MAX } from '@shared/profile'
+import {
+  activeIndex,
+  addAlias,
+  aliasesToSave,
+  hasTooLongAlias,
+  removeAt,
+  removeById,
+  splitAliases,
+  upsert
+} from './model'
 
 describe('manual list edits', () => {
   it('adds an item and gives it an id', () => {
@@ -58,5 +68,78 @@ describe('activeIndex', () => {
     expect(up.every((v, i) => i === 0 || v <= up[i - 1])).toBe(true)
     expect(new Set(up).size).toBe(15)
     expect(up.at(-1)).toBe(0)
+  })
+})
+
+describe('addAlias', () => {
+  it('adds trimmed text', () => {
+    expect(addAlias(['Ally'], '  @alexr ')).toEqual(['Ally', '@alexr'])
+  })
+  it('ignores empty text and case-insensitive duplicates', () => {
+    expect(addAlias(['Ally'], '   ')).toEqual(['Ally'])
+    expect(addAlias(['Ally'], 'ALLY')).toEqual(['Ally'])
+  })
+  it('splits pasted or leftover text on commas', () => {
+    expect(addAlias(['ab'], 'bo, AB,, cy')).toEqual(['ab', 'bo', 'cy'])
+  })
+  it('keeps 100 characters and skips 101', () => {
+    expect(ALIAS_MAX).toBe(100)
+    expect(addAlias([], 'x'.repeat(100))).toEqual(['x'.repeat(100)])
+    expect(addAlias([], 'x'.repeat(101))).toEqual([])
+  })
+  it('skips what the scrubber would ignore, judged on the folded text like the scrubber', () => {
+    // 100 typed, but NFKC turns each "ﬃ" into "ffi": 120 once folded, so it is skipped.
+    expect(addAlias([], 'ﬃ'.repeat(20) + 'x'.repeat(80))).toEqual([])
+    // 120 typed with zero-width spaces, 60 once folded, so it is kept; a leading "@" does not count.
+    const zw = 'd\u200b'.repeat(60)
+    expect(addAlias([], `${zw}, @${'e'.repeat(100)}`)).toEqual([zw, '@' + 'e'.repeat(100)])
+    expect(addAlias([], 'J, @a, J.')).toEqual([])
+  })
+  it('keeps only the short part of a pasted list', () => {
+    expect(addAlias([], `al, ${'x'.repeat(101)}`)).toEqual(['al'])
+  })
+  it('never keeps a cut-off chip from a pasted list longer than one alias', () => {
+    // The box has no 100-character cap, so a long part arrives whole and is skipped, not truncated.
+    const pasted = `Ally, ${'Maximiliano'.repeat(9) + 'xx'}, Bo`
+    expect(pasted.length).toBeGreaterThan(100)
+    expect(addAlias([], pasted)).toEqual(['Ally', 'Bo'])
+    expect(hasTooLongAlias(pasted)).toBe(true)
+  })
+})
+
+describe('hasTooLongAlias', () => {
+  it('flags a part dropped only for its length', () => {
+    expect(hasTooLongAlias(`al, ${'x'.repeat(101)}`)).toBe(true)
+  })
+  it('does not flag parts dropped for other reasons or kept ones', () => {
+    expect(hasTooLongAlias('J, @a')).toBe(false)
+    expect(hasTooLongAlias('12 ' + '-'.repeat(120))).toBe(false)
+    expect(hasTooLongAlias('x'.repeat(100))).toBe(false)
+  })
+})
+
+describe('splitAliases', () => {
+  it('turns a 2248-character pasted list into whole chips, none cut off', () => {
+    const names = Array.from({ length: 150 }, (_, i) => `Nickname${String(i).padStart(3, '0')}xy`)
+    const pasted = names.join(', ')
+    expect(pasted.length).toBe(2248)
+    expect(splitAliases([], pasted)).toEqual({ aliases: names, left: '' })
+  })
+  it('keeps a too-long part in the box', () => {
+    const long = 'x'.repeat(101)
+    expect(splitAliases(['al'], ` bo , ${long}, cy`)).toEqual({
+      aliases: ['al', 'bo', 'cy'],
+      left: long
+    })
+  })
+})
+
+describe('aliasesToSave', () => {
+  it('adds what is left in the box', () => {
+    expect(aliasesToSave(['al'], ' bo ')).toEqual(['al', 'bo'])
+  })
+  it('refuses to save while the box holds a part over the cap, so it is never dropped silently', () => {
+    expect(aliasesToSave(['al'], 'x'.repeat(101))).toBeNull()
+    expect(aliasesToSave(['al'], `bo, ${'x'.repeat(101)}`)).toBeNull()
   })
 })

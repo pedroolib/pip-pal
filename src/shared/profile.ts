@@ -51,6 +51,8 @@ const URL_RE = new RegExp(
 // shortcut: a phone written exactly like a valid date ("5551-12-25 67") keeps its date-shaped part; tighten if one shows up.
 const PHONE =
   /(?<![\d+])(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d))|(?<![\d+])\+?\(?\d[\d\s().-]{5,}\d(?!\w)/g
+const phone = (m: string, date?: string): string =>
+  date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'
 
 // NFKC turns fullwidth letters into plain ones; format characters (zero-width, soft hyphen) hide names.
 // A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
@@ -62,13 +64,16 @@ const normalize = (s: string): string =>
     .normalize('NFKC')
     .replace(/\p{Cf}/gu, '')
 
-/** Normalized text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs. */
-function stripContacts(text: string): string {
+/**
+ * Normalized text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs.
+ * A handle whose folded text is in `aliases` is kept, so the name swap turns it into its person's token.
+ */
+function stripContacts(text: string, aliases: Set<string> = new Set()): string {
   return normalize(text)
     .replace(EMAIL, () => '[email]')
-    .replace(HANDLE, () => '[handle]')
+    .replace(HANDLE, (m) => (aliases.has(fold(m.slice(1))) ? m : '[handle]'))
     .replace(URL_RE, () => '[link]')
-    .replace(PHONE, (m, date) => (date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'))
+    .replace(PHONE, phone)
 }
 
 // Case, accents, apostrophes, hyphens and spacing folded, so "JOSE", "O’Brien" / "O'Brien", "Dana-Lee" / "Dana Lee","José" and "José" share one key.
@@ -110,20 +115,144 @@ for (const [lo, hi] of [
 // The combining blocks, variation selectors and half marks are listed instead of \p{M}*, which V8 runs ~40x slower here.
 const MARKS =
   '[\\u0300-\\u036f\\u0483-\\u0489\\u0591-\\u05c7\\u0610-\\u061a\\u064b-\\u065f\\u0670\\u06d6-\\u06ed\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe00-\\ufe0f\\ufe20-\\ufe2f]*'
-const namePattern = (key: string): string =>
-  key
-    .split(' ')
-    .map((w) =>
-      [...w]
-        .map((c) =>
-          c === "'"
-            ? `[${APOSTROPHES}]?`
-            : (VARIANTS.has(c) ? `[${VARIANTS.get(c)}]` : escape(c)) + MARKS
-        )
-        .join('')
-    )
-    .join(`[${HYPHENS}]+`)
+// eslint-disable-next-line no-misleading-character-class -- the class is a list of combining marks on purpose
+const MARKS_RE = new RegExp(MARKS, 'iuy')
+
+// Names are found by walking a trie of key characters from each text position: keys sharing a prefix ("a a a … q1",
+// "a a a … q2") read it once instead of once per key, which took one big alternation regex to seconds on hostile text.
+// Each step reuses the old regex's pieces (`iu` flags), and the walk picks what that alternation picked: the
+// longest-first key that matches, ending where its backtracking first succeeds (profile.test.ts checks it byte for byte).
+// A key character is one step: a letter (its accented forms, then loose marks), an optional apostrophe, or a space
+// that matches a run of whitespace/hyphens.
+type Step = { head: RegExp; kind: 'letter' | 'apostrophe' | 'space'; takesMark?: boolean }
+// `loose`: the node ends a key or can go on with a character MARKS takes, so a letter step into it may give marks back.
+type Node = { id: number; rank: number; min: number; kids: [Step, Node][]; loose?: boolean }
+const steps = new Map<string, Step>()
+const step = (c: string): Step => {
+  let s = steps.get(c)
+  if (!s) {
+    const [src, kind]: [string, Step['kind']] =
+      c === "'"
+        ? [`[${APOSTROPHES}]`, 'apostrophe']
+        : c === ' '
+          ? [`[${HYPHENS}]+`, 'space']
+          : [VARIANTS.has(c) ? `[${VARIANTS.get(c)}]` : escape(c), 'letter']
+    steps.set(c, (s = { head: new RegExp(src, 'iuy'), kind }))
+  }
+  return s
+}
+const sticky = (re: RegExp, text: string, at: number): number => {
+  re.lastIndex = at
+  return re.test(text) ? re.lastIndex : -1
+}
+// Every character MARKS takes with `iu` (the mark blocks, plus "ι" forms through U+0345); none are astral.
+let marky: string[] | undefined
+const takesMark = (s: Step): boolean =>
+  (s.takesMark ??= (marky ??= Array.from({ length: 0x10000 }, (_, i) =>
+    String.fromCharCode(i)
+  ).filter((c) => sticky(MARKS_RE, c, 0) > 0)).some((c) => sticky(s.head, c, 0) > 0))
+const isLoose = (n: Node): boolean =>
+  (n.loose ??=
+    n.rank < Infinity ||
+    n.kids.some(([s, kid]) => takesMark(s) || (s.kind === 'apostrophe' && isLoose(kid))))
+// Where a step into `to` can end, as a range [hi, lo] tried from hi down, the order a backtracking regex tries them (greedy
+// first), or null. Apostrophes, whitespace, hyphens and MARKS are never astral, so every index in the range is a character end.
+function ends(s: Step, to: Node, text: string, at: number): [number, number] | null {
+  const h = sticky(s.head, text, at)
+  if (s.kind === 'apostrophe') return h < 0 ? [at, at] : [h, at]
+  if (h < 0) return null
+  if (s.kind === 'space') return [h, at + 1] // "+": at least one character
+  const g = sticky(MARKS_RE, text, h)
+  // Ending before a mark helps only if `to` can take that mark or end the key there; else only the greedy end can work.
+  return [g, isLoose(to) ? h : g]
+}
+// Spec for the walk: the old one-big-regex matcher in __reference/profile.ts, checked by the differential tests in profile.test.ts.
+function trie(keys: string[]): Node {
+  let id = 0
+  const node = (): Node => ({ id: id++, rank: Infinity, min: Infinity, kids: [] })
+  const root = node()
+  keys.forEach((k, rank) => {
+    let n = root
+    n.min = Math.min(n.min, rank)
+    for (const c of k) {
+      const s = step(c)
+      let kid = n.kids.find(([x]) => x === s)?.[1]
+      if (!kid) n.kids.push([s, (kid = node())])
+      n = kid
+      n.min = Math.min(n.min, rank)
+    }
+    n.rank = rank
+  })
+  return root
+}
+const NO_ENDS: [number, number] = [-1, 0] // an empty range: kid `k` is skipped
+// End of the lowest-ranked key matching at `at` (keys are ranked longest first), or -1.
+// `dead` is shared by every start in one text (same trie and `ok`): it holds the (node, position) visits that reach no key end.
+function matchEnd(
+  root: Node,
+  text: string,
+  at: number,
+  ok: (end: number) => boolean,
+  dead: Set<number>
+): number {
+  let best = Infinity
+  let end = -1
+  // A node already walked from a position found all it could there the first time; keys with loose marks reach one many ways.
+  // A visit left with nothing found while `best` was still unset pruned nothing, so it is dead for every later start too:
+  // without it a glued key led by two mark-taking characters ("̲̲さa", "ιιさa" on U+0345) was cubic in a run of marks (~35 s on 8000).
+  // shortcut: on a run of marks the walk is still ~k·n² for a key with k mark-taking characters in a row (every start re-reads
+  // the run). `aliasKey` refuses k >= 3; worst accepted on 8000: "1̲̲x" ~0.37 s, "̲̲さa" ~0.73 s, the four ι/U+0345 pairs + "さa"
+  // together ~1.5 s. Names are not capped: a name "̲̲̲̲さa" takes ~1.7 s, 98 marks ~72 s. Collapse repeated marks in keys and
+  // text if a real name ever has a run of marks.
+  const seen = new Set<number>()
+  // A depth-first walk with an explicit stack (one frame per key character, so a long name cannot overflow the call stack).
+  // A frame tries its kids in order, each at every end `ends` gives, then checks its own key once they are done.
+  // `e` down to `lo` are the ends still to try for kid `k`.
+  type Frame = { n: Node; i: number; k: number; e: number; lo: number; visit: number }
+  const stack: Frame[] = []
+  const enter = (n: Node, i: number): void => {
+    const visit = n.id * (text.length + 1) + i
+    if (seen.has(visit) || dead.has(visit)) return
+    seen.add(visit)
+    stack.push({ n, i, k: -1, e: -1, lo: 0, visit })
+  }
+  enter(root, at)
+  while (stack.length) {
+    const f = stack[stack.length - 1]
+    if (f.e >= f.lo && f.n.kids[f.k][1].min < best) enter(f.n.kids[f.k][1], f.e--)
+    else if (++f.k < f.n.kids.length) {
+      const [s, kid] = f.n.kids[f.k]
+      ;[f.e, f.lo] = (kid.min < best && ends(s, kid, text, f.i)) || NO_ENDS
+    } else {
+      stack.pop()
+      if (f.n.rank < best && ok(f.i)) [best, end] = [f.n.rank, f.i]
+      if (best === Infinity) dead.add(f.visit)
+    }
+  }
+  return end
+}
 const hasLetter = (s: string): boolean => /[\p{L}\p{N}]/u.test(s)
+
+/** Longest alias Pip hides, in characters after the fold and without a leading "@". */
+export const ALIAS_MAX = 100
+/**
+ * The key the scrubber matches an alias by (folded, without a leading "@"), or null when it ignores the alias:
+ * under 2 letters or digits ("J", "@a") would swap single letters all over the text; over ALIAS_MAX, or with 3+ marks in a row, is refused.
+ */
+export function aliasKey(alias: string): string | null {
+  const k = fold(alias).replace(/^@/, '').trim()
+  if (k.length > ALIAS_MAX) return null
+  // 3+ characters in a row the matcher reads as loose marks make the walk k·n² on a run of marks (98 took ~70 s); no name has that.
+  let run = 0
+  for (const c of k) if ((run = takesMark(step(c)) ? run + 1 : 0) > 2) return null
+  const size = (
+    k
+      .replace(PHONE, phone)
+      .replace(/\[phone\]/g, '')
+      .match(/[\p{L}\p{N}]/gu) ?? []
+  ).length
+  return size < 2 ? null : k
+}
 
 // Name particles stay in the full-name key but are never names on their own ("del" in "reunión del lunes").
 const PARTICLES = new Set(
@@ -137,7 +266,7 @@ const BRACKET = /\[[^\][]+\]/g
 
 /** Name swapping shared by `buildProfileContext` and `scrubForModel`. */
 function nameSwapper(profile: Profile): {
-  swap: (text: string) => string
+  clean: (text: string) => string // contacts removed, then names swapped
   scrubRole: (role: string, self: Who, selfText: string) => string
   owner: Who
   restoreMap: Map<string, string> // lowercased "[Role]" -> real name
@@ -148,18 +277,22 @@ function nameSwapper(profile: Profile): {
   const who = new Map<string, Who>() // folded full name -> person
   // A name with no letter or digit would become a pattern that matches the empty string.
   if (hasLetter(fold(owner.real))) who.set(fold(owner.real), owner)
-  for (const p of profile.people) {
+  // A person whose name has no letter ("🦊") is never matched by name but still gets a token for their aliases.
+  const nameless = new Map<number, Who>()
+  profile.people.forEach((p, i) => {
     const k = fold(p.name)
-    // A role holds no brackets or contact tokens, so its [token] stays one restorable unit.
-    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]]/g, '')
-    if (hasLetter(k)) who.set(k, { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() })
-  }
+    // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit; each becomes a space so it never joins two words.
+    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]@]/g, ' ')
+    const w = { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() }
+    if (hasLetter(k)) who.set(k, w)
+    else nameless.set(i, w)
+  })
   // Each word (2+ letters, not a particle) of a full name, with and without its apostrophe part ("o'brien", "brien"),
   // each hyphenated word written as one ("jeanpierre"), and the name without spaces ("samrivera")
   // point to the same person; a word two people share is just "someone". A part restores to the full name.
   // shortcut: words match case-insensitively, so a person "Will" also swaps the verb "will"; this errs toward privacy, add a common-word case rule if decodes suffer.
   // shortcut: [someone] is never restored, so the user may see it literally; explain it in the system prompt if users ask.
-  // shortcut: nicknames not in the profile ("Sammy"), initial+surname usernames ("srivera") and possessives without an apostrophe ("Danas") pass; they need name detection.
+  // shortcut: nicknames and usernames the person did not add as aliases ("Sammy", "srivera") and possessives without an apostrophe ("Danas") pass; they need name detection.
   const all = new Map(who)
   for (const [k, w] of who) {
     const hyphened = w.real
@@ -174,7 +307,29 @@ function nameSwapper(profile: Profile): {
       all.set(word, all.has(word) && all.get(word) !== w ? someone : w)
     }
   }
+  // Aliases join the same map whole (no word split, no space-less form) and without "@", so "@alexr" and "alexr" both match.
+  // They never get their own token: restore gives the full name. Full names win; a key two people share is "someone".
+  const aliases = new Set<string>()
+  const owned: [Who, string[] | undefined][] = [
+    [owner, profile.aliases],
+    ...profile.people.map((p, i): [Who, string[] | undefined] => [
+      who.get(fold(p.name)) ?? nameless.get(i)!,
+      p.aliases
+    ])
+  ]
+  for (const [w, list] of owned) {
+    for (const a of list ?? []) {
+      const k = aliasKey(a)
+      if (k === null) continue
+      // PHONE runs before the swap, so an alias's 7+ digit run is matched as "[phone]" ("srivera8675309" -> "srivera[phone]").
+      const key = k.replace(PHONE, phone)
+      aliases.add(k)
+      if (who.has(key)) continue
+      all.set(key, all.has(key) && all.get(key) !== w ? someone : w)
+    }
+  }
   // Longest first so "Ana Maria" wins over "Ana". Digits and "_" count as boundaries, so "sam_rivera" and "sam123" match.
+  // An optional "@" lets a handle kept for an alias ("@alexr") become its token whole.
   // Scripts written without spaces (and Korean particles) glue names to the next word, so those keys skip the word boundary.
   // shortcut: Arabic/Hebrew prefixes glued to a name still leak; add those scripts to `unspaced` if that matters.
   // shortcut: one-character Han names and name parts that are ordinary words (まい, ชาย, 지원) over-scrub; partial CJK names stored without a space
@@ -184,35 +339,52 @@ function nameSwapper(profile: Profile): {
   const unspaced = new RegExp(`[${U}]`, 'u')
   const edge = `(?![${U}])[\\p{L}\\p{M}]` // a letter or mark, but not one from a script written without spaces
   const keys = [...all.keys()].sort((x, y) => y.length - x.length)
-  const spaced = keys.filter((k) => !unspaced.test(k)).map(namePattern)
-  const glued = keys.filter((k) => unspaced.test(k)).map(namePattern)
-  const alts = [
-    ...(spaced.length ? [`(?<!${edge})(?:${spaced.join('|')})(?!${edge})`] : []),
-    ...glued
-  ]
-  const re = alts.length ? new RegExp(alts.join('|'), 'giu') : null
+  const spaced = trie(keys.filter((k) => !unspaced.test(k)))
+  const glued = trie(keys.filter((k) => unspaced.test(k)))
+  const before = new RegExp(`(?<!${edge})`, 'iuy')
+  const after = new RegExp(`(?!${edge})`, 'iuy')
+  // Where a name starting at `at` ends, or -1: a spaced key between word boundaries (after an "@" if one fits), else a glued key.
+  const nameEnd = (text: string, at: number, dead: [Set<number>, Set<number>]): number => {
+    const bounded = (e: number): boolean => sticky(after, text, e) >= 0
+    let e = -1
+    if (sticky(before, text, at) >= 0) {
+      if (text[at] === '@') e = matchEnd(spaced, text, at + 1, bounded, dead[0])
+      if (e < 0) e = matchEnd(spaced, text, at, bounded, dead[0])
+    }
+    return e < 0 ? matchEnd(glued, text, at, () => true, dead[1]) : e
+  }
+  // Same as `text.replace(oneBigRegex, fn)`: left to right, one pass, replacement text never re-scanned.
+  const names = (text: string, fn: (m: string) => string): string => {
+    let out = ''
+    let last = 0
+    const dead: [Set<number>, Set<number>] = [new Set(), new Set()]
+    for (let at = 0; at < text.length;) {
+      const e = nameEnd(text, at, dead)
+      if (e > at) {
+        out += text.slice(last, at) + fn(text.slice(at, e))
+        last = at = e
+      } else at += text.codePointAt(at)! > 0xffff ? 2 : 1
+    }
+    return out + text.slice(last)
+  }
   // Looked up without apostrophes, since the pattern lets "OBrien" match "O'Brien".
   const bare = new Map([...all].map(([k, w]) => [k.replace(/'/g, ''), w]))
-  const find = (m: string): Who => bare.get(fold(m).replace(/'/g, '')) ?? someone
+  const find = (m: string): Who => bare.get(fold(m).replace(/^@|'/g, '')) ?? someone
   // Names inside a role would leak through the replacement, so a role is scrubbed one level deep:
   // another person's name becomes their plain role (any name left inside that becomes "Me" for the owner, else "someone"),
   // and the person's own name becomes "this person", which keeps self-references from looping.
   const scrubRole = (role: string, self: Who, selfText: string): string =>
-    re
-      ? role.replace(re, (m) => {
-          const w = find(m)
-          return w === self
-            ? selfText
-            : w.role.replace(re, (n) => (find(n) === owner ? 'Me' : 'someone'))
-        })
-      : role
+    names(role, (m) => {
+      const w = find(m)
+      return w === self ? selfText : names(w.role, (n) => (find(n) === owner ? 'Me' : 'someone'))
+    })
   const token = new Map<Who, string>([
     [owner, '[Me]'],
     [someone, '[someone]']
   ])
   const restoreMap = new Map<string, string>()
   if (owner.real) restoreMap.set('[me]', owner.real)
-  const people = [...new Set(who.values())].filter((w) => w !== owner)
+  const people = [...new Set([...who.values(), ...nameless.values()])].filter((w) => w !== owner)
   // A role that is empty or reads like a fixed token becomes "person", so it cannot take over [Me] or [email].
   const base = people.map((w) => {
     const b = scrubRole(w.role, w, 'this person')
@@ -229,15 +401,16 @@ function nameSwapper(profile: Profile): {
     token.set(w, t)
     restoreMap.set(t.toLowerCase(), w.real)
   })
-  const swap = (text: string): string => (re ? text.replace(re, (m) => token.get(find(m))!) : text)
-  return { swap, scrubRole, owner, restoreMap }
+  const swap = (text: string): string => names(text, (m) => token.get(find(m))!)
+  // A kept alias handle the swap missed (a mark outside MARKS after it) still never leaves; tokens never hold "@" + letter.
+  const clean = (text: string): string =>
+    swap(stripContacts(text, aliases)).replace(HANDLE, () => '[handle]')
+  return { clean, scrubRole, owner, restoreMap }
 }
 
 /** Claude-ready text. Names become [Role], contacts are removed; pending entries are never included. */
 export function buildProfileContext(profile: Profile): string {
-  const { swap, scrubRole, owner } = nameSwapper(profile)
-  const clean = (s: string): string => swap(stripContacts(s))
-
+  const { clean, scrubRole, owner } = nameSwapper(profile)
   const lines: string[] = [`[Me], ${scrubRole(stripContacts(profile.role), owner, 'Me')}`]
   for (const section of SECTIONS) {
     const entries = profile.sections[section]
@@ -262,10 +435,10 @@ export function scrubForModel(
   text: string,
   profile: Profile
 ): { text: string; restore: (s: string) => string } {
-  const { swap, restoreMap } = nameSwapper(profile)
+  const { clean, restoreMap } = nameSwapper(profile)
   // Contacts before names, so a name inside an address cannot split it.
   return {
-    text: swap(stripContacts(text)),
+    text: clean(text),
     // Only an exact token restores; a shortened or altered one ("[Teammate]") stays as written.
     // shortcut: a message that already contains a token ("ask [Manager 1]") is restored to a real name; owner-only output, escape typed tokens if it misleads.
     restore: (s) => s.replace(BRACKET, (m) => restoreMap.get(m.toLowerCase()) ?? m)

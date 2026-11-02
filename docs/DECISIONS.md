@@ -74,17 +74,17 @@ Detalles de diseño en [design/README.md](design/README.md).
 
 | Modelo | Hace | Por qué |
 |---|---|---|
-| **Claude** (`PIP_MODEL=sonnet\|haiku`) | Todo el texto: pasos, preguntas listas para enviar, plan de transición, con su `why`. | Jev no genera texto. |
+| **Claude Haiku 5.5** (`PIP_MODEL=sonnet\|haiku`, por defecto Haiku) | Todo el texto: pasos, preguntas listas para enviar, plan de transición, con su `why`. | Jev no genera texto. |
 | **Jev (TypeSafe AI)** | Clasifica: Noul/Choice/Score en una sola petición. | Probabilidades **calibradas** y respuesta en 70–500 ms: la burbuja aparece al instante. En el pitch: "el modelo correcto para cada trabajo". |
 
 **Reglas que se decidieron en el camino:**
 - **Seleccionar, no generar.** El código arma los candidatos (por ejemplo las fechas posibles del texto, en `dates.ts`) y Jev elige. El código decide los umbrales (Noul "no seguro" entre 0.3 y 0.7; Choice no seguro si el primero < 0.6 o la ventaja < 0.2). Nunca se usa la `confidence` de Jev.
-- **Claude con salida estructurada** (`output_config.format` con JSON schema), sin herramientas y sin `tool_choice` (Sonnet 5.5 lo rechaza con HTTP 400). Tiempo límite 30 s.
+- **Claude con salida estructurada** (`output_config.format` con JSON schema), sin herramientas y sin `tool_choice` (Sonnet 5.5 lo rechaza con HTTP 400, un dato de Sonnet, no el modelo por defecto). Tiempo límite 30 s.
 - **Sin reintentos, en ninguna parte.** La primera respuesta inválida rechaza con un mensaje que solo trae códigos y rutas, nunca la salida del modelo. Se probó: 54/54 válidas con Haiku y Sonnet en la corrida real.
 - **Sin límites de cantidad** de pasos o preguntas: lo decide el perfil (Sam prefiere pasos pequeños y concretos). Con ≤2 cucharas la interfaz recorta a 3 pasos; el modelo no.
 - **Una llamada a la vez por clave** (`triage`, o cada tipo de `expand`). El mismo texto con las mismas cucharas y pistas se une a la llamada en curso; otro texto rechaza con "Pip is still working on another text. Try again in a moment."
 - **Reglas de prompt (anti-masking y autismo):** no adivinar al remitente (es "the sender" salvo que el mensaje lo nombre); no coachear el tono ("sé más amable") salvo que se pida; **no apelar al "sentido común" ni a lo "obvio"** (las normas no dichas son justo lo que la persona puede no saber); no preguntar lo que se resuelve con la fecha de hoy; cada paso lleva su razón. Tras cada cambio de prompt hay que repetir `npm run ai:lite`.
-- **Haiku** gustó más que Sonnet en `ai:lite` (≈5 s contra 6.5–8 s); el modelo por defecto en código sigue siendo sonnet. Está por decidir.
+- **Haiku es el modelo por defecto** (decidido el 2026-11-02 tras las corridas locales de `ai:lite` y `ai:compare`): gustó más que Sonnet en `ai:lite` (≈5 s contra 6.5–8 s). Sonnet queda como alternativa con `PIP_MODEL=sonnet`.
 
 **La interfaz que se construye sobre esto** (aún no implementada; el contrato y los fixtures ya existen):
 - Con el atajo aparece un Pip junto al cursor con una burbuja: el triage y los botones.
@@ -123,14 +123,14 @@ Es el centro del pitch de IA responsable.
 5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo aprendido por Pip solo se guarda si la persona lo aprueba.
 
 **Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
-- Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
+- Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Los **alias** (`aliases`, opcionales en cada persona y en el perfil) entran en la misma pasada: un alias se busca entero, con o sin "@" ("@srivera" y "srivera" dan `[Manager]`), antes de quitar los @handles; los del perfil dan `[Me]`. Al restaurar siempre sale el nombre completo. Se ignoran los alias con menos de 2 letras o dígitos, el nombre completo de otra persona gana y una clave que comparten dos personas es `[someone]`. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
 - **Al volver la respuesta solo se restaura el token exacto** (`[Manager]` → el nombre). Se probó una restauración tolerante de tokens acortados y se quitó: abría la puerta a mostrar a la persona equivocada. El prompt exige copiar los tokens tal cual.
 - El texto entre `<message>` es no confiable; la etiqueta se quita hasta que no quede nada reconstruible. Lo que llega de Claude se valida con Zod.
 - La cacería de alfabetos se cortó en la ronda 6 a propósito; lo que sigue son límites aceptados.
 
 **Límites conocidos** (del más probable al menos), para el texto de ayuda de la interfaz y la revisión del equipo:
-1. **Lo que no está en el perfil sale tal cual:** apodos y formas cortas ("Sammy", "JP"), iniciales y usuarios ("srivera"), posesivos sin apóstrofe, y cualquiera que no se haya agregado. **Pendiente: alias por persona en la sección People** (cambia `src/shared/schemas.ts`, así que necesita PR de los tres).
-2. **Nombres que cambian con la gramática** (caso en ruso, polaco, finés: "od Anny") no se detectan. Se resolverán con alias.
+1. **Lo que no está en el perfil sale tal cual:** posesivos sin apóstrofe y cualquier nombre, apodo o usuario que no se haya agregado. Para eso existen los **alias** en People (también los de la persona misma, que dan `[Me]`): apodos y formas cortas ("Sammy", "JP"), @handles ("@srivera"), usuarios ("srivera") y formas con gramática ("Anny") se agregan como alias de esa persona.
+2. **Nombres que cambian con la gramática** (caso en ruso, polaco, finés: "od Anny") no se detectan solos. La salida es agregar cada forma como alias ("Anny").
 3. **Nombres chinos, japoneses o coreanos guardados sin espacio** dejan salir una parte ("田中さん"). Guardar "田中 太郎" lo arregla; hay que decirlo en la ayuda.
 4. Prefijos pegados en árabe y hebreo ("ومحمد") se escapan.
 5. Nombres disfrazados a propósito (letras parecidas de otro alfabeto) pasan; los mensajes normales no los traen.
@@ -138,7 +138,7 @@ Es el centro del pitch de IA responsable.
 7. `Ł`, `Ø`, `ı`, `ß`, `æ` no se pliegan ("Łukasz" ≠ "Lukasz").
 8. **Sobre-limpieza:** un nombre de un solo carácter chino ("明") también tapa "明天"; nombres que son palabras ("Will", "Mark") tapan la palabra. Como se restaura el nombre completo, la respuesta puede nombrar a alguien que no estaba en el mensaje.
 9. Un nombre compartido por dos personas se muestra como `[someone]`; un token completo escrito a mano en el mensaje se restaura al nombre de esa persona.
-10. Claude ve el texto cambiado: @mención → `[handle]` (no se restaura), "½" → "1⁄2", rachas de dígitos → `[phone]`.
+10. Claude ve el texto cambiado: @mención que no es alias → `[handle]` (no se restaura), "½" → "1⁄2", rachas de dígitos → `[phone]`. Una @mención de alias que el cambio de nombre no alcanza (por ejemplo, seguida de una marca combinante rara) también sale como `[handle]`. Un alias escrito con "@" que lleva espacio, apóstrofo o guion Unicode ("@Big Al", "@D'Lo", "@Jean‑Pi") deja un pedazo después de `[handle]` ("[handle] Al"), igual que antes de los alias. Un alias con 7+ dígitos seguidos ("srivera8675309") se reconoce en su forma `[phone]`, así que no sale ninguna parte. Se ignoran los alias de menos de 2 letras o dígitos y los de más de 100 caracteres (ya plegados, sin "@"); la app usa la misma regla (`aliasKey` en `src/shared/profile.ts`), así que un apodo que se acepta en pantalla nunca se salta en silencio. Los nombres y alias ya no son una sola regex gigante: se buscan con un árbol de prefijos (trie) que lee una vez el prefijo común, así que el tiempo crece casi en línea con el texto. Con un perfil hostil (20×10 alias de 100 caracteres con forma 'a-a-…' / 'a a …') y textos hostiles de 8000 caracteres, el peor caso baja de unos 6 s a unos 0.2 s (y ese 0.2 s es la limpieza de contactos, no el cambio de nombres). Una prueba compara la salida con la regex anterior, byte por byte. Excepción: una persona cuyo nombre no tiene letras ni dígitos ("🦊", "??") no se busca por nombre, pero sus alias sí se cambian por su rol y se restauran a su nombre tal cual; la regex anterior se los saltaba, así que ahí se esconde más, no menos. El recorrido del árbol usa una pila propia, así que un nombre de 10 000 caracteres ya no desborda la pila. Límite conocido: en una racha de marcas combinantes el costo es cuadrático y crece con cuántos caracteres seguidos que aceptan marcas lleva la clave (unas k·n²; era cúbico, unos 35 s, hasta que se recordaron entre posiciones de inicio los recorridos que no encuentran nada). Por eso `aliasKey` ignora un alias con 3+ de esos caracteres seguidos (ya plegado): 98 marcas + "さa" bloqueaba el proceso principal unos 70 s en 8000 marcas, y ningún nombre real tiene eso; la app lo rechaza con la misma regla. Lo peor que se sigue aceptando, en 8000 caracteres: "1̲̲x" unos 0.37 s, "̲̲さa" unos 0.73 s, los cuatro "ιιさa"/"ιͅさa"/"ͅιさa"/"ͅͅさa" juntos en una racha de U+0345 unos 1.5 s, y 900 alias de dos marcas distintas en una racha mezclada unos 1.1 s. Los nombres (no los alias) no tienen ese tope: un nombre "̲̲̲̲さa" tarda unos 1.7 s y uno de 98 marcas unos 72 s; nadie se llama así, pero si pasa hay que colapsar marcas repetidas en claves y texto.
 11. Un texto de 8000 caracteres hostil bloquea main ~0.8 s antes de rechazarse; las pruebas de rendimiento tienen un límite de 500 ms y podrían fallar en CI lento.
 
 ## 6. Datos
@@ -164,7 +164,7 @@ Es nivel 3. Para el Launchpad basta con las keys en la Mac del demo. **Sigue abi
 
 ## 8. Idioma
 
-**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. **D prepara `es.json` para las pruebas con usuarios en México.** Pip responde en el idioma del mensaje.
+**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. **D prepara `es.json` para las pruebas con usuarios en México.** Pip responde en el idioma del mensaje. El equipo verificó que Jev funciona en español.
 
 ## 9. Demo
 
@@ -198,9 +198,6 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - ¿El pitch será en inglés o en español?
 - ¿Podemos citar a nuestra contacto de Specialisterne con su nombre?
 - Confirmar las citas del pitch contra el audio de la entrevista (vienen de una transcripción automática).
-- ¿Jev funciona en español? (sigue sin verificarse; el triage y la fecha solo se probaron en inglés)
-- Modelo por defecto: ¿Haiku o Sonnet? Falta decidir con corridas reales de `npm run ai:lite` y `ai:compare`.
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
 - Interfaz del triage y los botones (arriba): migrar `DecodeCard` y `TaskCard`.
-- Alias y apodos por persona (privacidad, límite 1).
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).

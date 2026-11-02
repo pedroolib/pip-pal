@@ -17,13 +17,16 @@ import {
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Textarea } from '@renderer/components/ui/textarea'
+import { AliasField } from './AliasField'
+import { aliasesToSave } from './model'
 
-export type Kind = 'entry' | 'strategy' | 'person'
+export type Kind = 'entry' | 'strategy' | 'person' | 'owner'
 export type Draft = {
   text: string
   minutes: string
   name: string
   role: string
+  aliases: string[]
   visibleTo: Recipient[]
 }
 
@@ -69,7 +72,7 @@ export function Row(props: {
   rowKey: string
   saved: boolean
   onEdit: () => void
-  onDelete: () => void
+  onDelete?: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -77,7 +80,7 @@ export function Row(props: {
       <div className="min-w-0 flex-1">
         <div className="max-w-[62ch] text-[17px] leading-[1.6]">{props.children}</div>
         {(props.shared || props.saved) && (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {props.origin && props.shared && (
               <>
                 <OriginBadge origin={props.origin} />
@@ -105,15 +108,17 @@ export function Row(props: {
       >
         <Pencil />
       </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={touch}
-        aria-label={t('manual.delete', { what: props.what })}
-        onClick={props.onDelete}
-      >
-        <Trash2 />
-      </Button>
+      {props.onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className={touch}
+          aria-label={t('manual.delete', { what: props.what })}
+          onClick={props.onDelete}
+        >
+          <Trash2 />
+        </Button>
+      )}
     </li>
   )
 }
@@ -135,6 +140,7 @@ function FieldError({
 /** Inline editor for an entry, strategy or person. One Save covers text and recipients. */
 export function Editor(props: {
   kind: Kind
+  title?: string
   initial?: Partial<Draft>
   onSave: (d: Draft) => Promise<boolean>
   onCancel: () => void
@@ -146,24 +152,31 @@ export function Editor(props: {
     minutes: '',
     name: '',
     role: '',
+    aliases: [],
     visibleTo: [],
     ...props.initial
   })
   const [error, setError] = useState<'text' | 'minutes' | 'pair' | null>(null)
   const [failed, setFailed] = useState(false)
+  const [pending, setPending] = useState('')
   const set = (p: Partial<Draft>): void => setD((x) => ({ ...x, ...p }))
   const minutes = Number(d.minutes)
 
   async function submit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     setFailed(false)
-    if (props.kind === 'person') {
+    if (props.kind === 'owner') {
+      // nothing to validate: the list may be empty
+    } else if (props.kind === 'person') {
       if (!d.name.trim() || !d.role.trim()) return setError('pair')
     } else if (!d.text.trim()) return setError('text')
     else if (props.kind === 'strategy' && !(Number.isInteger(minutes) && minutes >= 1))
       return setError('minutes')
     setError(null)
-    if (!(await props.onSave(d))) setFailed(true)
+    // A part over the cap would be dropped on save: keep the form open on it (its message is already shown).
+    const aliases = aliasesToSave(d.aliases, pending)
+    if (!aliases) return document.getElementById(`${uid}-a`)?.focus()
+    if (!(await props.onSave({ ...d, aliases }))) setFailed(true)
   }
 
   const err = (k: typeof error): object =>
@@ -175,17 +188,19 @@ export function Editor(props: {
   }
 
   return (
-    <li className="border-t bg-muted px-5 py-4 first:border-t-0">
+    <li className="min-w-0 border-t bg-muted px-5 py-4 first:border-t-0">
       <form
         onSubmit={submit}
         onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
-        className="grid gap-4"
+        className="grid min-w-0 gap-4"
         noValidate
       >
         <p className="text-sm text-muted-foreground">{t(`manual.editor.hint.${props.kind}`)}</p>
-        {props.kind === 'person' ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
+        {props.kind === 'owner' ? (
+          <strong className="text-[17px]">{props.title}</strong>
+        ) : props.kind === 'person' ? (
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-n`}>{t('manual.people.name')}</Label>
               <Input
                 id={`${uid}-n`}
@@ -196,7 +211,7 @@ export function Editor(props: {
                 {...err('pair')}
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-r`}>{t('manual.people.role')}</Label>
               <Input
                 id={`${uid}-r`}
@@ -208,8 +223,8 @@ export function Editor(props: {
             </div>
           </div>
         ) : props.kind === 'strategy' ? (
-          <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
-            <div className="grid gap-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-[1fr_9rem]">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-t`}>{t('manual.calming.label')}</Label>
               <Input
                 id={`${uid}-t`}
@@ -221,7 +236,7 @@ export function Editor(props: {
                 {...err('text')}
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-m`}>
                 {t('manual.calming.minutes')} ({t('manual.calming.unit')})
               </Label>
@@ -237,7 +252,7 @@ export function Editor(props: {
             </div>
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             <Label htmlFor={`${uid}-t`}>{t('manual.editor.entry')}</Label>
             <Textarea
               id={`${uid}-t`}
@@ -249,9 +264,22 @@ export function Editor(props: {
             />
           </div>
         )}
+        {(props.kind === 'person' || props.kind === 'owner') && (
+          <AliasField
+            id={`${uid}-a`}
+            autoFocus={props.kind === 'owner'}
+            hint={t(`manual.aliases.hint.${props.kind}`)}
+            aliases={d.aliases}
+            text={pending}
+            onChange={(aliases, text) => {
+              set({ aliases })
+              setPending(text)
+            }}
+          />
+        )}
         {error && <FieldError id={`${uid}-err`}>{message[error]}</FieldError>}
 
-        {props.kind !== 'person' && (
+        {props.kind !== 'person' && props.kind !== 'owner' && (
           <fieldset className="grid gap-2">
             <legend className="text-sm font-bold">{t('manual.editor.whoCanSee')}</legend>
             <p className="text-sm text-muted-foreground">{t('manual.editor.leaveUnticked')}</p>

@@ -45,3 +45,24 @@ describe('triage and expansion fixtures', () => {
     expect(UnclearPart.safeParse('when').success).toBe(false)
   })
 })
+
+describe('profile aliases', () => {
+  const sam = Profile.parse(samJson)
+
+  it('accepts trimmed aliases on the profile and on each person, and stays optional', () => {
+    const parsed = Profile.parse({
+      ...sam,
+      aliases: [' Sammy '],
+      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['Ally', '@alexr'] }]
+    })
+    expect(parsed.aliases).toEqual(['Sammy'])
+    expect(parsed.people[0].aliases).toEqual(['Ally', '@alexr'])
+    expect(sam.aliases).toBeUndefined()
+  })
+
+  it('rejects an empty alias', () => {
+    expect(Profile.safeParse({ ...sam, aliases: ['  '] }).success).toBe(false)
+    const people = [{ name: 'Alex', role: 'Manager', aliases: [''] }]
+    expect(Profile.safeParse({ ...sam, people }).success).toBe(false)
+  })
+})
