@@ -4,7 +4,6 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC } from '@shared/ipc'
 import { registerMockHandlers } from './mock'
-import { IPC } from '@shared/ipc'
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
 const OVERLAY = { width: 448, height: 400, margin: 16 }
