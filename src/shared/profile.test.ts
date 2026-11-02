@@ -621,6 +621,34 @@ describe('scrubForModel on real chat text', () => {
           expect(restore(text)).toBe(msg.replace(/D.*?a.*?n.*?a.*?(?= sent)/u, 'Dana'))
         })
 
+    const more = [
+      // Greek, Cyrillic, Arabic and Hebrew marks fold, so accent or vowel-point differences still match
+      { name: 'Γιώργος', msg: ['ΓΙΩΡΓΟΣ sent it', 'Γιωργος sent it', 'Γιώργος sent it'] },
+      { name: 'Пётр', msg: ['Петр sent it', 'Пётр sent it'] },
+      { name: 'Андрій', msg: ['Андрій sent it'] },
+      { name: 'مُحَمَّد', msg: ['محمد sent it'] },
+      { name: 'آدم', msg: ['آدم sent it'] },
+      { name: 'إبراهيم', msg: ['إبراهيم sent it'] },
+      { name: 'أحمد', msg: ['أحمد sent it'] },
+      { name: 'דָּוִד', msg: ['דוד sent it'] },
+      // Latin names glued to scripts written without spaces
+      {
+        name: 'Dana',
+        msg: ['Danaさんが言いました', '我跟Dana说了', 'Dana씨가 내일', 'Danaบอกว่า']
+      },
+      { name: 'အောင်ကျော်', msg: ['အောင်ကျော်ကပြောတယ်'] },
+      { name: 'សុខា', msg: ['សុខាបាននិយាយ'] },
+      { name: 'ສົມສັກ', msg: ['ສົມສັກເວົ້າວ່າ'] }
+    ]
+    for (const c of more)
+      for (const msg of c.msg)
+        it(`scrubs and restores "${c.name}" in "${msg}"`, () => {
+          const p = { ...profile, people: [{ name: c.name, role: 'Peer' }] }
+          const { text, restore } = scrubForModel(msg, p)
+          expect(text).not.toContain(c.name)
+          expect(restore(text)).toContain(c.name)
+        })
+
     it('keeps the word boundary for Latin keys next to a CJK key', () => {
       const p = {
         ...profile,
@@ -636,7 +664,10 @@ describe('scrubForModel on real chat text', () => {
     it('stays under 500 ms with a CJK key among 200 hostile names', () => {
       const syl = ['ka', 'lo', 'mi', 'ra', 'su', 'te', 'vo', 'ne']
       const many = [
-        { name: '王伟', role: 'Lead' },
+        ...['王伟', 'Γιώργος', 'Пётр', 'مُحَمَّد', 'דָּוִד', 'အောင်ကျော်'].map((name) => ({
+          name,
+          role: 'Lead'
+        })),
         ...Array.from({ length: 200 }, (_, i) => ({
           name: `${syl[i % 8]}${syl[(i >> 3) % 8]}-${syl[(i + 3) % 8]} D'${syl[(i * 5) % 8]}ễn`,
           role: `Role ${i}`
@@ -644,7 +675,7 @@ describe('scrubForModel on real chat text', () => {
       ]
       const big = { ...profile, people: many }
       scrubForModel('warm up', big)
-      for (const unit of ["a'", 'a-', '王', ' a']) {
+      for (const unit of ["a'", 'a-', '王', ' a', 'Γ', 'П', 'م', 'ד', '字Dana']) {
         const t = performance.now()
         scrubForModel(unit.repeat(8000).slice(0, 8000), big)
         expect(performance.now() - t, unit).toBeLessThan(500)

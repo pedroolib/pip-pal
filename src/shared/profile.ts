@@ -78,7 +78,10 @@ const HYPHENS = '\\s‐‑-' // whitespace, U+2010, U+2011, hyphen-minus
 const fold = (s: string): string =>
   normalize(s)
     .normalize('NFD')
-    .replace(/(?<=\p{Script=Latin}\p{M}*)\p{M}/gu, '') // only Latin accents fold; Thai, Devanagari, kana marks are part of the letter
+    .replace(
+      /(?<=[\p{sc=Latin}\p{sc=Greek}\p{sc=Cyrillic}\p{sc=Arabic}\p{sc=Hebrew}]\p{M}*)\p{M}/gu,
+      ''
+    ) // only these scripts fold marks; Thai, Devanagari, kana marks are part of the letter
     .normalize('NFC')
     .toLowerCase()
     .replace(new RegExp(`[${APOSTROPHES}]`, 'g'), "'")
@@ -90,12 +93,15 @@ const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const VARIANTS = new Map<string, string>()
 for (const [lo, hi] of [
   [0xc0, 0x24f],
-  [0x1e00, 0x1eff]
+  [0x1e00, 0x1eff],
+  [0x370, 0x4ff],
+  [0x620, 0x6d3],
+  [0x1f00, 0x1fff]
 ]) {
   for (let cp = lo; cp <= hi; cp++) {
     const ch = String.fromCodePoint(cp)
     const base = fold(ch)
-    if (base.length === 1 && base !== ch.toLowerCase()) {
+    if (base.length === 1 && /\p{L}/u.test(base) && base !== ch.toLowerCase()) {
       VARIANTS.set(base, (VARIANTS.get(base) ?? base) + ch)
     }
   }
@@ -103,7 +109,7 @@ for (const [lo, hi] of [
 // Each letter may carry combining marks NFKC leaves loose ("Olsen" + U+034F, "Dana" + U+0332).
 // The combining blocks, variation selectors and half marks are listed instead of \p{M}*, which V8 runs ~40x slower here.
 const MARKS =
-  '[\\u0300-\\u036f\\u0483-\\u0489\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe00-\\ufe0f\\ufe20-\\ufe2f]*'
+  '[\\u0300-\\u036f\\u0483-\\u0489\\u0591-\\u05c7\\u0610-\\u061a\\u064b-\\u065f\\u0670\\u06d6-\\u06ed\\u1ab0-\\u1aff\\u1dc0-\\u1dff\\u20d0-\\u20ff\\ufe00-\\ufe0f\\ufe20-\\ufe2f]*'
 const namePattern = (key: string): string =>
   key
     .split(' ')
@@ -169,12 +175,17 @@ function nameSwapper(profile: Profile): {
   // Longest first so "Ana Maria" wins over "Ana". Digits and "_" count as boundaries, so "sam_rivera" and "sam123" match.
   // Scripts written without spaces (and Korean particles) glue names to the next word, so those keys skip the word boundary.
   // shortcut: Arabic/Hebrew prefixes glued to a name still leak; add those scripts to `unspaced` if that matters.
-  const unspaced = /[\p{sc=Han}\p{sc=Hiragana}\p{sc=Katakana}\p{sc=Hangul}\p{sc=Thai}]/u
+  // shortcut: one-character Han names and name parts that are ordinary words (まい, ชาย, 지원) over-scrub; partial CJK names stored without a space
+  // (田中太郎 vs "田中さん", 王伟 vs "王总") are not caught; Tibetan syllable-split parts leak. Users should store CJK names with a space between family and given name.
+  const U =
+    '\\p{sc=Han}\\p{sc=Hiragana}\\p{sc=Katakana}\\p{sc=Hangul}\\p{sc=Thai}\\p{sc=Lao}\\p{sc=Khmer}\\p{sc=Myanmar}\\p{sc=Tibetan}'
+  const unspaced = new RegExp(`[${U}]`, 'u')
+  const edge = `(?![${U}])[\\p{L}\\p{M}]` // a letter or mark, but not one from a script written without spaces
   const keys = [...all.keys()].sort((x, y) => y.length - x.length)
   const spaced = keys.filter((k) => !unspaced.test(k)).map(namePattern)
   const glued = keys.filter((k) => unspaced.test(k)).map(namePattern)
   const alts = [
-    ...(spaced.length ? [`(?<![\\p{L}\\p{M}])(?:${spaced.join('|')})(?![\\p{L}\\p{M}])`] : []),
+    ...(spaced.length ? [`(?<!${edge})(?:${spaced.join('|')})(?!${edge})`] : []),
     ...glued
   ]
   const re = alts.length ? new RegExp(alts.join('|'), 'giu') : null
