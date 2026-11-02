@@ -159,6 +159,22 @@ describe('triageLines', () => {
       { kind: 'steps', strength: 'primary' },
       { kind: 'questions', strength: 'maybe' }
     ]
-    expect(lines({ actions }).actions).toEqual(actions)
+    expect(lines({ actions }).actions).toMatchObject(actions)
+  })
+
+  it('labels the actions: the change type, any change, or the ask', () => {
+    const actions = [
+      { kind: 'transition', strength: 'primary' },
+      { kind: 'steps', strength: 'primary' },
+      { kind: 'questions', strength: 'primary' }
+    ]
+    const eyebrows = (changeType: string): unknown[] =>
+      lines({ actions, changeType }).actions.map((a) => a.eyebrow)
+    expect(eyebrows('project')).toEqual([
+      { key: 'bubble.eyebrow.transition', typeKey: 'decode.changeTypes.project' },
+      undefined,
+      { key: 'bubble.eyebrow.questions' }
+    ])
+    expect(eyebrows('none')[0]).toEqual({ key: 'bubble.eyebrow.transitionAny' })
   })
 })

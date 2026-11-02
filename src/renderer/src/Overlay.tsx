@@ -10,6 +10,7 @@ import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
 import { cn } from '@renderer/lib/utils'
 import { DockedPip } from '@renderer/pip/DockedPip'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
+import { BUBBLE_WIDTH } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
@@ -29,11 +30,11 @@ function todaysSpoons(checkIns: CheckIn[]): number | null {
 
 type View = 'checkIn' | 'triage' | 'docked'
 
-// The window's transparent padding around the bubble (p-[32px] below), and the bubble's width at
-// 16px: its w-96 card, Pip (44) and the gap (8). The window is sized to these, not measured, so a
-// window that starts too narrow can't keep the card squeezed.
+// The window's transparent padding around the bubble (p-[32px] below). The window is sized to
+// BUBBLE_WIDTH, not measured, so a window that starts too narrow can't keep the card squeezed.
 const PAD = 32
-const BUBBLE_WIDTH = 436
+// The check-in's window; keep in step with OVERLAY in src/main/index.ts.
+const CHECKIN_SIZE = { width: 448, height: 400 }
 
 function Overlay(): React.JSX.Element {
   const drag = useWindowDrag()
@@ -114,9 +115,12 @@ function Overlay(): React.JSX.Element {
     }
   }, [view])
 
-  // The window is fitted to the bubble, keeping its top-left; docked, it shrinks back around Pip.
+  // The window is fitted to the bubble, keeping its top-left; docked, it shrinks back around Pip;
+  // the check-in gets its own size.
   useEffect(() => {
     const el = frame.current
+    // Esc docks the window small, so a later check-in must get its own size back.
+    if (view === 'checkIn') api.setOverlayBounds({ x: screenX, y: screenY, ...CHECKIN_SIZE })
     if (view === 'docked' && atCursor) {
       api.setOverlayBounds({ x: screenX, y: screenY, width: 0, height: 0 })
     }
@@ -161,7 +165,7 @@ function Overlay(): React.JSX.Element {
         ref={frame}
         className={cn(
           'relative flex flex-col select-none',
-          corner ? 'max-h-full w-full items-end' : 'w-fit',
+          corner ? 'max-h-full w-full items-end' : 'w-fit max-w-full',
           view === 'checkIn' &&
             'h-full [&>[data-slot=card]]:flex-1 [&>[data-slot=card]]:justify-between'
         )}

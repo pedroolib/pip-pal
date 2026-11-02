@@ -42,6 +42,7 @@
   "bubble": {
     "due": "Due {{date}}",
     "before": "Before {{date}}",
+    "reading": "Pip is reading the message",
     "worthAsking": "worth asking",
     "urgency": { "today": "Today", "this_week": "This week", "no_rush": "No rush" },
     "urgencyMaybe": {

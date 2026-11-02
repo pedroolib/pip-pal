@@ -26,7 +26,7 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import { Pip } from '@renderer/pip/Pip'
-import { triageLines } from './model'
+import { CARD_WIDTH, PIP_SIZE, triageLines } from './model'
 
 const TONE_ICON: Record<TriageTone, LucideIcon> = {
   friendly: Smile,
@@ -101,19 +101,22 @@ function ToneLine({ label, quote }: { label: string; quote?: string }): React.JS
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [label, quote])
+  }, [label, quote, clamped])
+  const text = (
+    <span
+      ref={ref}
+      tabIndex={clamped && quote ? 0 : undefined}
+      className={cn('line-clamp-2 break-words', FOCUS)}
+    >
+      <b>{label}</b>
+      {quote && <span className="font-normal text-body">{t('bubble.quote', { quote })}</span>}
+    </span>
+  )
+  // Wrapping remounts the span, which is why the effect above depends on `clamped`.
+  if (!clamped || !quote) return text
   return (
-    <Tooltip open={clamped && quote ? undefined : false}>
-      <TooltipTrigger asChild>
-        <span
-          ref={ref}
-          tabIndex={clamped ? 0 : undefined}
-          className={cn('line-clamp-2 break-words', FOCUS)}
-        >
-          <b>{label}</b>
-          {quote && <span className="font-normal text-body">{t('bubble.quote', { quote })}</span>}
-        </span>
-      </TooltipTrigger>
+    <Tooltip>
+      <TooltipTrigger asChild>{text}</TooltipTrigger>
       <Tip>{quote}</Tip>
     </Tooltip>
   )
@@ -173,16 +176,21 @@ export function TriageBubble({
   )
 
   return (
-    <TooltipProvider>
-      <div className="flex items-start gap-2">
-        <Pip mood={triage || error ? 'calm' : 'reading'} size={44} className="mt-3" />
+    <TooltipProvider disableHoverableContent>
+      <div className="flex max-w-full items-start gap-2">
+        <Pip mood={triage || error ? 'calm' : 'reading'} size={PIP_SIZE} className="mt-3" />
         {error && (
-          <Card role="status" className="w-96 max-w-full min-w-0 gap-0 p-5 shadow-lg">
+          <Card role="status" style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-lg">
             <p className="text-base">{t('bubble.error')}</p>
           </Card>
         )}
+        {!triage && !error && (
+          <span role="status" className="sr-only">
+            {t('bubble.reading')}
+          </span>
+        )}
         {triage && lines && (
-          <Card className="w-96 max-w-full min-w-0 gap-0 p-5 shadow-lg">
+          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-lg">
             {lines.from && (
               <p className="mb-2.5 text-sm text-muted-foreground">
                 {t('bubble.from', { role: lines.from })}
@@ -218,21 +226,14 @@ export function TriageBubble({
               <>
                 <hr className="my-3.5 border-border" />
                 <div className="flex flex-col gap-2">
-                  {lines.actions.map(({ kind, strength }) => (
+                  {lines.actions.map(({ kind, strength, eyebrow }) => (
                     <ActionButton
                       key={kind}
                       kind={kind}
                       maybe={strength === 'maybe'}
                       eyebrow={
-                        kind === 'transition'
-                          ? triage.changeType === 'none'
-                            ? t('bubble.eyebrow.transitionAny')
-                            : t('bubble.eyebrow.transition', {
-                                type: t(`decode.changeTypes.${triage.changeType}`)
-                              })
-                          : kind === 'questions'
-                            ? t('bubble.eyebrow.questions')
-                            : undefined
+                        eyebrow &&
+                        t(eyebrow.key, eyebrow.typeKey ? { type: t(eyebrow.typeKey) } : undefined)
                       }
                       about={kind === 'questions' && lines.about ? t(lines.about) : null}
                     />

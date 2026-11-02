@@ -1,6 +1,11 @@
 // What the triage bubble says, as pure functions: i18n keys and params in, the component translates.
-import type { Triage, UnclearPart } from '@shared/schemas'
+import type { ActionKind, Triage, UnclearPart } from '@shared/schemas'
 import { AMBIGUOUS_AT } from '../decode/model'
+
+/** The bubble at 16px: its card, Pip and the gap between (gap-2). The window is fitted to this. */
+export const CARD_WIDTH = 384
+export const PIP_SIZE = 44
+export const BUBBLE_WIDTH = CARD_WIDTH + PIP_SIZE + 8
 
 type Deadline = NonNullable<Triage['deadline']>
 
@@ -64,7 +69,19 @@ export interface TriageLines {
   addressee: string | null
   /** The "About: …" line of the ask button, or null. */
   about: string | null
-  actions: Triage['actions']
+  /** Each action with the small label above its button: `typeKey` fills `{{type}}`. */
+  actions: (Triage['actions'][number] & { eyebrow?: { key: string; typeKey?: string } })[]
+}
+
+function eyebrowFor(
+  kind: ActionKind,
+  changeType: Triage['changeType']
+): { key: string; typeKey?: string } | undefined {
+  if (kind === 'questions') return { key: 'bubble.eyebrow.questions' }
+  if (kind !== 'transition') return undefined
+  return changeType === 'none'
+    ? { key: 'bubble.eyebrow.transitionAny' }
+    : { key: 'bubble.eyebrow.transition', typeKey: `decode.changeTypes.${changeType}` }
 }
 
 export function triageLines(triage: Triage, now: Date, locale: string): TriageLines {
@@ -105,6 +122,6 @@ export function triageLines(triage: Triage, now: Date, locale: string): TriageLi
       triage.addressee.value === 'me' ? null : `bubble.addressee.${triage.addressee.value}`,
     about:
       !asks || parts.length === 0 ? null : `bubble.about.${parts.length === 2 ? 'both' : parts[0]}`,
-    actions: triage.actions
+    actions: triage.actions.map((a) => ({ ...a, eyebrow: eyebrowFor(a.kind, triage.changeType) }))
   }
 }
