@@ -225,6 +225,17 @@ describe('createExpander', () => {
     }
   })
 
+  it('rejects unclear hints that are not distinct known parts, without calling Claude', async () => {
+    const msg = 'Unclear hints must be a list of distinct parts: deadline, what_or_who.'
+    for (const bad of [['soon'], ['deadline', 'deadline'], null, 'deadline']) {
+      const f = fake([answers.questions])
+      await expect(
+        createExpander({ claude: f.claude })('New project.', 'questions', 3, profile, bad as never)
+      ).rejects.toThrow(msg)
+      expect(f.calls()).toBe(0)
+    }
+  })
+
   it('passes the spoons to the prompt and, when low, says the UI trims', async () => {
     const low = fake([answers.steps])
     await createExpander({ claude: low.claude })('New project.', 'steps', 1, profile)

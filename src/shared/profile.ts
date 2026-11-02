@@ -137,6 +137,9 @@ const words = (s: string): string[] => s.toLowerCase().split(/\s+/).filter(Boole
 
 // A model may shorten "[Teammate on the forecasting project]" to "[Teammate]". It restores only when the inner words
 // are a strict whole-word prefix of exactly one person token, that token is not numbered, and it is no fixed token.
+// "[" is excluded inside too, so a long run of "[" with no "]" is scanned in linear time.
+const BRACKET = /\[[^\][]+\]/g
+
 function restoreShortened(m: string, roles: RoleToken[]): string | undefined {
   const inner = words(m.slice(1, -1))
   if (!inner.length || (inner.length === 1 && (RESERVED.has(inner[0]) || inner[0] === 'person')))
@@ -279,13 +282,21 @@ export function scrubForModel(
 ): { text: string; restore: (s: string) => string } {
   const { swap, restoreMap, roles } = nameSwapper(profile)
   // Contacts before names, so a name inside an address cannot split it.
+  const sent = swap(stripContacts(text))
+  // A shortened token may only stand for someone this message mentions, and never for a bracket the text itself typed.
+  const lower = sent.toLowerCase()
+  const mentioned = roles.filter((r) => lower.includes(`[${r.words.join(' ')}]`))
+  const typed = new Set((text.match(BRACKET) ?? []).map((t) => t.toLowerCase()))
   return {
-    text: swap(stripContacts(text)),
+    text: sent,
     // shortcut: a message that already contains a token ("ask [Manager 1]") is restored to a real name; owner-only output, escape typed tokens if it misleads.
     restore: (s) =>
       s.replace(
-        /\[[^\]]+\]/g,
-        (m) => restoreMap.get(m.toLowerCase()) ?? restoreShortened(m, roles) ?? m
+        BRACKET,
+        (m) =>
+          restoreMap.get(m.toLowerCase()) ??
+          (typed.has(m.toLowerCase()) ? undefined : restoreShortened(m, mentioned)) ??
+          m
       )
   }
 }

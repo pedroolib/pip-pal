@@ -299,7 +299,7 @@ describe('scrubForModel', () => {
     const dana2 = { name: 'Dana Ruiz', role: 'Teammate on the forecasting project' }
 
     it('restores the exact token and a unique whole-word prefix of it, in any case', () => {
-      const { restore } = scrubForModel('hi', p([alex, dana2]))
+      const { restore } = scrubForModel('Alex and Dana', p([alex, dana2]))
       expect(restore('ask [Teammate on the forecasting project]')).toBe('ask Dana Ruiz')
       expect(restore('ask [Teammate] and [teammate on the]')).toBe('ask Dana Ruiz and Dana Ruiz')
       expect(restore('[Manager] said')).toBe('Alex said')
@@ -307,13 +307,13 @@ describe('scrubForModel', () => {
 
     it('leaves a prefix shared by two tokens alone', () => {
       const lead = { name: 'Rui Costa', role: 'Teammate on support' }
-      const { restore } = scrubForModel('hi', p([alex, dana2, lead]))
+      const { restore } = scrubForModel('Dana and Rui', p([alex, dana2, lead]))
       expect(restore('[Teammate] and [Teammate on]')).toBe('[Teammate] and [Teammate on]')
       expect(restore('[Teammate on support]')).toBe('Rui Costa')
     })
 
     it('never matches part of a word, a longer token, or something else', () => {
-      const { restore } = scrubForModel('hi', p([dana2]))
+      const { restore } = scrubForModel('Dana', p([dana2]))
       for (const s of ['[Team]', '[Teammate on the forecast]', '[forecasting project]'])
         expect(restore(s)).toBe(s)
       expect(restore('[Teammate on the forecasting project today]')).toBe(
@@ -328,11 +328,37 @@ describe('scrubForModel', () => {
         { name: 'Bo Li', role: 'Link to the design team' },
         { name: 'Kim Park', role: 'Me and my mentor' }
       ]
-      const { restore } = scrubForModel('hi', p(people))
+      const { restore } = scrubForModel('Dana, Rui, Bo and Kim', p(people))
       for (const s of ['[person]', '[someone]', '[Link]', '[email]', '[phone]', '[handle]'])
         expect(restore(s)).toBe(s)
       expect(restore('[Me]')).toBe('Sam')
       expect(restore('[Person in charge]')).toBe('Dana Ruiz')
+    })
+
+    it('restores a shortened token only to a person the message mentions', () => {
+      const real = Profile.parse(sam) // Dana López is the "Teammate on the forecasting project"
+      const msg = 'Your teammate Jordan will send the data. Ask [Teammate] if stuck.'
+      const { text, restore } = scrubForModel(msg, real)
+      expect(text).toBe(msg)
+      expect(restore('Ask [Teammate] if stuck.')).toBe('Ask [Teammate] if stuck.')
+      expect(restore('Ask [Teammate] (Jordan)')).toBe('Ask [Teammate] (Jordan)')
+      expect(restore('Thanks, [Teammate]')).toBe('Thanks, [Teammate]')
+      const named = scrubForModel('Dana will send the data.', real)
+      expect(named.restore('Ask [Teammate] if stuck.')).toBe('Ask Dana if stuck.')
+    })
+
+    it('never prefix-restores a bracket the original text already contains', () => {
+      const { restore } = scrubForModel('Dana said: ask [teammate] first.', p([dana2]))
+      expect(restore('ask [Teammate] first')).toBe('ask [Teammate] first')
+      expect(restore('ask [Teammate on the] first')).toBe('ask Dana Ruiz first')
+    })
+
+    it('finds bracket tokens in linear time', () => {
+      const { restore } = scrubForModel('Dana', p([dana2]))
+      const long = '['.repeat(30_000)
+      const start = performance.now()
+      expect(restore(long + '[Teammate]')).toBe(long + 'Dana Ruiz')
+      expect(performance.now() - start).toBeLessThan(100)
     })
 
     it('restores numbered tokens only exactly', () => {

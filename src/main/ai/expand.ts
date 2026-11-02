@@ -7,8 +7,8 @@ import {
   Expansion,
   LOW_SPOONS,
   SECTIONS,
-  type Profile,
-  type UnclearPart
+  UnclearPart,
+  type Profile
 } from '@shared/schemas'
 import { describeIssues, MAX_CHARS } from './decoder'
 
@@ -43,6 +43,11 @@ const TASKS: Record<ActionKind, string> = {
     'Task: the message announces a change. Write a plan of short items: first what changes, then what stays the same (or that the message does not say), then the concrete actions in order. Keep it as short as the profile suggests and as short as the situation allows: plain short lines. Drop items that only restate the message. Put a question in questionsToAsk only when no action already asks it; never repeat an action as a question or a question as an action. Questions are plain, direct and neutral; none if nothing is unclear. If a question needs a greeting, write "Hi," with no name unless the message names the sender.'
 }
 
+// Same rule as the IPC layer, so a direct caller cannot put "undefined" into the prompt.
+const UnclearHints = UnclearPart.array()
+  .max(UnclearPart.options.length)
+  .refine((parts) => new Set(parts).size === parts.length)
+
 const FOCUS: Record<UnclearPart, string> = {
   deadline: 'when it is due',
   what_or_who: 'what exactly is wanted or who does it'
@@ -71,6 +76,8 @@ export function createExpander({
       throw new Error('Nothing to expand: the selected text is empty.')
     if (text.length > MAX_CHARS)
       throw new Error(`The selected text is too long to expand (over ${MAX_CHARS} characters).`)
+    if (!UnclearHints.safeParse(unclear).success)
+      throw new Error('Unclear hints must be a list of distinct parts: deadline, what_or_who.')
 
     const scrubbed = scrubForModel(text, profile)
     // NFKC can expand one character up to 18x; the 2x margin leaves room for [Role] tokens.

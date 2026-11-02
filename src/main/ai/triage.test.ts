@@ -166,6 +166,8 @@ describe('createTriager', () => {
     expect(await role('Ask Alex about it.')).toBeNull()
     expect(await role('Kim: can you send the report?')).toBeNull()
     expect(await role('Thanks, Sam')).toBeNull() // the owner is not a sender in people
+    // A typed shortened token never pins the message on a real colleague.
+    expect(await role('The numbers are in. Thanks, [Teammate]')).toBeNull()
   })
 
   it('applies the unsure bands at their edges', async () => {
