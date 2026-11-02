@@ -1,0 +1,52 @@
+// Glue for the triage and expand IPC handlers: validates what the untrusted renderer sends, then picks the real
+// pipeline (its key is set) or the fixture. Free of electron so it can be tested; mock.ts passes the real parts in.
+import { ActionKind, type Profile } from '@shared/schemas'
+import type { PipApi } from '@shared/ipc'
+import { MAX_CHARS } from './decoder'
+import type { Expand } from './expand'
+import type { TriageFn } from './triage'
+
+type Env = Record<string, string | undefined>
+
+// Messages never include the input: the renderer is untrusted and the text is the person's.
+function checkText(text: unknown): asserts text is string {
+  if (typeof text !== 'string' || !text.trim()) throw new Error('The selected text is empty.')
+  if (text.length > MAX_CHARS)
+    throw new Error(`The selected text is too long (over ${MAX_CHARS} characters).`)
+}
+
+export function createAiHandlers({
+  env,
+  api,
+  load,
+  makeTriager,
+  makeExpander,
+  log = console.log
+}: {
+  env: Env
+  api: Pick<PipApi, 'triage' | 'expand'>
+  /** The live profile, read on every call. */
+  load: () => Profile
+  makeTriager: () => TriageFn
+  makeExpander: () => Expand
+  log?: (line: string) => void
+}): Pick<PipApi, 'triage' | 'expand'> {
+  const triager = env.TYPESAFE_API_KEY ? makeTriager() : null
+  const expander = env.ANTHROPIC_API_KEY ? makeExpander() : null
+  if (!triager) log('TYPESAFE_API_KEY not set: triage uses the demo fixture.')
+  if (!expander) log('ANTHROPIC_API_KEY not set: expand uses the demo fixtures.')
+
+  return {
+    async triage(text) {
+      checkText(text)
+      return triager ? triager(text, load()) : api.triage(text)
+    },
+    async expand(text, kind, spoons) {
+      checkText(text)
+      if (!ActionKind.safeParse(kind).success) throw new Error('Unknown action kind.')
+      if (spoons !== null && !(Number.isInteger(spoons) && spoons >= 1 && spoons <= 5))
+        throw new Error('Spoons must be null or a whole number from 1 to 5.')
+      return expander ? expander(text, kind, spoons, load()) : api.expand(text, kind, spoons)
+    }
+  }
+}
