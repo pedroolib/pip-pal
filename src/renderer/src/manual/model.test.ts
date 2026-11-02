@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ALIAS_MAX } from '@shared/profile'
-import { activeIndex, addAlias, removeAt, removeById, upsert } from './model'
+import { activeIndex, addAlias, hasTooLongAlias, removeAt, removeById, upsert } from './model'
 
 describe('manual list edits', () => {
   it('adds an item and gives it an id', () => {
@@ -88,5 +88,16 @@ describe('addAlias', () => {
   })
   it('keeps only the short part of a pasted list', () => {
     expect(addAlias([], `al, ${'x'.repeat(101)}`)).toEqual(['al'])
+  })
+})
+
+describe('hasTooLongAlias', () => {
+  it('flags a part dropped only for its length', () => {
+    expect(hasTooLongAlias(`al, ${'x'.repeat(101)}`)).toBe(true)
+  })
+  it('does not flag parts dropped for other reasons or kept ones', () => {
+    expect(hasTooLongAlias('J, @a')).toBe(false)
+    expect(hasTooLongAlias('12 ' + '-'.repeat(120))).toBe(false)
+    expect(hasTooLongAlias('x'.repeat(100))).toBe(false)
   })
 })

@@ -185,19 +185,19 @@ export function Editor(props: {
   }
 
   return (
-    <li className="border-t bg-muted px-5 py-4 first:border-t-0">
+    <li className="min-w-0 border-t bg-muted px-5 py-4 first:border-t-0">
       <form
         onSubmit={submit}
         onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
-        className="grid gap-4"
+        className="grid min-w-0 gap-4"
         noValidate
       >
         <p className="text-sm text-muted-foreground">{t(`manual.editor.hint.${props.kind}`)}</p>
         {props.kind === 'owner' ? (
           <strong className="text-[17px]">{props.title}</strong>
         ) : props.kind === 'person' ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-n`}>{t('manual.people.name')}</Label>
               <Input
                 id={`${uid}-n`}
@@ -208,7 +208,7 @@ export function Editor(props: {
                 {...err('pair')}
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-r`}>{t('manual.people.role')}</Label>
               <Input
                 id={`${uid}-r`}
@@ -220,8 +220,8 @@ export function Editor(props: {
             </div>
           </div>
         ) : props.kind === 'strategy' ? (
-          <div className="grid gap-4 sm:grid-cols-[1fr_9rem]">
-            <div className="grid gap-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-[1fr_9rem]">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-t`}>{t('manual.calming.label')}</Label>
               <Input
                 id={`${uid}-t`}
@@ -233,7 +233,7 @@ export function Editor(props: {
                 {...err('text')}
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid min-w-0 gap-2">
               <Label htmlFor={`${uid}-m`}>
                 {t('manual.calming.minutes')} ({t('manual.calming.unit')})
               </Label>
@@ -249,7 +249,7 @@ export function Editor(props: {
             </div>
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             <Label htmlFor={`${uid}-t`}>{t('manual.editor.entry')}</Label>
             <Textarea
               id={`${uid}-t`}

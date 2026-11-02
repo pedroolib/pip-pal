@@ -5,8 +5,8 @@ import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
-import { ALIAS_MAX, aliasKey } from '@shared/profile'
-import { addAlias, removeAt } from './model'
+import { ALIAS_MAX } from '@shared/profile'
+import { addAlias, hasTooLongAlias, removeAt } from './model'
 
 /** Chip input for nicknames. Enter or comma adds; text left in the box is added by the form on Save. */
 export function AliasField(props: {
@@ -23,27 +23,26 @@ export function AliasField(props: {
   const [tooLong, setTooLong] = useState(false)
   const add = (v: string): void => {
     const next = addAlias(aliases, v)
-    // A part the scrubber would ignore that has 2+ letters or digits is too long (folded); empty, one-letter
-    // and duplicate parts are not worth a message.
-    setTooLong(
-      v.split(',').some((p) => aliasKey(p) === null && /[\p{L}\p{N}].*[\p{L}\p{N}]/su.test(p))
-    )
+    setTooLong(hasTooLongAlias(v))
     onChange(next, '')
   }
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <Label htmlFor={props.id}>{t('manual.aliases.label')}</Label>
       {aliases.length > 0 && (
-        <ul className="flex flex-wrap gap-2">
+        <ul className="flex min-w-0 flex-wrap gap-2 pr-2">
           {aliases.map((a, i) => (
-            <li key={a}>
-              <Badge variant="secondary" className="min-h-8 gap-1 overflow-visible pr-0.5 text-sm">
-                {a}
+            <li key={a} className="max-w-full min-w-0">
+              <Badge
+                variant="secondary"
+                className="h-auto min-h-8 max-w-full whitespace-normal min-w-0 gap-1 overflow-visible pr-0.5 text-sm"
+              >
+                <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{a}</span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="relative size-7 after:absolute after:-inset-2 after:content-['']"
+                  className="relative size-7 shrink-0 after:absolute after:-inset-2 after:content-['']"
                   aria-label={t('manual.aliases.remove', { alias: a })}
                   onClick={() => {
                     onChange(removeAt(aliases, i), text)

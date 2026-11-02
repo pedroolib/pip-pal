@@ -1,5 +1,5 @@
 // Pure list edits for the manual. New items get an id here, never in the UI.
-import { aliasKey } from '@shared/profile'
+import { ALIAS_MAX, aliasKey } from '@shared/profile'
 
 type WithId = { id?: string }
 
@@ -42,4 +42,13 @@ export function addAlias(list: string[], text: string): string[] {
     if (aliasKey(a) !== null && !out.some((x) => x.toLowerCase() === a.toLowerCase())) out.push(a)
   }
   return out
+}
+
+/** True when a part of the text was skipped only for being too long: its first ALIAS_MAX characters would pass `aliasKey`. */
+export function hasTooLongAlias(text: string): boolean {
+  // shortcut: text that only exceeds the cap once folded (e.g. ligatures) gets no message, upgrade if that matters
+  return text.split(',').some((raw) => {
+    const a = raw.trim()
+    return aliasKey(a) === null && aliasKey(a.slice(0, ALIAS_MAX)) !== null
+  })
 }
