@@ -99,7 +99,9 @@
       "keep": "Keep person",
       "confirm": "Delete person"
     },
-    "empty": "Nothing here yet.",
+    "empty": "Nothing here yet. Add what helps you, or ask your coach.",
+    "emptyEnergy": "Pip fills this in from your check-ins. You can also write your own.",
+    "submitNew": { "entry": "Add entry", "strategy": "Add strategy", "person": "Add person" },
     "loading": "Opening your manual",
     "loadError": {
       "title": "Your manual did not open.",
