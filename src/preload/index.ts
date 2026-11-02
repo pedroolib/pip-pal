@@ -12,7 +12,8 @@ const api: PipApi = {
   onCheckInDue: (cb) => on(IPC.checkInDue, cb),
   decode: (text, spoons) => ipcRenderer.invoke(IPC.decode, text, spoons),
   triage: (text) => ipcRenderer.invoke(IPC.triage, text),
-  expand: (text, kind, spoons) => ipcRenderer.invoke(IPC.expand, text, kind, spoons),
+  expand: (text, kind, spoons, unclear) =>
+    ipcRenderer.invoke(IPC.expand, text, kind, spoons, unclear),
   getProfile: () => ipcRenderer.invoke(IPC.profileGet),
   saveProfile: (profile) => ipcRenderer.invoke(IPC.profileSave, profile),
   saveCheckIn: (checkIn) => ipcRenderer.invoke(IPC.checkInSave, checkIn),

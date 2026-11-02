@@ -10,7 +10,8 @@ import type {
   Profile,
   Recipient,
   Slot,
-  Summary
+  Summary,
+  UnclearPart
 } from './schemas'
 
 export const IPC = {
@@ -46,7 +47,13 @@ export interface PipApi {
   /** Jev only, on the hotkey; rejects if Jev fails. Never calls Claude. */
   triage(text: string): Promise<Triage>
   /** One Claude call, only when the person presses that button. Calls for different kinds can run in parallel. */
-  expand(text: string, kind: ActionKind, spoons: number | null): Promise<Expansion>
+  /** `unclear`: the parts Jev flagged as unclear; used only for `questions`, at most 2, no duplicates. */
+  expand(
+    text: string,
+    kind: ActionKind,
+    spoons: number | null,
+    unclear?: UnclearPart[]
+  ): Promise<Expansion>
   getProfile(): Promise<Profile>
   saveProfile(profile: Profile): Promise<void>
   saveCheckIn(checkIn: CheckIn): Promise<void>

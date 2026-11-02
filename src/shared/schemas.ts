@@ -162,6 +162,10 @@ export type TriageField = z.infer<typeof TriageField>
 export const ActionKind = z.enum(['steps', 'questions', 'transition'])
 export type ActionKind = z.infer<typeof ActionKind>
 
+/** A part of the message Jev flagged as unclear; a hint for the `questions` call only. */
+export const UnclearPart = z.enum(['deadline', 'what_or_who'])
+export type UnclearPart = z.infer<typeof UnclearPart>
+
 /** A label and how sure Jev is of it (0–1). */
 const scored = <T extends z.ZodType>(value: T): z.ZodObject<{ value: T; p: z.ZodNumber }> =>
   z.object({ value, p: z.number().min(0).max(1) })

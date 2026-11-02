@@ -40,7 +40,9 @@ export function registerMockHandlers(): void {
     makeExpander: () => createExpander({ claude: createClaudeClient() })
   })
   ipcMain.handle(IPC.triage, (_, text) => ai.triage(text))
-  ipcMain.handle(IPC.expand, (_, text, kind, spoons) => ai.expand(text, kind, spoons))
+  ipcMain.handle(IPC.expand, (_, text, kind, spoons, unclear) =>
+    ai.expand(text, kind, spoons, unclear)
+  )
   ipcMain.handle(IPC.profileGet, () => profiles.load())
   ipcMain.handle(IPC.profileSave, (_, p) => profiles.save(p))
   ipcMain.handle(IPC.checkInList, () => api.listCheckIns())

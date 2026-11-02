@@ -2,7 +2,14 @@
 // decoder: scrub → wrap → JSON answer → validate (no retry) → restore names. The client is injected.
 import { z } from 'zod'
 import { buildProfileContext, restoreDecoded, scrubForModel } from '@shared/profile'
-import { ActionKind, Expansion, LOW_SPOONS, SECTIONS, type Profile } from '@shared/schemas'
+import {
+  ActionKind,
+  Expansion,
+  LOW_SPOONS,
+  SECTIONS,
+  type Profile,
+  type UnclearPart
+} from '@shared/schemas'
 import { describeIssues, MAX_CHARS } from './decoder'
 
 const [Steps, Questions, Transition] = Expansion.options
@@ -28,16 +35,23 @@ const TASKS: Record<ActionKind, string> = {
   steps:
     'Task: break what the message asks of the person into concrete steps, the most important first. Each step is one short sentence and carries a "why": the clue in the message or the profile behind it. Use null for "why" only when the reason is obvious.',
   questions:
-    'Task: find the things the message leaves unclear that the person needs to know to act (when, what, who, how much). For each, "what" says in one sentence what is unclear, quoting the vague words, and "suggestedQuestion" is a short, polite question to the sender, drafted and ready to send. Do not guess the answers. If nothing is unclear, return an empty list.',
+    'Task: list only the concrete gaps in the message: things the person would otherwise have to guess to act on it, such as a missing deadline, what exactly is wanted, who does what, or the scope. One item per gap. Never ask about something the message already answers. Never ask for reassurance, approval or politeness. The profile shapes how the questions are worded, not how many there are. For each gap, "what" names it in one sentence, quoting the vague words from the message, and "suggestedQuestion" is a short, polite question to the sender, drafted and ready to send. Do not guess the answers. If nothing is genuinely unclear, return an empty list: a clear message needs no questions.',
   transition:
     'Task: the message announces a change. Write a plan of short items: first what changes, then what stays the same (or that the message does not say), then the concrete actions in order. Then list short questions the person can ask about the change (none if nothing is unclear).'
+}
+
+const FOCUS: Record<UnclearPart, string> = {
+  deadline: 'when it is due',
+  what_or_who: 'what exactly is wanted or who does it'
 }
 
 export type Expand = (
   text: string,
   kind: ActionKind,
   spoons: number | null,
-  profile: Profile
+  profile: Profile,
+  /** Hints for `questions` only; ignored for other kinds. */
+  unclear?: UnclearPart[]
 ) => Promise<Expansion>
 
 export function createExpander({
@@ -47,7 +61,7 @@ export function createExpander({
   claude: ClaudeJsonClient
   now?: () => Date
 }): Expand {
-  return async (text, kind, spoons, profile) => {
+  return async (text, kind, spoons, profile, unclear = []) => {
     // Arrives over IPC, so checked at runtime too.
     if (!ActionKind.safeParse(kind).success) throw new Error('Unknown action kind.')
     if (typeof text !== 'string' || !text.trim())
@@ -71,6 +85,12 @@ export function createExpander({
       `Energy (spoons, 1-5): ${energy}.`,
       ...(kind === 'steps' && typeof spoons === 'number' && spoons <= LOW_SPOONS
         ? ['Energy is low: the app shows only the first 3 steps, so order them by importance.']
+        : []),
+      ...(kind === 'questions' && unclear.length
+        ? [
+            `A first read flagged parts of the message as possibly unclear. Focus on: ${unclear.map((p) => FOCUS[p]).join('; ')}.`,
+            'If the message does answer them, return an empty list.'
+          ]
         : []),
       '',
       'Profile:',

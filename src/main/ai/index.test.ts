@@ -25,7 +25,7 @@ describe('key switch', () => {
     expect(await s.ai.triage('hello')).toEqual({ real: 'triage' })
     expect(await s.ai.expand('hello', 'steps', 3)).toEqual({ real: 'expand' })
     expect(s.realTriage).toHaveBeenCalledWith('hello', profile)
-    expect(s.realExpand).toHaveBeenCalledWith('hello', 'steps', 3, profile)
+    expect(s.realExpand).toHaveBeenCalledWith('hello', 'steps', 3, profile, undefined)
   })
 
   it('serves the fixtures and builds nothing without keys', async () => {
@@ -71,6 +71,33 @@ describe('input validation', () => {
   it('accepts null and 1 to 5', async () => {
     const s = setup({})
     for (const sp of [null, 1, 5]) await s.ai.expand('hi', 'steps', sp)
+  })
+
+  it('passes valid unclear hints to the expander and the fixture', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    await s.ai.expand('hi', 'questions', 3, ['what_or_who', 'deadline'])
+    expect(s.realExpand).toHaveBeenCalledWith('hi', 'questions', 3, profile, [
+      'what_or_who',
+      'deadline'
+    ])
+    const f = setup({})
+    for (const u of [undefined, [], ['deadline']] as const)
+      expect((await f.ai.expand('hi', 'questions', 3, u && [...u])).kind).toBe('questions')
+  })
+
+  it.each([
+    ['not an array', 'deadline'],
+    ['null', null],
+    ['an unknown part', ['when']],
+    ['a duplicate', ['deadline', 'deadline']],
+    ['too many', ['deadline', 'what_or_who', 'deadline']],
+    ['secret text', [SECRET]]
+  ])('rejects unclear hints that are %s without echoing them', async (_, unclear) => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    const e = await s.ai.expand('hi', 'questions', 3, unclear as never).catch((x: Error) => x)
+    expect((e as Error).message).toMatch(/unclear/i)
+    expect((e as Error).message).not.toContain('Quillfeather')
+    expect(s.realExpand).not.toHaveBeenCalled()
   })
 
   it('never echoes the input in an error', async () => {
@@ -147,6 +174,19 @@ describe('one running call per key', () => {
     await expect(s.ai.expand('same', 'steps', 3)).rejects.toThrow(/still working/)
     d.resolve({} as never)
     await first
+  })
+
+  it('keys on the unclear hints too, in any order', async () => {
+    const s = setup(keys)
+    const d = deferred<never>()
+    s.realExpand.mockReturnValueOnce(d.promise)
+    const first = s.ai.expand('same', 'questions', 3, ['deadline', 'what_or_who'])
+    const again = s.ai.expand('same', 'questions', 3, ['what_or_who', 'deadline'])
+    await expect(s.ai.expand('same', 'questions', 3, ['deadline'])).rejects.toThrow(/still working/)
+    await expect(s.ai.expand('same', 'questions', 3)).rejects.toThrow(/still working/)
+    d.resolve({ real: 'late' } as never)
+    expect(await again).toEqual(await first)
+    expect(s.realExpand).toHaveBeenCalledTimes(1)
   })
 
   it('lets 3 expands and 1 triage run at once, but not two for one key', async () => {

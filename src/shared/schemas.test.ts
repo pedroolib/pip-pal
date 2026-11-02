@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ActionKind, Expansion, Profile, Triage } from './schemas'
+import { ActionKind, Expansion, Profile, Triage, UnclearPart } from './schemas'
 import { createMockApi } from './mock-api'
 import triageJson from './fixtures/demo.triage.json'
 import stepsJson from './fixtures/demo.expansion.steps.json'
@@ -37,5 +37,11 @@ describe('triage and expansion fixtures', () => {
     const api = createMockApi()
     expect((await api.triage('x')).source).toBe('jev')
     for (const kind of ActionKind.options) expect((await api.expand('x', kind, 3)).kind).toBe(kind)
+    expect((await api.expand('x', 'questions', 3, ['deadline'])).kind).toBe('questions')
+  })
+
+  it('accepts only the known unclear parts', () => {
+    expect(UnclearPart.options).toEqual(['deadline', 'what_or_who'])
+    expect(UnclearPart.safeParse('when').success).toBe(false)
   })
 })

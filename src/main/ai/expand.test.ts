@@ -124,6 +124,46 @@ describe('createExpander', () => {
     expect(out).toEqual({ kind: 'questions', questions: [], profileUsed: [] })
   })
 
+  it('asks only about genuine gaps: the questions prompt allows an empty list and has no number cap', async () => {
+    const f = fake([answers.questions])
+    await createExpander({ claude: f.claude })('New project.', 'questions', 3, profile)
+    const system = f.sent[0]
+    expect(system).toMatch(/return an empty list/)
+    expect(system).toMatch(/already answers/)
+    expect(system).toMatch(/reassurance/)
+    expect(system).toMatch(/suggestedQuestion/)
+    expect(system).toMatch(/how this person likes tasks broken down/)
+    expect(system).toMatch(/<message>.*untrusted/s)
+    expect(system).not.toMatch(/\d|at most|up to|no more than/i)
+  })
+
+  it('tells the model the flagged unclear parts, only for questions', async () => {
+    const focus = 'Focus on: when it is due; what exactly is wanted or who does it.'
+    const q = fake([answers.questions])
+    await createExpander({ claude: q.claude })('New project.', 'questions', 3, profile, [
+      'deadline',
+      'what_or_who'
+    ])
+    expect(userOf(q)).toContain(focus)
+    expect(userOf(q)).toMatch(/empty list/)
+
+    const one = fake([answers.questions])
+    await createExpander({ claude: one.claude })('New project.', 'questions', 3, profile, [
+      'what_or_who'
+    ])
+    expect(userOf(one)).toContain('Focus on: what exactly is wanted or who does it.')
+
+    const none = fake([answers.questions])
+    await createExpander({ claude: none.claude })('New project.', 'questions', 3, profile, [])
+    expect(userOf(none)).not.toMatch(/Focus on/)
+
+    for (const kind of ['steps', 'transition'] as const) {
+      const f = fake([answers[kind]])
+      await createExpander({ claude: f.claude })('New project.', kind, 3, profile, ['deadline'])
+      expect(f.sent.join('\n')).not.toMatch(/Focus on/)
+    }
+  })
+
   it('passes the spoons to the prompt and, when low, says the UI trims', async () => {
     const low = fake([answers.steps])
     await createExpander({ claude: low.claude })('New project.', 'steps', 1, profile)

@@ -1,12 +1,16 @@
 // Glue for the triage and expand IPC handlers: validates what the untrusted renderer sends, then picks the real
 // pipeline (its key is set) or the fixture. Free of electron so it can be tested; mock.ts passes the real parts in.
-import { ActionKind, type Profile } from '@shared/schemas'
+import { ActionKind, UnclearPart, type Profile } from '@shared/schemas'
 import type { PipApi } from '@shared/ipc'
 import { MAX_CHARS } from './decoder'
 import type { Expand } from './expand'
 import type { TriageFn } from './triage'
 
 type Env = Record<string, string | undefined>
+
+const UnclearHints = UnclearPart.array()
+  .max(UnclearPart.options.length)
+  .refine((parts) => new Set(parts).size === parts.length)
 
 // Messages never include the input: the renderer is untrusted and the text is the person's.
 function checkText(text: unknown): asserts text is string {
@@ -63,13 +67,18 @@ export function createAiHandlers({
         triager ? triager(text, load()) : api.triage(text)
       )
     },
-    async expand(text, kind, spoons) {
+    async expand(text, kind, spoons, unclear) {
       checkText(text)
       if (!ActionKind.safeParse(kind).success) throw new Error('Unknown action kind.')
       if (spoons !== null && !(Number.isInteger(spoons) && spoons >= 1 && spoons <= 5))
         throw new Error('Spoons must be null or a whole number from 1 to 5.')
-      return oneAtATime(expanding, kind, `${spoons}:${text}`, async () =>
-        expander ? expander(text, kind, spoons, load()) : api.expand(text, kind, spoons)
+      if (unclear !== undefined && !UnclearHints.safeParse(unclear).success)
+        throw new Error('Unclear hints must be a list of distinct parts: deadline, what_or_who.')
+      const hints = [...(unclear ?? [])].sort().join(',')
+      return oneAtATime(expanding, kind, `${spoons}:${hints}:${text}`, async () =>
+        expander
+          ? expander(text, kind, spoons, load(), unclear)
+          : api.expand(text, kind, spoons, unclear)
       )
     }
   }
