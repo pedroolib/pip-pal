@@ -169,6 +169,32 @@ describe('buildProfileContext', () => {
     expect(out).not.toMatch(/\b(sam|cy|bo)\b/i)
   })
 
+  it('removes emails, links and phones from entries, strategies and roles', () => {
+    const out = buildProfileContext({
+      ...profile,
+      role: 'Analyst, sam@corp.com',
+      people: [{ name: 'Alex', role: 'Manager at 555-123-4567' }],
+      sections: sections({
+        feedback: [
+          {
+            text: 'Email ana.lopez@acme.com or call +52 55 1234 5678; wiki https://acme.com/sam',
+            origin: 'self',
+            visibleTo: []
+          },
+          { text: 'Alex helps', origin: 'self', visibleTo: [] }
+        ]
+      }),
+      calmingStrategies: [
+        { label: 'Call mom at 555-123-4567', minutes: 5, origin: 'self', visibleTo: [] }
+      ]
+    })
+    expect(out.split('\n')[0]).toBe('[Me], Analyst, [email]')
+    expect(out).toContain('- Email [email] or call [phone]; wiki [link] (self)')
+    expect(out).toContain('- [Manager at [phone]] helps (self)')
+    expect(out).toContain('- Call mom at [phone] (5 min) (self)')
+    expect(out).not.toMatch(/@|555|acme|https/)
+  })
+
   it('excludes pending', () => {
     expect(buildProfileContext(profile)).not.toContain('PENDINGTEXT')
   })
@@ -201,11 +227,11 @@ describe('scrubForModel', () => {
     expect(text).toBe('Alexander and [Lead], [Peer]')
   })
 
-  it('round-trips names; the first person listed wins when roles are shared', () => {
-    const profile = p([alex, { name: 'Bo', role: 'Manager' }])
-    const { text, restore } = scrubForModel('Alex and Bo and Sam', profile)
-    expect(text).toBe('[Manager] and [Manager] and [Me]')
-    expect(restore(text)).toBe('Alex and Alex and Sam')
+  it('round-trips names; people sharing a role get numbered tokens', () => {
+    const profile = p([alex, { name: 'Bo', role: 'manager' }, dana])
+    const { text, restore } = scrubForModel('Alex and Bo and Dana and Sam', profile)
+    expect(text).toBe('[Manager 1] and [manager 2] and [Coach] and [Me]')
+    expect(restore(text)).toBe('Alex and Bo and Dana and Sam')
     const one = scrubForModel('Dana and Sam', p([dana]))
     expect(one.restore(one.text)).toBe('Dana and Sam')
     expect(one.restore('[Unknown] [coach]')).toBe('[Unknown] Dana')
@@ -231,6 +257,52 @@ describe('scrubForModel', () => {
   it('keeps dates, short numbers and plain text', () => {
     const t = 'On 2026-11-01 at 10:30, 3 of 12 tasks. e.g. done.'
     expect(scrubForModel(t, p()).text).toBe(t)
+  })
+
+  it('swaps partial names: owner words to [Me], a person to their token, shared words to [someone]', () => {
+    const profile = {
+      ...p([
+        { name: 'Ana María López', role: 'Manager' },
+        { name: 'Luis Rivera', role: 'Peer' },
+        { name: 'Eva de Luna', role: 'Coach' }
+      ]),
+      name: 'Sam Rivera'
+    }
+    const { text, restore } = scrubForModel(
+      'Hi Sam. López agrees, ask Ana. Rivera, Sam Rivera, Luis, de Luna',
+      profile
+    )
+    expect(text).toBe(
+      'Hi [Me]. [Manager] agrees, ask [Manager]. [someone], [Me], [Peer], de [Coach]'
+    )
+    expect(restore(text)).toBe(
+      'Hi Sam Rivera. Ana María López agrees, ask Ana María López. [someone], Sam Rivera, Luis Rivera, de Eva de Luna'
+    )
+  })
+
+  it('matches names across NFD, non-breaking spaces and missing accents, keeping other accents', () => {
+    const profile = p([
+      { name: 'José', role: 'Lead' },
+      { name: 'Ana María López', role: 'Manager' },
+      { name: 'Raúl', role: 'Peer' }
+    ])
+    const scrub = (t: string): string => scrubForModel(t, profile).text
+    expect(scrub('José dijo que mañana')).toBe('[Lead] dijo que mañana')
+    expect(scrub('Jose y Ana María López')).toBe('[Lead] y [Manager]')
+    expect(scrub('JOSÉ, ANA MARIA LOPEZ y Raúl')).toBe('[Lead], [Manager] y [Peer]')
+  })
+
+  it('removes back-to-back phones and phones glued to letters, keeps ISO date runs', () => {
+    const scrub = (t: string): string => scrubForModel(t, p()).text
+    expect(scrub('Call 55 1234 5678 55 8765 4321')).toBe('Call [phone]')
+    expect(scrub('tel5512345678 or ph5512345678')).toBe('tel[phone] or ph[phone]')
+    expect(scrub('From 2026-11-01 2026-11-15 on')).toBe('From 2026-11-01 2026-11-15 on')
+    // shortcut pinned: digit runs read as a phone
+    expect(scrub('tasks 10 20 30 40')).toBe('tasks [phone]')
+  })
+
+  it('shortcut pinned: a bare domain with an unlisted TLD is not removed', () => {
+    expect(scrubForModel('see startup.xyz/team', p()).text).toBe('see startup.xyz/team')
   })
 
   it('removes an email even when it contains a name', () => {
