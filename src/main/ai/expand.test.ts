@@ -176,6 +176,28 @@ describe('createExpander', () => {
     expect(t.sent[0]).not.toMatch(/\d|at most|up to|no more than/i)
   })
 
+  it('never appeals to common sense or to what is obvious; unspoken norms count as gaps', async () => {
+    const kinds = ['steps', 'questions', 'transition'] as const
+    for (const kind of kinds) {
+      const f = fake([answers[kind]])
+      await createExpander({ claude: f.claude })('New project.', kind, 3, profile)
+      // the one allowed use of the word is the sentence that forbids the assumption
+      const text = f.sent[0].replace(
+        /Never treat something as obvious because most people would guess it/,
+        ''
+      )
+      expect(text).not.toMatch(/common sense|obvious/i)
+      expect(f.sent[0]).not.toMatch(/\d|at most|up to|no more than/i)
+    }
+    const q = fake([answers.questions])
+    await createExpander({ claude: q.claude })('New project.', 'questions', 3, profile)
+    expect(q.sent[0]).toMatch(/obvious because most people would guess it/i)
+    expect(q.sent[0]).toMatch(/not stated in the message or in the facts given here/)
+    const s = fake([answers.steps])
+    await createExpander({ claude: s.claude })('New project.', 'steps', 3, profile)
+    expect(s.sent[0]).toMatch(/repeats what the message says word for word/)
+  })
+
   it('tells the model the flagged unclear parts, only for questions', async () => {
     const focus = 'Focus on: when it is due; what exactly is wanted or who does it.'
     const q = fake([answers.questions])
