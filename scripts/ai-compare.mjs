@@ -44,6 +44,15 @@ const server = await createServer({
 try {
   const { createDecoder } = await server.ssrLoadModule('/src/main/ai/decoder.ts')
   const { Profile } = await server.ssrLoadModule('/src/shared/schemas.ts')
+  const { resolveModel } = await server.ssrLoadModule('/src/main/ai/models.ts')
+  // A typo would otherwise fail every decode and hide the cause in the JSON file.
+  for (const model of models) {
+    try {
+      resolveModel(model)
+    } catch (e) {
+      fail(e.message)
+    }
+  }
   const read = (path) => JSON.parse(readFileSync(resolve(root, path), 'utf8'))
   const messages = read('scripts/compare-messages.json')
   const profile = Profile.parse(read('src/shared/fixtures/sam.profile.json'))

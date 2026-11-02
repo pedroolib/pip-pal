@@ -11,7 +11,13 @@ const TOOL_NAME = 'decode_message'
 
 /** Reads ANTHROPIC_API_KEY. The model is resolved per call, so a bad PIP_MODEL fails the decode, not startup. */
 export function createClaudeClient(): ClaudeClient {
-  const client = new Anthropic({ timeout: 30_000, maxRetries: 1, logLevel: 'off' })
+  // maxRetries 0: the decoder owns the retry. openTelemetry false: no message content in spans.
+  const client = new Anthropic({
+    timeout: 30_000,
+    maxRetries: 0,
+    openTelemetry: false,
+    logLevel: 'off'
+  })
   const schema = z.toJSONSchema(ToolOutput)
   delete schema.$schema
   const tool = {
