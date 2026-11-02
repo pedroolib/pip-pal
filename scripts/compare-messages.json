@@ -1,0 +1,56 @@
+[
+  {
+    "id": "demo-project-change",
+    "text": "Hey Sam, heads up, we're moving you to the Q1 forecasting project starting Monday. Can you wrap up the dashboard stuff and sync with Dana when you get a chance? Thx",
+    "isChange": true,
+    "vague": true
+  },
+  {
+    "id": "project-change",
+    "text": "Hi Sam, the churn analysis is on hold. From next week you'll work on the pricing review instead. Alex will send the kickoff notes on Friday.",
+    "isChange": true,
+    "vague": false
+  },
+  {
+    "id": "leader-change",
+    "text": "Team update: Alex is moving to the platform group at the end of the month. Marta Ruiz will be your new manager from the 1st. She will set up a 1:1 with each of you.",
+    "isChange": true,
+    "vague": false
+  },
+  {
+    "id": "priorities-change",
+    "text": "Quick note: the client demo got pulled forward, so the report cleanup is now lower priority than the demo data. Let's focus on that first, ok?",
+    "isChange": true,
+    "vague": true
+  },
+  {
+    "id": "vague-ask",
+    "text": "Can you take a look at the numbers when you can and let me know what you think? No rush, but would be good soon.",
+    "isChange": false,
+    "vague": true
+  },
+  {
+    "id": "plain-request",
+    "text": "Hi Sam, please send me the March sales table as a CSV by 3 pm today. Thanks.",
+    "isChange": false,
+    "vague": false
+  },
+  {
+    "id": "frustrated-tone",
+    "text": "Sam, this is the second time the weekly report arrived without the regional breakdown. I really need it complete before I send it up. Please fix it today.",
+    "isChange": false,
+    "vague": false
+  },
+  {
+    "id": "spanish",
+    "text": "Hola Sam, te aviso que desde el lunes pasas al proyecto de inventarios. Cuando puedas, habla con Rui para pasarle lo del tablero. Gracias.",
+    "isChange": true,
+    "vague": true
+  },
+  {
+    "id": "name-and-email",
+    "text": "Hi Sam, Dana asked me to loop you in on the forecasting kickoff. Please send your availability to planning@example.com and we'll pick a time. Rui can show you where the data lives.",
+    "isChange": false,
+    "vague": false
+  }
+]

@@ -4,6 +4,7 @@ out
 .DS_Store
 .eslintcache
 *.log*
+scripts/.out/
 .env
 .env.*
 .factory/jobs/
