@@ -194,8 +194,9 @@ function Manual(): React.JSX.Element {
       <Block
         key={s}
         id={s}
+        emptyText={t(s === 'energy' ? 'manual.emptyEnergy' : 'manual.empty')}
         title={title}
-        count={t('manual.count', { count: entries.length })}
+        count={entries.length ? t('manual.count', { count: entries.length }) : ''}
         open={open[s]}
         onOpenChange={(o) => setOpen((x) => ({ ...x, [s]: o }))}
         empty={entries.length === 0 && editing !== `${s}:${NEW}`}
@@ -308,10 +309,14 @@ function Manual(): React.JSX.Element {
                     e.preventDefault()
                     jump(n.id)
                   }}
-                  className="flex min-h-11 items-center justify-between rounded-md px-3 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-[current=location]:bg-secondary aria-[current=location]:font-bold"
+                  className="group flex min-h-11 items-center justify-between rounded-md px-3 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-[current=location]:bg-secondary aria-[current=location]:font-bold"
                 >
                   {n.label}
-                  {!!n.count && <span className="text-muted-foreground">{n.count}</span>}
+                  {!!n.count && (
+                    <span className="text-muted-foreground group-aria-[current=location]:text-foreground">
+                      {n.count}
+                    </span>
+                  )}
                 </a>
               </li>
             ))}
@@ -321,7 +326,7 @@ function Manual(): React.JSX.Element {
       header={
         <>
           <h1 className="text-[28px] leading-tight font-bold">{t('manual.title')}</h1>
-          <p className="max-w-[44rem] truncate text-base text-muted-foreground">
+          <p className="max-w-[44rem] text-base text-muted-foreground">
             {t('manual.subtitle', { name: profile.name, role: profile.role })}
           </p>
           <p className="mt-3 max-w-[62ch] text-[17px] leading-[1.6] text-body">
@@ -335,8 +340,9 @@ function Manual(): React.JSX.Element {
 
         <Block
           id={CALMING}
+          emptyText={t('manual.empty')}
           title={t('manual.calming.title')}
-          count={t('manual.things', { count: strategies.length })}
+          count={strategies.length ? t('manual.things', { count: strategies.length }) : ''}
           note={t('manual.calming.note')}
           open={open[CALMING]}
           onOpenChange={(o) => setOpen((x) => ({ ...x, [CALMING]: o }))}
@@ -378,7 +384,7 @@ function Manual(): React.JSX.Element {
                 }
               >
                 <strong>{c.label}</strong>{' '}
-                <span className="text-body">
+                <span className="whitespace-nowrap text-body">
                   {t('manual.calming.minutesShort', { count: c.minutes })}
                 </span>
               </Row>
@@ -399,8 +405,9 @@ function Manual(): React.JSX.Element {
 
         <Block
           id={PEOPLE}
+          emptyText={t('manual.empty')}
           title={t('manual.people.title')}
-          count={t('manual.people', { count: people.length })}
+          count={people.length ? t('manual.people', { count: people.length }) : ''}
           note={t('manual.people.note')}
           open={open[PEOPLE]}
           onOpenChange={(o) => setOpen((x) => ({ ...x, [PEOPLE]: o }))}
