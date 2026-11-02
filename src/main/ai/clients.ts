@@ -2,11 +2,12 @@
 // Logging is off in both: their debug levels would print request bodies.
 import Anthropic from '@anthropic-ai/sdk'
 import type { ClaudeToolClient } from './expand'
-import { TypeSafeClient } from '@typesafe-ai/sdk'
+import { APIError, TypeSafeClient, type Questions } from '@typesafe-ai/sdk'
 import { z } from 'zod'
 import { JEV_TIMEOUT_MS, ToolOutput, type ClaudeClient, type JevClient } from './decoder'
 import { JEV_QUESTIONS, toClassification } from './jev-questions'
 import { resolveModel } from './models'
+import type { TriageJevClient } from './triage'
 
 const TOOL_NAME = 'decode_message'
 
@@ -71,6 +72,30 @@ export function createJevClient(): JevClient {
         questions: JEV_QUESTIONS
       })
       return toClassification(answers)
+    }
+  }
+}
+
+// ---------- Jev for triage (one bundled request per message) ----------
+
+/** Reads TYPESAFE_API_KEY. Errors keep only the HTTP status: an API error body may quote the request. */
+export function createTriageJevClient(
+  client: Pick<TypeSafeClient, 'systemOne'> = new TypeSafeClient({
+    timeout: JEV_TIMEOUT_MS,
+    retry: { maxRetries: 0 },
+    logLevel: 'off'
+  })
+): TriageJevClient {
+  return {
+    async ask({ state, questions }) {
+      const { answers } = await client
+        .systemOne({ state, questions: questions as Questions })
+        .catch((e: unknown) => {
+          // No cause on purpose: the caught error's body or message may quote the request.
+          const status = e instanceof APIError ? e.status : null
+          throw new Error(status ? `Jev API error ${status}` : 'Jev request failed.')
+        })
+      return answers
     }
   }
 }

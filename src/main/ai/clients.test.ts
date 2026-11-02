@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { describe, expect, it, vi } from 'vitest'
-import { createClaudeClient } from './clients'
+import { APIError } from '@typesafe-ai/sdk'
+import { createClaudeClient, createTriageJevClient } from './clients'
 
 const fake = (create: (p: unknown) => unknown): never =>
   ({ messages: { create: vi.fn(async (p) => create(p)) } }) as never
@@ -55,6 +56,35 @@ describe('createClaudeClient', () => {
     )
     await expect(c.decode({ system: 'S', user: 'SECRET' })).rejects.toThrow(
       /^Claude API error 400: bad thing$/
+    )
+  })
+})
+
+describe('createTriageJevClient', () => {
+  const systemOne = (impl: (r: unknown) => unknown): never =>
+    ({ systemOne: vi.fn(async (r) => impl(r)) }) as never
+
+  it('sends state and questions in one request and returns the answers', async () => {
+    const calls: unknown[] = []
+    const c = createTriageJevClient(
+      systemOne((r) => {
+        calls.push(r)
+        return { answers: { isChange: { noul: 0.9 } } }
+      })
+    )
+    const req = { state: { message: 'M' }, questions: { isChange: { type: 'noul' } } }
+    expect(await c.ask(req)).toEqual({ isChange: { noul: 0.9 } })
+    expect(calls).toEqual([req])
+  })
+
+  it('reports only the status of an API error, never its body', async () => {
+    const c = createTriageJevClient(
+      systemOne(() => {
+        throw new APIError(422, { detail: 'SECRET label' }, new Headers())
+      })
+    )
+    await expect(c.ask({ state: { message: 'SECRET' }, questions: {} })).rejects.toThrow(
+      /^Jev API error 422$/
     )
   })
 })
