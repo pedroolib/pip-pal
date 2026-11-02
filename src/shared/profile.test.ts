@@ -697,6 +697,20 @@ describe('aliases', () => {
     expect(restore('[Ally] [alexr] [Manager]')).toBe('[Ally] [alexr] Alex Morgan')
   })
 
+  it('swaps the aliases of a person whose name has no letter or digit, and restores the name as written', () => {
+    const fox: Profile = {
+      ...profile,
+      people: [{ name: '🦊', role: 'Lead', aliases: ['Ally', '@alexr'] }]
+    }
+    // Not via the differential wrapper: the reference skips this person and sends "Ally" (strictly more scrubbing here).
+    const { text, restore } = scrubNew('ask Ally and @alexr', fox)
+    expect(text).toBe('ask [Lead] and [Lead]')
+    expect(restore(text)).toBe('ask 🦊 and 🦊')
+    expect(reference.scrubForModel('ask Ally and @alexr', fox).text).toBe('ask Ally and [handle]')
+    for (const name of ['??', '—'])
+      expect(scrubNew('Ally', { ...fox, people: [{ ...fox.people[0], name }] }).text).toBe('[Lead]')
+  })
+
   it('swaps aliases in the profile context and never sends the alias list', () => {
     const out = buildProfileContext({
       ...profile,
@@ -1032,9 +1046,44 @@ describe('alias cap at 100 with a pathological profile', () => {
       for (const msg of [...hostile.map((u) => u.repeat(8000).slice(0, 8000)), 'a̲-'.repeat(2700)]) {
         const t = performance.now()
         scrubNew(msg, big)
-        expect(performance.now() - t, msg.slice(0, 6)).toBeLessThan(500)
+        // 'ễ' runs ~190 ms locally, mostly contact stripping; 1000 ms leaves room on a slow runner.
+        expect(performance.now() - t, msg.slice(0, 6)).toBeLessThan(
+          msg.startsWith('ễ') ? 1000 : 500
+        )
       }
     })
+
+  it('scrubs a run of 8000 marks in well under 2 s when a glued alias starts with two mark-taking characters (was ~35 s)', () => {
+    for (const [alias, mark] of [
+      ['̲̲さa', '̲'],
+      ['ιιさa', 'ͅ']
+    ]) {
+      const p: Profile = {
+        name: 'Sam Rivera',
+        role: 'Analyst',
+        people: [{ name: 'Alex Morgan', role: 'Lead', aliases: [alias] }],
+        sections: sections({}),
+        calmingStrategies: []
+      }
+      const msg = mark.repeat(8000)
+      const t = performance.now()
+      const out = scrubNew(msg, p).text
+      expect(performance.now() - t, alias).toBeLessThan(1500) // still quadratic, ~0.7 s locally
+      expect(out).toBe(msg)
+      expect(scrubForModel(`${alias} ok`, p).text).toBe('[Lead] ok')
+    }
+  })
+
+  it('matches a 10,000-character name without running out of stack', () => {
+    const p: Profile = {
+      name: 'Sam Rivera',
+      role: 'Analyst',
+      people: [{ name: 'f'.repeat(10000), role: 'Lead' }],
+      sections: sections({}),
+      calmingStrategies: []
+    }
+    expect(scrubNew(`hi ${'f'.repeat(10000)}!`, p).text).toBe('hi [Lead]!')
+  })
 
   it('scrubs a run of 8000 marks fast when an alias holds a loose mark ("1̲x" took the old regex 30 ms, "1̲̲x" 50 s)', () => {
     const p: Profile = {
@@ -1159,7 +1208,9 @@ describe('trie matcher against the old one-big-regex matcher', () => {
         name: owner.name,
         role: 'Analyst ' + msg(),
         aliases: owner.aliases,
-        people,
+        // A person whose name has no letter or digit is swapped by alias here but skipped by the reference
+        // (strictly more scrubbing), so such people are left out of the compared profile; their text stays in messages.
+        people: people.filter((x) => /[\p{L}\p{N}]/u.test(x.name)),
         sections: sections({ feedback: [{ text: msg(), origin: 'coach', visibleTo: [] }] }),
         calmingStrategies: [{ label: msg(), minutes: 5, origin: 'self', visibleTo: [] }]
       }

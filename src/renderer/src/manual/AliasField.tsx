@@ -22,9 +22,14 @@ export function AliasField(props: {
   const { aliases, text, onChange } = props
   const [tooLong, setTooLong] = useState(false)
   const add = (v: string): void => {
-    const next = addAlias(aliases, v)
-    setTooLong(hasTooLongAlias(v))
-    onChange(next, '')
+    // Parts skipped for length stay in the box, so the person can shorten them instead of losing them.
+    const left = v
+      .split(',')
+      .filter(hasTooLongAlias)
+      .map((a) => a.trim())
+      .join(', ')
+    setTooLong(left !== '')
+    onChange(addAlias(aliases, v), left)
   }
   return (
     <div className="grid min-w-0 gap-2">
@@ -61,7 +66,7 @@ export function AliasField(props: {
         ref={input}
         autoFocus={props.autoFocus}
         className="min-h-11 bg-background"
-        maxLength={ALIAS_MAX}
+        maxLength={ALIAS_MAX * 20} // room for a pasted list; each part is capped by addAlias, never cut mid-word
         aria-describedby={tooLong ? `${props.id}-hint ${props.id}-long` : `${props.id}-hint`}
         value={text}
         onChange={(e) => {
@@ -69,7 +74,7 @@ export function AliasField(props: {
           // A typed comma ends the chip; pasted "a, b" is split the same way.
           if (v.includes(',')) add(v)
           else {
-            setTooLong(v.length >= ALIAS_MAX) // the box stops accepting characters at the cap
+            setTooLong(hasTooLongAlias(v))
             onChange(aliases, v)
           }
         }}

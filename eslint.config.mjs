@@ -36,5 +36,16 @@ export default defineConfig(
       'react-refresh/only-export-components': 'off'
     }
   },
+  {
+    // The old matcher is the spec for the tests only; it must never ship in app code.
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { patterns: [{ group: ['**/__reference/**'], message: 'Test-only reference code.' }] }
+      ]
+    }
+  },
   eslintConfigPrettier
 )

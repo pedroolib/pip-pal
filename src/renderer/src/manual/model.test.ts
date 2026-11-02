@@ -89,6 +89,13 @@ describe('addAlias', () => {
   it('keeps only the short part of a pasted list', () => {
     expect(addAlias([], `al, ${'x'.repeat(101)}`)).toEqual(['al'])
   })
+  it('never keeps a cut-off chip from a pasted list longer than one alias', () => {
+    // The box has no 100-character cap, so a long part arrives whole and is skipped, not truncated.
+    const pasted = `Ally, ${'Maximiliano'.repeat(9) + 'xx'}, Bo`
+    expect(pasted.length).toBeGreaterThan(100)
+    expect(addAlias([], pasted)).toEqual(['Ally', 'Bo'])
+    expect(hasTooLongAlias(pasted)).toBe(true)
+  })
 })
 
 describe('hasTooLongAlias', () => {
