@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import sam from './fixtures/sam.profile.json'
 import { Profile, SECTIONS, type ProfileEntry } from './schemas'
-import { buildProfileContext, ensureIds, forRecipient } from './profile'
+import demo from './fixtures/demo.decoded.json'
+import {
+  buildProfileContext,
+  ensureIds,
+  forRecipient,
+  restoreDecoded,
+  scrubForModel
+} from './profile'
 
 const sections = (
   some: Partial<Record<(typeof SECTIONS)[number], ProfileEntry[]>>
@@ -164,5 +171,78 @@ describe('buildProfileContext', () => {
 
   it('excludes pending', () => {
     expect(buildProfileContext(profile)).not.toContain('PENDINGTEXT')
+  })
+})
+
+describe('scrubForModel', () => {
+  const p = (people: Profile['people'] = []): Profile => ({
+    name: 'Sam',
+    role: 'Analyst',
+    people,
+    sections: sections({}),
+    calmingStrategies: []
+  })
+  const alex = { name: 'Alex', role: 'Manager' }
+  const dana = { name: 'Dana', role: 'Coach' }
+
+  it('swaps several names in one pass, case-insensitively, trimmed, $& literal', () => {
+    const { text } = scrubForModel(
+      'ALEX told sam and dana $& ok',
+      p([{ ...alex, name: ' Alex ' }, dana])
+    )
+    expect(text).toBe('[Manager] told [Me] and [Coach] $& ok')
+  })
+
+  it('leaves names inside longer words alone and prefers the longest name', () => {
+    const { text } = scrubForModel(
+      'Alexander and Ana Maria, Ana',
+      p([alex, { name: 'Ana', role: 'Peer' }, { name: 'Ana Maria', role: 'Lead' }])
+    )
+    expect(text).toBe('Alexander and [Lead], [Peer]')
+  })
+
+  it('round-trips names; the first person listed wins when roles are shared', () => {
+    const profile = p([alex, { name: 'Bo', role: 'Manager' }])
+    const { text, restore } = scrubForModel('Alex and Bo and Sam', profile)
+    expect(text).toBe('[Manager] and [Manager] and [Me]')
+    expect(restore(text)).toBe('Alex and Alex and Sam')
+    const one = scrubForModel('Dana and Sam', p([dana]))
+    expect(one.restore(one.text)).toBe('Dana and Sam')
+    expect(one.restore('[Unknown] [coach]')).toBe('[Unknown] Dana')
+  })
+
+  it('removes emails, links and phones, and does not restore them', () => {
+    const input = [
+      'mail sam@corp.com or a.b+c@mail.example.org',
+      'see https://x.io/a?b=1&c=2, www.corp.com/path. and corp.com',
+      'call +52 55 1234 5678, (555) 123-4567 or 555.123.4567'
+    ].join('\n')
+    const { text, restore } = scrubForModel(input, p())
+    expect(text).toBe(
+      [
+        'mail [email] or [email]',
+        'see [link], [link]. and [link]',
+        'call [phone], [phone] or [phone]'
+      ].join('\n')
+    )
+    expect(restore(text)).toBe(text)
+  })
+
+  it('keeps dates, short numbers and plain text', () => {
+    const t = 'On 2026-11-01 at 10:30, 3 of 12 tasks. e.g. done.'
+    expect(scrubForModel(t, p()).text).toBe(t)
+  })
+
+  it('removes an email even when it contains a name', () => {
+    expect(scrubForModel('alex@corp.com', p([alex])).text).toBe('[email]')
+  })
+
+  it('restoreDecoded restores every string and keeps the shape', () => {
+    const d = structuredClone(demo) as unknown as Parameters<typeof restoreDecoded>[0]
+    d.decode.summary = 'Ask [Manager] about it'
+    const out = restoreDecoded(d, (s) => s.replace('[Manager]', 'Alex'))
+    expect(out.decode.summary).toBe('Ask Alex about it')
+    expect(out.fromCache).toBe(d.fromCache)
+    expect(Object.keys(out)).toEqual(Object.keys(d))
   })
 })
