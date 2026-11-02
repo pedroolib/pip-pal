@@ -67,14 +67,31 @@ Detalles de diseño en [design/README.md](design/README.md).
 
 ## 4. IA
 
-**Híbrido Claude + Jev, en paralelo sobre el mismo mensaje (ya sin datos personales):**
+**Dos pasos: Jev clasifica al instante, Claude escribe solo cuando la persona pulsa un botón.** (Cambió el 1–2 de noviembre; antes era un solo "decode" pesado con Claude y Jev en paralelo. `decode` sigue en el código, marcado como obsoleto, hasta que la interfaz migre.)
+
+1. **Atajo → triage (solo Jev).** Devuelve un `Triage`: tipo de mensaje, si pide respuesta, urgencia, fecha límite, tono, si es tarea nueva o cambio, qué es ambiguo (fecha o qué/quién), a quién va dirigido, rol del remitente, la frase exacta que respalda cada campo (`evidence`) y los botones que ofrece (`actions`, en orden). No hay llamada a Claude. Si Jev falla, el triage rechaza con un error claro: no cae a Claude.
+2. **Botón → `expand` (una llamada estrecha a Claude por botón).** Tres tipos (`ActionKind`): `steps` ("Break it into steps"), `questions` ("Help me ask what's unclear") y `transition` ("Plan for this change"). Cada uno devuelve su `Expansion`. Los botones salen de banderas del triage, no del tipo de mensaje; el código los calcula.
 
 | Modelo | Hace | Por qué |
 |---|---|---|
-| **Claude Sonnet 5.5** | Todo el texto: resumen, pasos, expectativas implícitas con su porqué, plan de transición, preguntas, Mi resumen. | Jev no genera texto. |
-| **Jev (TypeSafe AI)** | Clasifica: `isChange`, tipo de cambio, tono, urgencia, `isAmbiguous`. | Probabilidades **calibradas** (un LLM tiende a sobreestimar su confianza) y respuesta en 70–500 ms: la cara de Pip y la etiqueta "Change: project" aparecen al instante mientras Claude escribe. En el pitch: "el modelo correcto para cada trabajo". |
+| **Claude** (`PIP_MODEL=sonnet\|haiku`) | Todo el texto: pasos, preguntas listas para enviar, plan de transición, con su `why`. | Jev no genera texto. |
+| **Jev (TypeSafe AI)** | Clasifica: Noul/Choice/Score en una sola petición. | Probabilidades **calibradas** y respuesta en 70–500 ms: la burbuja aparece al instante. En el pitch: "el modelo correcto para cada trabajo". |
 
-Si Jev falla o no responde, esos campos los genera Claude (el contrato `Classification` tiene `source: 'jev' | 'claude'`).
+**Reglas que se decidieron en el camino:**
+- **Seleccionar, no generar.** El código arma los candidatos (por ejemplo las fechas posibles del texto, en `dates.ts`) y Jev elige. El código decide los umbrales (Noul "no seguro" entre 0.3 y 0.7; Choice no seguro si el primero < 0.6 o la ventaja < 0.2). Nunca se usa la `confidence` de Jev.
+- **Claude con salida estructurada** (`output_config.format` con JSON schema), sin herramientas y sin `tool_choice` (Sonnet 5.5 lo rechaza con HTTP 400). Tiempo límite 30 s.
+- **Sin reintentos, en ninguna parte.** La primera respuesta inválida rechaza con un mensaje que solo trae códigos y rutas, nunca la salida del modelo. Se probó: 54/54 válidas con Haiku y Sonnet en la corrida real.
+- **Sin límites de cantidad** de pasos o preguntas: lo decide el perfil (Sam prefiere pasos pequeños y concretos). Con ≤2 cucharas la interfaz recorta a 3 pasos; el modelo no.
+- **Una llamada a la vez por clave** (`triage`, o cada tipo de `expand`). El mismo texto con las mismas cucharas y pistas se une a la llamada en curso; otro texto rechaza con "Pip is still working on another text. Try again in a moment."
+- **Reglas de prompt (anti-masking y autismo):** no adivinar al remitente (es "the sender" salvo que el mensaje lo nombre); no coachear el tono ("sé más amable") salvo que se pida; **no apelar al "sentido común" ni a lo "obvio"** (las normas no dichas son justo lo que la persona puede no saber); no preguntar lo que se resuelve con la fecha de hoy; cada paso lleva su razón. Tras cada cambio de prompt hay que repetir `npm run ai:lite`.
+- **Haiku** gustó más que Sonnet en `ai:lite` (≈5 s contra 6.5–8 s); el modelo por defecto en código sigue siendo sonnet. Está por decidir.
+
+**La interfaz que se construye sobre esto** (aún no implementada; el contrato y los fixtures ya existen):
+- Con el atajo aparece un Pip junto al cursor con una burbuja: el triage y los botones.
+- Cada botón abre su **propia tarjeta acoplada**: los Pips quedan en columna abajo a la derecha, con una tarjeta abierta a la vez ("mitosis": Pip se divide por acción). La tarjeta muestra "thinking" hasta que llega la expansión (Claude puede tardar 10–15 s), así que `expand` se llama por tipo, en paralelo.
+- Pip aparece al llamarlo y se queda donde está.
+- **Reglas para quien construya la interfaz:** (1) todo texto del modelo se muestra como **texto plano** (nada de HTML, Markdown ni enlaces automáticos; `suggestedQuestion` es texto listo para enviar); (2) manejar el rechazo "still working"; (3) pasar a `expand('questions', …, unclear)` las pistas del triage (`deadline`, `what_or_who`); (4) recortar a 3 pasos con pocas cucharas; (5) mostrar la `evidence` del tono solo si no es neutral (el tono es una elección forzada y siempre trae cita).
+- Contrato: `PipApi.triage(text)` y `PipApi.expand(text, kind, spoons, unclear?)`, con fixtures en `src/shared/fixtures/demo.triage.json` y `demo.expansion.*.json`; `mock-api.ts` los sirve en el navegador.
 
 **Lo que sabemos de Jev** (investigado el 1 de noviembre; reconfirmar en https://docs.typesafe.ai):
 - Modelo "System One": recibe estado y preguntas tipadas (`choice`, `score`, `noul`) y devuelve respuestas con probabilidades. Nunca devuelve un tipo inválido.
@@ -85,7 +102,7 @@ Si Jev falla o no responde, esos campos los genera Claude (el contrato `Classifi
 - **No verificamos qué idiomas soporta.** Probarlo con mensajes en español el lunes 2; si falla, en español esas clasificaciones las hace Claude.
 - Está en early access; el equipo ya tiene acceso.
 
-**"Ask, don't guess".** Si `isAmbiguous` pasa un umbral (a calibrar con el set de prueba), Pip no adivina: muestra la duda y la pregunta ya redactada. Esto también reemplaza al voto de mayoría.
+**"Ask, don't guess".** Si el triage marca `deadlineUnclear` o `whatOrWhoUnclear` (umbrales en código), Pip ofrece el botón de preguntas y no adivina; el triage lista en `unsure` los campos donde Jev dudó. Esto también reemplaza al voto de mayoría.
 
 **El porqué en todo.** Cada expectativa implícita y cada paso traen su `why`. Lo pidió la coach: que la persona no deje de desarrollar sus competencias ni sienta que "se expresa mal" (evitar el masking).
 
@@ -104,6 +121,25 @@ Es el centro del pitch de IA responsable.
 3. **El resumen se filtra con código, no con el prompt.** A Claude solo le llegan los campos del perfil visibles para ese destinatario, así que la versión del jefe no puede filtrar lo del psicólogo aunque el modelo se equivoque.
 4. **Pip nunca envía nada solo.** La persona revisa cada viñeta y exporta a PDF o copia.
 5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo aprendido por Pip solo se guarda si la persona lo aprueba.
+
+**Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
+- Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
+- **Al volver la respuesta solo se restaura el token exacto** (`[Manager]` → el nombre). Se probó una restauración tolerante de tokens acortados y se quitó: abría la puerta a mostrar a la persona equivocada. El prompt exige copiar los tokens tal cual.
+- El texto entre `<message>` es no confiable; la etiqueta se quita hasta que no quede nada reconstruible. Lo que llega de Claude se valida con Zod.
+- La cacería de alfabetos se cortó en la ronda 6 a propósito; lo que sigue son límites aceptados.
+
+**Límites conocidos** (del más probable al menos), para el texto de ayuda de la interfaz y la revisión del equipo:
+1. **Lo que no está en el perfil sale tal cual:** apodos y formas cortas ("Sammy", "JP"), iniciales y usuarios ("srivera"), posesivos sin apóstrofe, y cualquiera que no se haya agregado. **Pendiente: alias por persona en la sección People** (cambia `src/shared/schemas.ts`, así que necesita PR de los tres).
+2. **Nombres que cambian con la gramática** (caso en ruso, polaco, finés: "od Anny") no se detectan. Se resolverán con alias.
+3. **Nombres chinos, japoneses o coreanos guardados sin espacio** dejan salir una parte ("田中さん"). Guardar "田中 太郎" lo arregla; hay que decirlo en la ayuda.
+4. Prefijos pegados en árabe y hebreo ("ومحمد") se escapan.
+5. Nombres disfrazados a propósito (letras parecidas de otro alfabeto) pasan; los mensajes normales no los traen.
+6. Handles que empiezan con dígito (`@4lex`) y direcciones internas raras (`intranet.acme.local/...`) pasan.
+7. `Ł`, `Ø`, `ı`, `ß`, `æ` no se pliegan ("Łukasz" ≠ "Lukasz").
+8. **Sobre-limpieza:** un nombre de un solo carácter chino ("明") también tapa "明天"; nombres que son palabras ("Will", "Mark") tapan la palabra. Como se restaura el nombre completo, la respuesta puede nombrar a alguien que no estaba en el mensaje.
+9. Un nombre compartido por dos personas se muestra como `[someone]`; un token completo escrito a mano en el mensaje se restaura al nombre de esa persona.
+10. Claude ve el texto cambiado: @mención → `[handle]` (no se restaura), "½" → "1⁄2", rachas de dígitos → `[phone]`.
+11. Un texto de 8000 caracteres hostil bloquea main ~0.8 s antes de rechazarse; las pruebas de rendimiento tienen un límite de 500 ms y podrían fallar en CI lento.
 
 ## 6. Datos
 
@@ -162,5 +198,9 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - ¿El pitch será en inglés o en español?
 - ¿Podemos citar a nuestra contacto de Specialisterne con su nombre?
 - Confirmar las citas del pitch contra el audio de la entrevista (vienen de una transcripción automática).
-- ¿Jev funciona en español?
+- ¿Jev funciona en español? (sigue sin verificarse; el triage y la fecha solo se probaron en inglés)
+- Modelo por defecto: ¿Haiku o Sonnet? Falta decidir con corridas reales de `npm run ai:lite` y `ai:compare`.
+- Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
+- Interfaz del triage y los botones (arriba): migrar `DecodeCard` y `TaskCard`.
+- Alias y apodos por persona (privacidad, límite 1).
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).

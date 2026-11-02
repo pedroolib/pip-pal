@@ -19,7 +19,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 | Idioma | Todo en inglés; textos en `src/renderer/src/locales/en.json` con i18next. Se agrega `es.json` para las pruebas con usuarios. Pip responde en el idioma del mensaje. |
 | Entrada | Solo lo que la persona selecciona. Atajo `Control+Shift+Space` (explícito, no `CommandOrControl`), configurable. Voz y "Hey Pip" en el nivel 3. |
 | Captura | **Mac:** simular ⌘C con osascript (requiere permiso de Accesibilidad), leer el portapapeles y restaurarlo; sin permiso, usa lo último que se copió. **Linux/Hyprland:** un bind de Hyprland ejecuta `pip-pal --capture`; la app lo recibe por `second-instance` y lee la selección primaria. **Windows:** simular Ctrl+C con PowerShell. |
-| Modelos | **Claude Sonnet 5.5** genera todo el texto (pasos, expectativas, porqués, plan de transición, preguntas, resumen) con salida estructurada validada con Zod. **Jev (TypeSafe)** clasifica en paralelo: `is_change`, tipo de cambio, tono, urgencia, `is_ambiguous`, con probabilidades calibradas. Si Jev falla, esos campos salen de Claude. Sin voto de mayoría. |
+| Modelos | **Claude Sonnet 5.5** genera todo el texto (pasos, expectativas, porqués, plan de transición, preguntas, resumen) con salida estructurada validada con Zod. **Jev (TypeSafe)** clasifica: `is_change`, tipo de cambio, tono, urgencia, `is_ambiguous`, con probabilidades calibradas. Jev clasifica primero (triage); Claude escribe solo al pulsar un botón, sin reintentos. Si Jev falla, el triage da error (no cae a Claude). Sin voto de mayoría. Modelo de Claude por `PIP_MODEL=sonnet|haiku`. |
 | Incertidumbre | Si `P(ambiguo)` supera el umbral, Pip no adivina: muestra "Ask, don't guess" con la pregunta ya redactada. |
 | Datos personales | El perfil lista personas (jefe, buddy, equipo). Antes de enviar, sus nombres se cambian por roles (`[Manager]`) y se quitan correos, teléfonos y URLs con regex. Se restauran localmente al volver la respuesta. |
 | Almacenamiento | Todo local (JSON en `userData`): perfil, check-ins, logros. Sin cuentas ni servidor. Para el demo, las API keys van en variables de entorno de la Mac. El backend proxy con suscripción es nivel 3. |
@@ -31,8 +31,8 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 
 **Nivel 0, entrega del 5 de noviembre**
 1. Shell del overlay: Pip acoplado, atajo, captura de la selección.
-2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess".
-3. Detector de cambios con mini plan de transición y preguntas sugeridas.
+2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess". **Flujo actual** (ver [DECISIONS.md §4](DECISIONS.md)): el atajo dispara un triage rápido de Jev y una burbuja junto al cursor con botones; cada botón pide a Claude una sola cosa (pasos, preguntas o plan de transición) y abre su propia tarjeta. Backend listo; la interfaz está pendiente.
+3. Detector de cambios con mini plan de transición y preguntas sugeridas (es el botón "Plan for this change" del flujo anterior).
 4. Check-in de cucharas (1–5, visual, 9/13/17 h, se pospone y no insiste). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
 5. Estrategia de calma del perfil (con ≤2 cucharas, al detectar un cambio o con "I'm stuck"), temporizador opcional y regreso al paso 1. Siempre se puede saltar.
 6. Mi resumen: versión por destinatario, viñetas marcables, exportar PDF o copiar. Nunca se envía solo.
