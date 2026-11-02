@@ -25,13 +25,18 @@ export function createProfileStore(file: string): {
   const backup = (): void => {
     const dir = dirname(file)
     const prefix = basename(file) + '.'
+    const stamp = (f: string): number => parseInt(f.slice(prefix.length), 10)
     const mine = (): string[] =>
       readdirSync(dir)
         .filter((f) => f.startsWith(prefix) && /^\d+\.bak$/.test(f.slice(prefix.length)))
-        .sort()
-    let ts = Date.now()
-    const taken = new Set(mine())
-    while (taken.has(`${prefix}${ts}.bak`)) ts++ // same-millisecond corruptions must not overwrite
+        .sort((x, y) => stamp(x) - stamp(y))
+    // strictly increasing names, even after pruning freed the newest-but-one slot
+    const ts = Math.max(
+      Date.now(),
+      ...mine()
+        .map(stamp)
+        .map((n) => n + 1)
+    )
     copyFileSync(file, join(dir, `${prefix}${ts}.bak`))
     for (const old of mine().slice(0, -3)) unlinkSync(join(dir, old)) // keep the 3 newest
   }
