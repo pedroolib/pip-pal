@@ -29,10 +29,24 @@ export interface Capture {
 export async function captureSelection(): Promise<Capture> {
   if (process.platform === 'darwin') return captureMac()
   if (process.platform === 'linux') {
-    return { text: await clipboard.selection.readText(), fromSelection: true }
+    return { text: await readPrimaryLinux(), fromSelection: true }
   }
   // shortcut: Windows uses the last copied text until Ctrl+C is simulated (PowerShell SendKeys).
   return { text: await clipboard.readText(), fromSelection: false }
+}
+
+// On native Wayland Electron reads the primary selection as empty, so ask wl-paste; fall back to
+// Electron's (X11, XWayland, or wl-paste missing).
+async function readPrimaryLinux(): Promise<string> {
+  if (process.env['WAYLAND_DISPLAY']) {
+    try {
+      const { stdout } = await run('wl-paste', ['--primary', '--no-newline'], { timeout: 500 })
+      if (stdout) return stdout
+    } catch {
+      // nothing selected, or wl-paste is not installed
+    }
+  }
+  return clipboard.selection.readText()
 }
 
 // Simulates ⌘C in the app in front, reads the clipboard and puts back what was there before.
