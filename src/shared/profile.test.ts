@@ -720,6 +720,27 @@ describe('aliases', () => {
     expect(r.restore(r.text)).toBe('Alex Morgan said')
   })
 
+  it('cleans "@" and brackets in a role to a space, so a name beside them is still swapped', () => {
+    const cases: [string, string][] = [
+      ['Alex@ops', 'ask [Manager ops]'],
+      ['lead@Sam', 'ask [lead Me]'],
+      ['dev@Morgan', 'ask [dev Manager]'],
+      ['Alex[x]', 'ask [Manager x]']
+    ]
+    for (const [role, want] of cases) {
+      const pr: Profile = {
+        ...profile,
+        people: [
+          { name: 'Alex Morgan', role: 'Manager' },
+          { name: 'Dana Lee', role }
+        ]
+      }
+      const r = scrubForModel('ask Dana', pr)
+      expect(r.text).toBe(want)
+      expect(r.restore(r.text)).toBe('ask Dana Lee')
+    }
+  })
+
   it('matches an alias with a 7+ digit run bare or with @, so its stem never leaks', () => {
     const digits: Profile = {
       ...profile,
@@ -732,12 +753,21 @@ describe('aliases', () => {
     expect(scrub('@srivera8675309x', digits)).toBe('[handle]')
   })
 
-  it('ignores aliases over 100 characters instead of failing every scrub', () => {
+  it('ignores aliases over 40 characters instead of failing every scrub', () => {
+    const forty = 'b'.repeat(40)
     const long: Profile = {
       ...profile,
-      people: [{ name: 'Alex Morgan', role: 'Manager', aliases: ['a-'.repeat(5000) + 'b', 'Ally'] }]
+      people: [
+        {
+          name: 'Alex Morgan',
+          role: 'Manager',
+          aliases: ['a-'.repeat(5000) + 'b', 'c'.repeat(41), forty, 'Ally']
+        }
+      ]
     }
     expect(scrub('hi Ally', long)).toBe('hi [Manager]')
+    expect(scrub(`hi ${forty}`, long)).toBe('hi [Manager]')
+    expect(scrub(`hi ${'c'.repeat(41)}`, long)).toBe(`hi ${'c'.repeat(41)}`)
   })
 
   it('scrubs hostile 8000-char messages with 20 people x 10 aliases in well under 1 s', () => {

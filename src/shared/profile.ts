@@ -155,8 +155,8 @@ function nameSwapper(profile: Profile): {
   if (hasLetter(fold(owner.real))) who.set(fold(owner.real), owner)
   for (const p of profile.people) {
     const k = fold(p.name)
-    // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit.
-    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]@]/g, '')
+    // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit; each becomes a space so it never joins two words.
+    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]@]/g, ' ')
     if (hasLetter(k)) who.set(k, { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() })
   }
   // Each word (2+ letters, not a particle) of a full name, with and without its apostrophe part ("o'brien", "brien"),
@@ -194,9 +194,9 @@ function nameSwapper(profile: Profile): {
       const k = fold(a).replace(/^@/, '').trim()
       // PHONE runs before the swap, so an alias's 7+ digit run is matched as "[phone]" ("srivera8675309" -> "srivera[phone]").
       const key = k.replace(PHONE, phone)
-      // Under 2 letters or digits ("J", "@a") would swap single letters all over the text; over 100 would break the regex.
+      // Under 2 letters or digits ("J", "@a") would swap single letters all over the text; over 40 would break the regex or let a hostile profile slow it down.
       const size = (key.replace(/\[phone\]/g, '').match(/[\p{L}\p{N}]/gu) ?? []).length
-      if (!w || size < 2 || k.length > 100) continue
+      if (!w || size < 2 || k.length > 40) continue
       aliases.add(k)
       if (who.has(key)) continue
       all.set(key, all.has(key) && all.get(key) !== w ? someone : w)
