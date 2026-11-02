@@ -111,6 +111,31 @@ describe('createExpander', () => {
     }
   })
 
+  it.each(['steps', 'questions', 'transition'] as const)(
+    'tells the model, for %s, not to guess the sender, not to coach tone, and to copy role tokens exactly',
+    async (kind) => {
+      const f = fake([answers[kind]])
+      await createExpander({ claude: f.claude })('New project.', kind, 3, profile)
+      const system = f.sent[0]
+      expect(system).toMatch(/sender is unknown unless the message names or signs them/)
+      expect(system).toMatch(/never guess the sender from the profile/i)
+      expect(system).toMatch(/friendlier, warmer, more polite or less cold/)
+      expect(system).toMatch(/unless the person asked for help with tone/)
+      expect(system).toMatch(/copy the token exactly, character for character/)
+      expect(system).toMatch(/never shorten or paraphrase it/)
+      expect(system).not.toMatch(/\d|at most|up to|no more than/i)
+    }
+  )
+
+  it('drafted questions name nobody unless the message does: "the sender", or "Hi," with no name', async () => {
+    for (const kind of ['questions', 'transition'] as const) {
+      const f = fake([answers[kind]])
+      await createExpander({ claude: f.claude })('New project.', kind, 3, profile)
+      expect(f.sent[0]).toMatch(/"Hi," with no name/)
+      expect(f.sent[0]).toMatch(/plain, direct and neutral/)
+    }
+  })
+
   it('accepts a long answer: the model decides how many items', async () => {
     const seven = { ...answers.steps, steps: Array(7).fill({ text: 'x', why: null }) }
     const f = fake([seven])
