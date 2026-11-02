@@ -4,8 +4,11 @@ import { join } from 'path'
 import { IPC } from '@shared/ipc'
 import { createMockApi } from '@shared/mock-api'
 import { createProfileStore } from './profile-store'
-import { createClaudeClient, createJevClient } from './ai/clients'
+import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
+import { createExpander } from './ai/expand'
+import { createTriager } from './ai/triage'
+import { createAiHandlers } from './ai/index'
 
 export function registerMockHandlers(): void {
   const api = createMockApi()
@@ -29,6 +32,15 @@ export function registerMockHandlers(): void {
   ipcMain.handle(IPC.decode, (_, text, spoons) =>
     decoder ? decoder(text, spoons, profiles.load()) : api.decode(text, spoons)
   )
+  const ai = createAiHandlers({
+    env: process.env,
+    api,
+    load: () => profiles.load(),
+    makeTriager: () => createTriager({ jev: createTriageJevClient() }),
+    makeExpander: () => createExpander({ claude: createClaudeClient() })
+  })
+  ipcMain.handle(IPC.triage, (_, text) => ai.triage(text))
+  ipcMain.handle(IPC.expand, (_, text, kind, spoons) => ai.expand(text, kind, spoons))
   ipcMain.handle(IPC.profileGet, () => profiles.load())
   ipcMain.handle(IPC.profileSave, (_, p) => profiles.save(p))
   ipcMain.handle(IPC.checkInList, () => api.listCheckIns())
