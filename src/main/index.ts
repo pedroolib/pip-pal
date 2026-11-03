@@ -114,7 +114,7 @@ function createOverlay(): void {
     skipTaskbar: true,
     autoHideMenuBar: true,
     // Clicking or dragging Pip must not take the keyboard: the hotkey's ⌘C has to reach the app with
-    // the selection. The overlay has no text fields; give it focus back if one is ever added.
+    // the selection. It is focusable only while a record card needs the keyboard (IPC.overlayFocus).
     focusable: false,
     // macOS: a non-activating panel is what reliably floats over other apps' full-screen Spaces;
     // setVisibleOnAllWorkspaces alone only works some of the time.
@@ -408,6 +408,20 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== overlay || typeof open !== 'boolean') return
     setEscape(open)
+  })
+
+  // The record cards with a text field or an Enter key need the keyboard; everywhere else the overlay
+  // stays unfocusable. No global Enter: once focused, the page hears its own keys.
+  ipcMain.on(IPC.overlayFocus, (event, on: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || typeof on !== 'boolean') return
+    if (on) {
+      win.setFocusable(true)
+      win.focus()
+    } else {
+      win.blur()
+      win.setFocusable(false)
+    }
   })
 
   // Only the overlay sets the corner Pip; its click goes back to the overlay to swap.

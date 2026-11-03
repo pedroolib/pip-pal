@@ -75,6 +75,8 @@ export const IPC = {
   dismiss: 'pip:dismiss',
   /** overlay → main: whether the triage bubble is open; Esc is a global shortcut only while it is. */
   bubbleOpen: 'overlay:bubble-open',
+  /** overlay → main: let the overlay take the keyboard while a record card that needs typing or Enter is open. */
+  overlayFocus: 'overlay:focus',
   /** overlay → main: show the corner Pip holding this, or hide it (null). */
   cornerSet: 'overlay:corner',
   /** main → corner window: what the corner Pip holds, or null while hidden. */
@@ -143,6 +145,8 @@ export interface PipApi {
   onDismiss(cb: () => void): () => void
   /** Overlay only: tell main the bubble opened or closed; ignored from other windows. */
   setBubbleOpen(open: boolean): void
+  /** Overlay only: ignored from other windows. */
+  setOverlayFocus(on: boolean): void
   /** Overlay only: show the corner Pip holding this, or hide it (null); ignored from other windows. */
   setCorner(corner: CornerPip | null): void
   /** Corner window: what to show. Returns an unsubscribe function. */

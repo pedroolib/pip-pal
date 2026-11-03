@@ -222,6 +222,16 @@ export function RecordFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card, phase, source])
 
+  // These two cards need the keyboard (Enter, typing); every other step gives it back.
+  const typing = phase === 'source' || phase === 'review'
+  const group = useRef<HTMLDivElement>(null)
+  const area = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    api.setOverlayFocus(typing)
+    if (typing) (phase === 'review' ? area : group).current?.focus()
+  }, [typing, phase])
+  useEffect(() => () => api.setOverlayFocus(false), [])
+
   const pill = phase === 'recording' || phase === 'transcribing'
   const reading = toRead(text, sel.start, sel.end)
   const over = reading.length > MAX_READ
@@ -268,6 +278,7 @@ export function RecordFlow({
         >
           {title('record.sourceTitle', 'record.sourceSub')}
           <RadioGroup
+            ref={group}
             value={source}
             onValueChange={(v) => setSource(v as RecordSource)}
             aria-labelledby={titleId}
@@ -375,6 +386,7 @@ export function RecordFlow({
           {title('record.reviewTitle', 'record.reviewSub')}
           {limitNote}
           <Textarea
+            ref={area}
             value={text}
             aria-labelledby={titleId}
             onChange={(e) => {
