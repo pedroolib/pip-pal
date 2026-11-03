@@ -11,7 +11,7 @@ import { cn } from '@renderer/lib/utils'
 import { applySettings } from '@renderer/house/settings'
 import { DockedPip } from '@renderer/pip/DockedPip'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
-import { BUBBLE_WIDTH, CARD_RESERVE } from '@renderer/triage/model'
+import { BUBBLE_WIDTH, CARD_RESERVE, type Flip } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
@@ -27,6 +27,8 @@ type View = 'checkIn' | 'triage' | 'docked' | 'hidden'
 // The window's transparent padding around the bubble (p-[32px] below). The window is sized to
 // BUBBLE_WIDTH, not measured, so a window that starts too narrow can't keep the card squeezed.
 const PAD = 32
+// How far the bubble opens from the cursor; keep in step with capture() in src/main/index.ts.
+const CURSOR_GAP = 12
 // The check-in's window; keep in step with OVERLAY in src/main/index.ts.
 const CHECKIN_SIZE = { width: 448, height: 400 }
 
@@ -37,6 +39,10 @@ function Overlay(): React.JSX.Element {
   const [error, setError] = useState(false)
   // Once a bubble has opened at the cursor, Pip docks where it was instead of in the screen corner.
   const [atCursor, setAtCursor] = useState(false)
+  const [flip, setFlip] = useState<Flip>({ x: false, y: false })
+  // The window edges next to the cursor (left/top, or right/bottom when flipped), kept still while
+  // the bubble resizes so Pip doesn't move; null once the person drags the bubble elsewhere.
+  const anchor = useRef<{ x: number; y: number } | null>(null)
   // True while the latest check-in time is unanswered (dueCheckIn's rule): the docked Pip then reopens it on click.
   const unanswered = useRef(false)
   const request = useRef(0)
@@ -64,6 +70,19 @@ function Overlay(): React.JSX.Element {
   const capture = (text: string): void => {
     refreshSettings()
     const id = ++request.current
+    // Main put the window's top-left next to the cursor, so the cursor can be read back from it.
+    // The bubble opens left and/or up when the card wouldn't fit right of or below the cursor.
+    const cursor = { x: screenX + PAD - CURSOR_GAP, y: screenY + PAD - CURSOR_GAP }
+    const area = screen as Screen & { availLeft: number; availTop: number }
+    const f = {
+      x: cursor.x + CURSOR_GAP + BUBBLE_WIDTH > area.availLeft + area.availWidth,
+      y: cursor.y + CURSOR_GAP + CARD_RESERVE > area.availTop + area.availHeight
+    }
+    anchor.current = {
+      x: f.x ? cursor.x - CURSOR_GAP + PAD : cursor.x + CURSOR_GAP - PAD,
+      y: f.y ? cursor.y - CURSOR_GAP + PAD : cursor.y + CURSOR_GAP - PAD
+    }
+    setFlip(f)
     setAtCursor(true)
     setTriage(null)
     setError(false)
@@ -128,7 +147,7 @@ function Overlay(): React.JSX.Element {
     }
   }, [view])
 
-  // The window is fitted to the bubble, keeping its top-left; docked or hidden, it shrinks back;
+  // The window is fitted to the bubble, keeping its edges at the cursor; docked or hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
   // snooze re-open would move it, or undo a size the person dragged).
   // While Jev reads, the window already makes room for the card: main keeps the window on screen, so
@@ -147,19 +166,25 @@ function Overlay(): React.JSX.Element {
     if (view !== 'triage' || !el) return
     const fit = (): void => {
       resized.current = true
+      const width = BUBBLE_WIDTH + 2 * PAD
+      const height =
+        Math.max(Math.ceil(el.getBoundingClientRect().height), reading ? CARD_RESERVE : 0) + 2 * PAD
+      // After a drag, keep the same edges wherever the person left the bubble.
+      const a = anchor.current ?? {
+        x: flip.x ? screenX + innerWidth : screenX,
+        y: flip.y ? screenY + innerHeight : screenY
+      }
       api.setOverlayBounds({
-        x: screenX,
-        y: screenY,
-        width: BUBBLE_WIDTH + 2 * PAD,
-        height:
-          Math.max(Math.ceil(el.getBoundingClientRect().height), reading ? CARD_RESERVE : 0) +
-          2 * PAD
+        x: flip.x ? a.x - width : a.x,
+        y: flip.y ? a.y - height : a.y,
+        width,
+        height
       })
     }
     const observer = new ResizeObserver(fit)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [view, atCursor, reading])
+  }, [view, atCursor, reading, flip])
 
   if (!view || view === 'hidden') return <></>
 
@@ -177,15 +202,24 @@ function Overlay(): React.JSX.Element {
   }
 
   const corner = view === 'checkIn' || (view === 'docked' && !atCursor)
+  const bubble = view === 'triage'
 
   return (
     <div
       data-overlay-root
-      className={cn('flex h-screen p-[32px]', corner ? 'items-end justify-end' : 'items-start')}
+      className={cn(
+        'flex h-screen p-[32px]',
+        corner || (bubble && flip.y) ? 'items-end' : 'items-start',
+        (corner || (bubble && flip.x)) && 'justify-end'
+      )}
     >
       {/* Drag any card or Pip to move the overlay, or the check-in's edge to resize it. */}
       <div
         {...drag}
+        onPointerDown={(e) => {
+          anchor.current = null // a drag moves the bubble away from the cursor
+          drag.onPointerDown(e)
+        }}
         ref={frame}
         className={cn(
           'relative flex flex-col select-none',
@@ -196,7 +230,7 @@ function Overlay(): React.JSX.Element {
       >
         {view === 'checkIn' && <ResizeEdges />}
         {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
-        {view === 'triage' && <TriageBubble triage={triage} error={error} />}
+        {view === 'triage' && <TriageBubble triage={triage} error={error} flip={flip} />}
         {view === 'docked' && (
           <DockedPip
             mood="calm"

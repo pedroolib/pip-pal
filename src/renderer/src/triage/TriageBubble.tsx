@@ -26,7 +26,7 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import { Pip } from '@renderer/pip/Pip'
-import { CARD_WIDTH, PIP_SIZE, triageLines } from './model'
+import { CARD_WIDTH, PIP_SIZE, triageLines, type Flip } from './model'
 
 const TONE_ICON: Record<TriageTone, LucideIcon> = {
   friendly: Smile,
@@ -163,11 +163,14 @@ function ActionButton({
 
 export function TriageBubble({
   triage,
-  error
+  error,
+  flip = { x: false, y: false }
 }: {
   /** null while Jev reads: Pip alone. */
   triage: Triage | null
   error: boolean
+  /** Pip stays at the cursor's corner of the card: right of it when flipped on x, below when on y. */
+  flip?: Flip
 }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const lines = useMemo(
@@ -177,8 +180,18 @@ export function TriageBubble({
 
   return (
     <TooltipProvider disableHoverableContent>
-      <div className="flex max-w-full items-start gap-2">
-        <Pip mood={triage || error ? 'calm' : 'reading'} size={PIP_SIZE} className="mt-3" />
+      <div
+        className={cn(
+          'flex max-w-full gap-2',
+          flip.x && 'flex-row-reverse',
+          flip.y ? 'items-end' : 'items-start'
+        )}
+      >
+        <Pip
+          mood={triage || error ? 'calm' : 'reading'}
+          size={PIP_SIZE}
+          className={flip.y ? 'mb-3' : 'mt-3'}
+        />
         {error && (
           <Card role="status" style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-lg">
             <p className="text-base">{t('bubble.error')}</p>
