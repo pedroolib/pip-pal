@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'fs'
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
-import { join } from 'path'
+import { dirname, join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import eventsJson from '@shared/fixtures/week.events.json'
 import { createEventStore } from './event-store'
@@ -72,6 +72,20 @@ describe('event store', () => {
     expect(store.list()).toHaveLength(eventsJson.length - 1)
     store.clear()
     expect(createEventStore(file, eventsJson, now).list()).toEqual([])
+  })
+
+  it('clear removes every backup and leftover tmp; retention prunes old backups', () => {
+    const dir = dirname(file)
+    const since = NOW.getTime() - 90 * 86_400_000
+    const old = `${file}.${since - 1000}.bak`
+    const recent = `${file}.${since + 1000}.bak`
+    for (const f of [old, recent, file + '.tmp']) writeFileSync(f, 'Dana secret')
+    const store = createEventStore(file, [], now)
+    store.list()
+    expect(readdirSync(dir).sort()).toEqual(['events.json', `events.json.${since + 1000}.bak`])
+    writeFileSync(file + '.tmp', 'Dana secret') // a crash mid-write
+    store.clear()
+    expect(readdirSync(dir)).toEqual(['events.json'])
   })
 
   it('rejects a non-string id', () => {

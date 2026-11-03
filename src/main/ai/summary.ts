@@ -16,7 +16,12 @@ import { periodWindow, summaryFacts } from '../insights'
 import { describeIssues } from './decoder'
 import type { ClaudeJsonClient } from './expand'
 
-const Output = z.object({ points: z.array(SummaryPoint).min(1) })
+const Output = z.object({
+  points: z
+    .array(SummaryPoint.extend({ text: z.string().max(500), why: z.string().max(500).nullable() }))
+    .min(1)
+    .max(12)
+})
 
 // TODO(prompts): re-run `npm run ai:lite` after each prompt change.
 const SYSTEM = `You are Pip, a companion for an autistic adult in their first year of work. Write the bullets of a short summary the person will share with their {recipient}, in the first person ("I"), from the facts given.
@@ -79,7 +84,7 @@ export function createSummarizer({
     let body = block
     for (let prev = ''; prev !== body;) {
       prev = body
-      body = body.replace(/<\s*\/?\s*facts\b[^>]*>/gi, () => '')
+      body = body.replace(/<\s*\/?\s*facts\b[^>]*>?/gi, () => '')
     }
     const user = [
       `Period: ${period}.`,
