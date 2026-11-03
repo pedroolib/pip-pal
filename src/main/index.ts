@@ -306,7 +306,8 @@ function setMediaPermissions(): void {
   // Computer audio is loopback on a screen source; the renderer drops the video track.
   ses.setDisplayMediaRequestHandler(async (request, callback) => {
     try {
-      if (!overlay || request.frame?.processId !== overlay.webContents.mainFrame.processId) {
+      // Only the overlay page itself, and only when it asks for audio (the video is just the carrier).
+      if (!overlay || request.frame !== overlay.webContents.mainFrame || !request.audioRequested) {
         return callback(null)
       }
       const [source] = await desktopCapturer.getSources({ types: ['screen'] })
@@ -383,7 +384,11 @@ app.whenReady().then(() => {
   // Until onboarding reaches its practice step, the hotkey and check-ins stay quiet (demo: always on).
   const ready = (): boolean => storage.demo || hotkeyReady(storage.settings.load().onboarding)
   // A saved change to the check-in times re-arms the schedule (created below) without a restart.
-  registerMockHandlers(storage, () => checkIns.reschedule())
+  registerMockHandlers(
+    storage,
+    () => checkIns.reschedule(),
+    (wc) => wc === overlay?.webContents
+  )
 
   ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -467,7 +472,9 @@ app.whenReady().then(() => {
       if (ready()) void record()
     })
   ) {
-    console.warn(`[record] ${RECORD_HOTKEY} is taken by another app; use \`pip-pal --record\` instead.`)
+    console.warn(
+      `[record] ${RECORD_HOTKEY} is taken by another app; use \`pip-pal --record\` instead.`
+    )
   }
   setMediaPermissions()
   // Load the speech model before the first recording needs it.

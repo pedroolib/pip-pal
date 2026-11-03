@@ -75,6 +75,7 @@ export function createTranscriber({
   load?: (modelDir: string) => Promise<Asr>
 }): Transcriber {
   let loading: Promise<Asr> | null = null
+  let busy = false
   // One shared load; a failed one is forgotten so the next call tries again.
   const model = (): Promise<Asr> =>
     (loading ??= Promise.resolve()
@@ -107,9 +108,15 @@ export function createTranscriber({
     },
     async transcribe(input) {
       const audio = checkAudio(input)
+      if (busy) throw new Error('Pip is still transcribing the last recording.')
+      busy = true
+      const job = run(audio)
+      // Busy until the model itself finishes, even after a demo timeout gave up waiting.
+      const free = (): void => void (busy = false)
+      job.then(free, free)
       const started = Date.now()
       try {
-        const text = await (demo ? timeout(run(audio), TRANSCRIBE_TIMEOUT_MS) : run(audio))
+        const text = await (demo ? timeout(job, TRANSCRIBE_TIMEOUT_MS) : job)
         // Lengths and timings only: the transcript itself is never logged.
         console.log(`Transcribed ${audio.length} samples in ${Date.now() - started} ms.`)
         return text

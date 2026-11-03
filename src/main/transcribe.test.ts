@@ -71,7 +71,7 @@ describe('transcriber', () => {
 
   it('loads the model once for warm-up and every transcription', async () => {
     const { t, load } = make(false, async () => 'hi')
-    await Promise.all([t.warmUp(), t.transcribe(second), t.transcribe(second)])
+    await Promise.all([t.warmUp(), t.warmUp(), t.transcribe(second)])
     await t.transcribe(second)
     expect(load).toHaveBeenCalledTimes(1)
   })
@@ -118,6 +118,43 @@ describe('transcriber', () => {
     const result = t.transcribe(second)
     await vi.advanceTimersByTimeAsync(TRANSCRIBE_TIMEOUT_MS)
     await expect(result).resolves.toBe(transcriptJson.text)
+  })
+
+  it('rejects a second recording while one is still transcribing, then accepts the next', async () => {
+    const finish: ((text: string) => void)[] = []
+    const { t } = make(false, () => new Promise((r) => finish.push(r)))
+    const first = t.transcribe(second)
+    await expect(t.transcribe(second)).rejects.toThrow('Pip is still transcribing')
+    await vi.waitFor(() => expect(finish).toHaveLength(1))
+    finish[0]('first done')
+    await expect(first).resolves.toBe('first done')
+    const next = t.transcribe(second)
+    await vi.waitFor(() => expect(finish).toHaveLength(2))
+    finish[1]('next')
+    await expect(next).resolves.toBe('next')
+  })
+
+  it('accepts a new recording after a failed one', async () => {
+    const asr = vi.fn().mockRejectedValueOnce(new Error('onnx exploded')).mockResolvedValue('ok')
+    const t = createTranscriber({ demo: false, modelDir: 'unused', load: async () => asr })
+    await expect(t.transcribe(second)).rejects.toThrow('onnx exploded')
+    await expect(t.transcribe(second)).resolves.toBe('ok')
+  })
+
+  it('in demo, stays busy after the timeout until the model really finishes', async () => {
+    vi.useFakeTimers()
+    let finish: (text: string) => void = () => {}
+    const { t } = make(true, () => new Promise((r) => (finish = r)))
+    const result = t.transcribe(second)
+    await vi.advanceTimersByTimeAsync(TRANSCRIBE_TIMEOUT_MS)
+    await expect(result).resolves.toBe(transcriptJson.text)
+    await expect(t.transcribe(second)).rejects.toThrow('Pip is still transcribing')
+    finish('late')
+    await vi.advanceTimersByTimeAsync(0)
+    // Accepted again: it falls back to the script instead of rejecting as busy.
+    const next = t.transcribe(second)
+    await vi.advanceTimersByTimeAsync(TRANSCRIBE_TIMEOUT_MS)
+    await expect(next).resolves.toBe(transcriptJson.text)
   })
 
   it('does not time out outside demo', async () => {
