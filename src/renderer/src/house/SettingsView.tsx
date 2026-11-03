@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
+  History,
   Keyboard,
   Languages,
   Moon,
@@ -9,12 +11,21 @@ import {
   Sun,
   Sunrise,
   Sunset,
+  Trash2,
   Wind,
   X
 } from 'lucide-react'
-import { MAX_CHECK_INS, type CheckInTime, type Settings } from '@shared/schemas'
+import { MAX_CHECK_INS, type CheckInTime, type Settings, type UsageEvent } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@renderer/components/ui/dialog'
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import {
@@ -193,7 +204,140 @@ export function SettingsView(): React.JSX.Element {
         <p>{t('house.settings.privacy.selected')}</p>
         <p>{t('house.settings.privacy.manual')}</p>
       </HouseCard>
+
+      <Remembers />
     </Page>
+  )
+}
+
+/** One short line per kind of event. Message text is rendered as plain text (React escapes it). */
+function eventLine(e: UsageEvent, t: TFunction): string {
+  switch (e.kind) {
+    case 'decoded':
+      return t('house.settings.remembers.decoded', { text: e.text })
+    case 'action':
+      return t(`house.settings.remembers.action.${e.action}`)
+    case 'asked':
+      return t('house.settings.remembers.asked', { text: e.question })
+    case 'step':
+      return t(`house.settings.remembers.step.${e.status}`, { text: e.text })
+    case 'calm':
+      return t(`house.settings.remembers.calm.${e.status}`)
+  }
+}
+
+/** The local usage log, newest first: delete one, or all behind a confirm. */
+function Remembers(): React.JSX.Element {
+  const { t, i18n } = useTranslation()
+  const { data, failed, reload } = useLoad(() => api.listEvents())
+  const [confirm, setConfirm] = useState(false)
+  const [error, setError] = useState(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+  const events = [...(data ?? [])].sort((a, b) => b.at.localeCompare(a.at))
+
+  async function run(go: () => Promise<void>): Promise<void> {
+    setError(false)
+    try {
+      await go()
+      setConfirm(false)
+      reload()
+      heading.current?.focus()
+    } catch {
+      setError(true)
+    }
+  }
+  const when = (at: string): string =>
+    new Date(at).toLocaleString(i18n.language, { dateStyle: 'medium', timeStyle: 'short' })
+
+  return (
+    <HouseCard aria-labelledby="remembers-h">
+      <div className="flex items-center gap-3">
+        <span className={iconChip}>
+          <History className="size-6" aria-hidden />
+        </span>
+        <h2
+          id="remembers-h"
+          ref={heading}
+          tabIndex={-1}
+          className="flex-1 text-[1.0625rem] leading-snug font-bold outline-none"
+        >
+          {t('house.settings.remembers.title')}
+        </h2>
+        <Button
+          variant="outline"
+          disabled={events.length === 0}
+          onClick={() => setConfirm(true)}
+          className="min-h-11 rounded-full border-2 px-5 font-bold"
+        >
+          <Trash2 className="size-5" aria-hidden />
+          {t('house.settings.remembers.deleteAll')}
+        </Button>
+      </div>
+      <p>{t('house.settings.remembers.body')}</p>
+      <p className="text-sm text-muted-foreground">{t('house.settings.remembers.retention')}</p>
+      {(failed || error) && (
+        <p role="alert" className="text-sm text-body">
+          {t(
+            failed ? 'house.settings.remembers.loadFailed' : 'house.settings.remembers.deleteFailed'
+          )}
+        </p>
+      )}
+      {data && events.length === 0 && (
+        <p className="font-bold">{t('house.settings.remembers.empty')}</p>
+      )}
+      <ul>
+        {events.map((e) => (
+          <li key={e.id} className="flex items-center gap-3 border-border py-3 not-first:border-t">
+            <div className="min-w-0 flex-1">
+              <p className="line-clamp-2 break-words">{eventLine(e, t)}</p>
+              <p className="text-sm text-muted-foreground">{when(e.at)}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={t('house.settings.remembers.deleteOne', {
+                what: eventLine(e, t),
+                when: when(e.at)
+              })}
+              onClick={() => run(() => api.deleteEvent(e.id))}
+              className="size-11 shrink-0 rounded-full focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring"
+            >
+              <Trash2 className="size-5" aria-hidden />
+            </Button>
+          </li>
+        ))}
+      </ul>
+
+      <Dialog open={confirm} onOpenChange={setConfirm}>
+        <DialogContent closeLabel={t('manual.close')}>
+          <DialogHeader>
+            <DialogTitle>{t('house.settings.remembers.confirmTitle')}</DialogTitle>
+            <DialogDescription>{t('house.settings.remembers.confirmBody')}</DialogDescription>
+          </DialogHeader>
+          {error && (
+            <p role="alert" className="text-sm text-body">
+              {t('house.settings.remembers.deleteFailed')}
+            </p>
+          )}
+          <DialogFooter className="flex-col sm:flex-row sm:justify-start">
+            <Button
+              className="min-h-11 rounded-full px-5"
+              autoFocus
+              onClick={() => setConfirm(false)}
+            >
+              {t('house.settings.remembers.keep')}
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-11 rounded-full px-5"
+              onClick={() => run(() => api.clearEvents())}
+            >
+              <Trash2 aria-hidden /> {t('house.settings.remembers.confirmDelete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </HouseCard>
   )
 }
 

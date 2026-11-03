@@ -5,8 +5,8 @@ import { SECTIONS, type Profile, type Recipient, type Section } from '@shared/sc
 import { ensureIds } from '@shared/profile'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/api'
-import { activeIndex, removeAt, removeById, upsert } from './model'
-import { Block, ConfirmDelete, Editor, Row, type Draft } from './parts'
+import { activeIndex, approvePending, dismissPending, removeAt, removeById, upsert } from './model'
+import { Block, ConfirmDelete, Editor, PendingCard, Row, type Draft } from './parts'
 
 type Del = {
   title: string
@@ -22,7 +22,11 @@ const CALMING = 'calming'
 const NEW = 'new'
 const NAV_IDS: string[] = [...SECTIONS, CALMING, PEOPLE]
 
-function Manual(): React.JSX.Element {
+function Manual({
+  onPendingChange
+}: {
+  onPendingChange?: (count: number) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [failed, setFailed] = useState(false)
@@ -57,6 +61,23 @@ function Manual(): React.JSX.Element {
     }
   }, [load])
 
+  // Detection may answer after the profile loads: take only its pending list, so open editors keep their state.
+  useEffect(() => {
+    let alive = true
+    api.refreshLearned().then(
+      (p) => {
+        if (!alive) return
+        setProfile((cur) => (cur ? { ...cur, pending: p.pending } : cur))
+        onPendingChange?.(p.pending?.length ?? 0)
+      },
+      () => {}
+    )
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (!saved) return
     const id = setTimeout(() => setSaved(null), 4000)
@@ -82,6 +103,14 @@ function Manual(): React.JSX.Element {
     requestAnimationFrame(() =>
       document.querySelector<HTMLElement>(`[data-edit="${key}"]`)?.focus()
     )
+    return true
+  }
+
+  /** Saves a pending-entry change; focus goes to the card's heading (or stays put once it is empty). */
+  async function settle(next: Profile): Promise<boolean> {
+    if (!(await persist(next))) return false
+    onPendingChange?.(next.pending?.length ?? 0)
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-pending-h]')?.focus())
     return true
   }
 
@@ -345,6 +374,13 @@ function Manual(): React.JSX.Element {
       }
     >
       <div className="grid gap-5">
+        {!!profile.pending?.length && (
+          <PendingCard
+            entries={profile.pending}
+            onApprove={(id, text) => settle(approvePending(profile, id, text))}
+            onDismiss={(id) => settle(dismissPending(profile, id, new Date()))}
+          />
+        )}
         {SECTIONS.map(renderSection)}
 
         <Block

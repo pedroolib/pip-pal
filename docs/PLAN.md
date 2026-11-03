@@ -54,7 +54,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 Parte de las secciones del perfil profesional de Specialisterne: experiencia, idiomas, comunicación, trabajo en equipo, feedback, estrés, relaciones, sensorial, motivaciones, fortalezas, aprendizaje, ajustes y recomendaciones para el jefe. Le agregamos:
 
 - **Visibilidad por campo:** `private`, `coach`, `therapist`, `manager`. Arma las versiones de Mi resumen, y **el filtro es código, no el prompt**: a Claude solo le llega lo visible para ese destinatario.
-- **Origen:** `coach`, `self`, `pip`. Pip nunca guarda algo aprendido sin aprobación.
+- **Origen:** `coach`, `self`, `pip`. Pip guarda lo que aprende como pendiente; nunca se usa ni se comparte hasta que la persona lo aprueba.
 - **Cambios:** cómo reacciona la persona, qué necesita saber primero, con cuánta anticipación.
 - **Estrategias de calma** (`calming_strategies`), por ejemplo música tranquila 10 min o colorear 15 min.
 - **Patrones de energía**, que se llenan solos con los check-ins.

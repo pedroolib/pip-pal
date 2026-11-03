@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { ALIAS_MAX } from '@shared/profile'
+import { SECTIONS, type Profile } from '@shared/schemas'
 import {
   activeIndex,
+  approvePending,
+  dismissPending,
   addAlias,
   aliasesToSave,
   hasTooLongAlias,
@@ -141,5 +144,50 @@ describe('aliasesToSave', () => {
   it('refuses to save while the box holds a part over the cap, so it is never dropped silently', () => {
     expect(aliasesToSave(['al'], 'x'.repeat(101))).toBeNull()
     expect(aliasesToSave(['al'], `bo, ${'x'.repeat(101)}`)).toBeNull()
+  })
+})
+
+describe('pending entries', () => {
+  const pending = {
+    id: 'p1',
+    key: 'energy:midday',
+    section: 'energy' as const,
+    text: 'Midday is often your lowest-energy time.',
+    origin: 'pip' as const,
+    visibleTo: [],
+    why: 'Lowest on 4 of 5 days.'
+  }
+  const base: Profile = {
+    name: 'Sam',
+    role: 'Analyst',
+    people: [],
+    calmingStrategies: [],
+    sections: Object.fromEntries(SECTIONS.map((s) => [s, []])) as unknown as Profile['sections'],
+    pending: [pending, { ...pending, id: 'p2', key: 'ask:deadline' }]
+  }
+
+  it('approve moves it into its section as a private pip entry', () => {
+    const out = approvePending(base, 'p1')
+    expect(out.sections.energy).toEqual([
+      { id: 'p1', text: pending.text, origin: 'pip', visibleTo: [] }
+    ])
+    expect(out.pending?.map((p) => p.id)).toEqual(['p2'])
+  })
+
+  it('approve keeps the person edit, trimmed, and refuses an empty one', () => {
+    expect(approvePending(base, 'p1', '  Mine.  ').sections.energy[0].text).toBe('Mine.')
+    expect(approvePending(base, 'p1', '   ')).toBe(base)
+  })
+
+  it('dismiss removes it and records its key with the time', () => {
+    const out = dismissPending(base, 'p1', new Date('2026-11-03T10:00:00Z'))
+    expect(out.pending?.map((p) => p.id)).toEqual(['p2'])
+    expect(out.dismissed).toEqual([{ key: 'energy:midday', at: '2026-11-03T10:00:00.000Z' }])
+    expect(out.sections.energy).toEqual([])
+  })
+
+  it('an unknown id changes nothing', () => {
+    expect(approvePending(base, 'zzz')).toBe(base)
+    expect(dismissPending(base, 'zzz', new Date())).toBe(base)
   })
 })

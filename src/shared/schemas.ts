@@ -50,9 +50,13 @@ export const CalmingStrategy = z.object({
 })
 export type CalmingStrategy = z.infer<typeof CalmingStrategy>
 
-/** An entry Pip suggests, waiting for the person's approval. Data model only for now. */
+/** An entry Pip suggests, waiting for the person's approval. Never used or shared until approved. */
 export const PendingEntry = z.object({
   id: z.string(),
+  /** Stable per pattern (e.g. `energy:morning`), so the same pattern is not suggested twice. */
+  key: z.string().min(1),
+  /** The numbers behind the suggestion (anti-masking). */
+  why: z.string().min(1),
   section: Section,
   text: z.string().min(1),
   origin: z.literal('pip'),
@@ -71,7 +75,9 @@ export const Profile = z.object({
   people: z.array(z.object({ name: z.string().min(1), role: z.string().min(1), aliases: Aliases })),
   sections: z.record(Section, z.array(ProfileEntry)),
   calmingStrategies: z.array(CalmingStrategy),
-  pending: z.array(PendingEntry).optional()
+  pending: z.array(PendingEntry).optional(),
+  /** Pattern keys the person dismissed; Pip stays quiet about them for DISMISS_DAYS. */
+  dismissed: z.array(z.object({ key: z.string(), at: z.iso.datetime({ offset: true }) })).optional()
 })
 export type Profile = z.infer<typeof Profile>
 
@@ -221,6 +227,10 @@ export const Triage = z.object({
 })
 export type Triage = z.infer<typeof Triage>
 
+/** What a drafted question is about; Pip learns which kinds of vagueness the person keeps asking about. */
+export const QuestionTopic = z.enum(['deadline', 'scope', 'priority', 'who', 'format', 'other'])
+export type QuestionTopic = z.infer<typeof QuestionTopic>
+
 const profileUsed = z.array(z.object({ section: Section, how: z.string() }))
 
 /** What one button returns. Every suggestion carries its why, so Pip teaches instead of masking. */
@@ -234,7 +244,9 @@ export const Expansion = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('questions'),
     /** `suggestedQuestion` is drafted, ready to send. */
-    questions: z.array(z.object({ what: z.string(), suggestedQuestion: z.string() })),
+    questions: z.array(
+      z.object({ what: z.string(), suggestedQuestion: z.string(), topic: QuestionTopic })
+    ),
     profileUsed
   }),
   z.object({
@@ -276,10 +288,66 @@ export const Achievement = z.object({
 })
 export type Achievement = z.infer<typeof Achievement>
 
+// ---------- Usage log (stored locally, pruned after EVENT_RETENTION_DAYS) ----------
+
+/** What the renderer may log. `decoded` and `action` are logged by main itself, so they are not accepted here. */
+export const LoggableEvent = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('asked'),
+    topic: QuestionTopic,
+    question: z.string().min(1).max(2000)
+  }),
+  z.object({
+    kind: z.literal('step'),
+    status: z.enum(['done', 'can_wait']),
+    text: z.string().min(1).max(2000)
+  }),
+  z.object({
+    kind: z.literal('calm'),
+    status: z.enum(['used', 'skipped']),
+    strategyId: z.string().min(1).max(100).nullable()
+  })
+])
+export type LoggableEvent = z.infer<typeof LoggableEvent>
+
+const stamp = { id: z.string().min(1), at: z.iso.datetime({ offset: true }) }
+
+/** A stored event: `id` and `at` are assigned in main. `decoded` keeps the raw text locally; it leaves only scrubbed. */
+export const UsageEvent = z.discriminatedUnion('kind', [
+  z.object({ ...stamp, ...LoggableEvent.options[0].shape }),
+  z.object({ ...stamp, ...LoggableEvent.options[1].shape }),
+  z.object({ ...stamp, ...LoggableEvent.options[2].shape }),
+  z.object({
+    ...stamp,
+    kind: z.literal('decoded'),
+    text: z.string(),
+    isChange: z.number().min(0).max(1),
+    changeType: ChangeType,
+    isNewTask: z.number().min(0).max(1),
+    tone: TriageTone
+  }),
+  z.object({ ...stamp, kind: z.literal('action'), action: ActionKind })
+])
+export type UsageEvent = z.infer<typeof UsageEvent>
+
+export const EVENT_RETENTION_DAYS = 90
+/** Pattern detection looks back this many days, needs this many sightings, and a dismissed key stays quiet for DISMISS_DAYS. */
+export const LEARN_WINDOW_DAYS = 14
+export const LEARN_MIN_COUNT = 3
+export const DISMISS_DAYS = 30
+/** Fewer check-ins than this in a summary period: plain facts only, no patterns. */
+export const PATTERN_MIN_CHECKINS = 3
+
 // ---------- "My summary" ----------
+
+/** Rolling windows counted back from now; `today` means since local midnight. */
+export const SummaryPeriod = z.enum(['today', '7d', '14d', '30d'])
+export type SummaryPeriod = z.infer<typeof SummaryPeriod>
 
 export const SummaryPoint = z.object({
   text: z.string(),
+  /** The numbers behind the point (anti-masking). */
+  why: z.string().nullable(),
   source: z.enum(['checkins', 'changes', 'achievements', 'profile']),
   /** The person unticks points before exporting. */
   include: z.boolean()
@@ -288,6 +356,7 @@ export type SummaryPoint = z.infer<typeof SummaryPoint>
 
 export const Summary = z.object({
   recipient: Recipient,
+  period: SummaryPeriod,
   from: z.iso.datetime({ offset: true }),
   to: z.iso.datetime({ offset: true }),
   points: z.array(SummaryPoint)
