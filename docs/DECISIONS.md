@@ -72,7 +72,7 @@ Electron tiene ventanas transparentes, `globalShortcut` y portapapeles maduros, 
 - **Cursor de mano en todo lo clicable** con una regla base en `main.css` (Tailwind v4 quitó `cursor: pointer` de los botones); lo deshabilitado muestra `not-allowed`.
 - **Connections** (Apple Watch, Whoop; después correo y Slack) son tarjetas "Coming soon": no conectan ni guardan nada.
 - **Summary:** al cambiar de destinatario se borra lo generado, para que nunca se copie la versión del coach con "Manager" elegido. "Copy" copia solo las viñetas marcadas. Exportar PDF está deshabilitado ("Coming soon") hasta implementarlo.
-- **Settings** guarda al cambiar: horarios del check-in, atajo de captura (solo lectura, ⌃⇧Space en Mac y Ctrl+Shift+Space en el resto), idioma (Español se guarda pero la interfaz sigue en inglés hasta que exista `es.json`), "Calmer motion" (aplica las mismas reglas que `prefers-reduced-motion`, también en el overlay) y una nota de privacidad.
+- **Settings** guarda al cambiar: horarios del check-in, atajo de captura (solo lectura, ⌃⇧Space en Mac y Ctrl+Shift+Space en el resto), idioma (Español se guarda pero la interfaz sigue en inglés hasta que exista `es.json`), "Calmer motion" (aplica las mismas reglas que `prefers-reduced-motion`, también en el overlay), una nota de privacidad y "Run setup again" (vuelve a abrir el onboarding; ver §13).
 
 Detalles de diseño en [design/README.md](design/README.md).
 
@@ -235,7 +235,7 @@ Es nivel 3. Para el Launchpad basta con las keys en la Mac del demo. **Sigue abi
 
 ## 8. Idioma
 
-**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. `es.json` ya existe para las pruebas con usuarios en México. Si a `es.json` le falta una llave, i18next muestra el texto en inglés. **Pendiente:** traducir los textos de Mi resumen por periodo, "What Pip remembers" y los pendientes de My profile (PR #19). Pip responde en el idioma del mensaje. El equipo verificó que Jev funciona en español.
+**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. `es.json` ya existe para las pruebas con usuarios en México. Si a `es.json` le falta una llave, i18next muestra el texto en inglés. **Pendiente:** traducir los textos de Mi resumen por periodo, "What Pip remembers" y los pendientes de My profile (PR #19), y todo el onboarding y "Let Pip rewrite this" (PR #25). Pip responde en el idioma del mensaje. El equipo verificó que Jev funciona en español.
 
 ## 9. Demo
 
@@ -244,7 +244,7 @@ Es nivel 3. Para el Launchpad basta con las keys en la Mac del demo. **Sigue abi
 
 **Respaldo.** Pip siempre intenta la llamada real. Si falla o tarda más de 8 s y el mensaje es del guion (se reconoce por su hash), usa la respuesta guardada. Hay una tecla de repetición que reinicia el demo. Lo que suele fallar en un evento es el wifi del lugar, no la API.
 
-**Sam** es la persona ficticia del demo: 24 años, analista de datos, 4 meses en su primer empleo, nivel de apoyo 1. Su perfil está en `src/shared/fixtures/sam.profile.json` y D lo puede editar sin código. Aún no tenemos un perfil anonimizado real de Specialisterne.
+**Sam** es la persona ficticia del demo: 24 años, analista de datos, 4 meses en su primer empleo, nivel de apoyo 1. Su perfil está en `src/shared/fixtures/sam.profile.json` y D lo puede editar sin código. **La Mac del demo necesita `PIP_DEMO=1`** (en el entorno o en `.env`): sin eso, una instalación nueva empieza vacía y abre el onboarding. Aún no tenemos un perfil anonimizado real de Specialisterne.
 
 ## 10. Evaluación (set de prueba)
 
@@ -262,6 +262,7 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - `src/shared/` es el contrato entre módulos y solo cambia por PR que vean los tres devs.
 - Una rama por funcionalidad, PR a `main`.
 - Los commits y PRs no llevan atribución a Claude (ni `Co-Authored-By` ni autor "Claude"). Van con el nombre de quien los sube.
+- **PRs apilados:** si un PR apunta a la rama de otro PR, se fusiona primero el de arriba (o se cambia su base a `main`) antes que el de abajo. El 3 de noviembre #23 entró a `main` antes que #24 a su rama, y las pantallas del onboarding no llegaron a `main` (se recuperaron en #25).
 - La configuración de Pedro's Factory (`.factory/stack.md`) escala a revisión humana: `src/main/`, `src/preload/`, `src/shared/`, `electron-builder.yml`, cambios de dependencias y todo lo que mande datos fuera de la máquina.
 
 ## 12. Preguntas abiertas
@@ -273,6 +274,7 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
 - Tarjetas: falta "qué se espera sin decirse (con porqué)" del guion; ningún tipo de `expand` lo trae, así que pide cambiar `src/shared/` (PR revisado por los tres).
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).
+- Onboarding (§13): falta probarlo en la Mac (diálogo de Accesibilidad, el atajo sobre el mensaje de práctica y un borrador real de Claude). El ejemplo guardado de la práctica nombra a Alex y Dana (del demo de Sam); a una persona real le pueden confundir.
 - Mi resumen: falta la generación real con Claude filtrada por destinatario en main (hoy la Casa usa el resumen de ejemplo, igual para todos) y exportar PDF.
 
 ## 13. Onboarding
@@ -309,7 +311,11 @@ Decidido el 3 de noviembre de 2026 tomando como referencia el onboarding de HeyC
 
 **Agregados que no tiene HeyClicky:** qué esperar antes de empezar, idioma y movimiento primero, ejemplo vivo de privacidad, quién es quién (la limpieza depende de esa lista), explicación de las cucharas con el primer check-in, revisión de cada sugerencia con su "You said…", y el cierre con "puedes repetir esto en Settings".
 
-**Pip escribe el perfil, la persona decide.** Una sola llamada a Claude (`src/main/ai/onboarding.ts`) con las respuestas limpias las convierte en sugerencias `onboarding` con su `why` ("You said…"); también puede sugerir estrategias de calma (`section: 'calming'` con `minutes`). Mismo camino que `expand`: limpiar → envolver en `<answers>` → JSON → validar sin reintento → restaurar nombres. Sin `ANTHROPIC_API_KEY`, sin red o con respuesta inválida, rechaza (nunca cae a un fixture: serían sugerencias escritas para Sam), y la interfaz guarda cada respuesta tal cual como `self`, con un botón para que Pip la reescriba después. Lo mismo si la persona elige "Keep my words, don't send".
+**Pip escribe el perfil, la persona decide.** Una sola llamada a Claude (`src/main/ai/onboarding.ts`) con las respuestas limpias las convierte en sugerencias `onboarding` con su `why` ("You said…"); también puede sugerir estrategias de calma (`section: 'calming'` con `minutes`). Mismo camino que `expand`: limpiar → envolver en `<answers>` → JSON → validar sin reintento → restaurar nombres. Sin `ANTHROPIC_API_KEY`, sin red o con respuesta inválida, rechaza (nunca cae a un fixture: serían sugerencias escritas para Sam), y la interfaz guarda cada respuesta tal cual como `self` ("Helps me calm down: music"). Lo mismo si la persona elige "Keep my words, don't send".
+
+**"Let Pip rewrite this".** Esas respuestas guardadas tal cual llevan `fromAnswer` (la pregunta). En My profile muestran el botón, con el mismo aviso de que el texto sale a Claude sin nombres. La versión de Pip llega como sugerencia; las palabras de la persona se quedan y solo se quita la marca, así que el botón desaparece y nada se pierde si rechaza la sugerencia. Se manda el texto actual de la entrada (con lo que la persona haya editado), no la respuesta original.
+
+**Las respuestas crudas viven en `settings.json` solo mientras dura el onboarding** (para retomar donde se quedó). Al terminar o saltarlo se borran (`answers: {}`), porque "Delete all" de Settings no las tocaría. Límite: si la persona cierra la app a la mitad y nunca vuelve, se quedan ahí.
 
 **Se quitó el origen `coach`.** El usuario quiere solo tres orígenes: `self`, `onboarding` y `learned` (antes `pip`). Las 18 entradas `coach` de Sam pasaron a `onboarding`. Un `profile.json` viejo se convierte al leer (`coach` → `onboarding`, `pip` → `learned`) en vez de tratarse como corrupto. Editar el texto de una entrada, o de una sugerencia antes de aceptarla, la vuelve `self`; cambiar solo con quién se comparte, no.
 

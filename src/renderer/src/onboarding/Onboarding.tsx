@@ -89,7 +89,8 @@ export function Onboarding({
     api.saveSettings(next).catch(() => setSaveFailed(true))
   }
   const go = (step: OnboardingStep | null, patch: Partial<Progress> = {}): void => {
-    const next = { ...ob, ...patch, ...(step ? { step } : { done: true }) }
+    // Done (finished or skipped): the raw answers are no longer needed, so they don't linger in settings.json.
+    const next = { ...ob, ...patch, ...(step ? { step } : { done: true, answers: {} }) }
     setOb(next)
     saveSettings({ ...settings, onboarding: next })
     if (!step) onDone()

@@ -20,6 +20,10 @@ _Avoid_: Pending entry (in UI text), insight
 Who wrote an entry's current text: `self` (the person), `onboarding` (Pip, from onboarding answers) or `learned` (Pip, from usage patterns). Editing an entry makes it `self`.
 _Avoid_: Coach entry, source
 
+**Kept answer**:
+An onboarding answer saved in the profile word for word, because the person chose not to send it or Pip could not reach the model. Pip can still be asked to rewrite it.
+_Avoid_: Literal entry, raw answer
+
 **Real profile**:
 A profile built by an actual person through onboarding, as opposed to Sam's demo profile.
 _Avoid_: User profile
