@@ -14,7 +14,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 |---|---|
 | Meta | Un demo de un solo flujo (sección 5) que corre en vivo en ~2 min, con respaldo. Lo demás va por niveles (sección 2). |
 | Plataforma | Electron + React + TypeScript (electron-vite). Overlay transparente siempre encima. |
-| Ventanas | **Overlay**: transparente, siempre encima, deja pasar los clics salvo sobre Pip; crece de acoplado a tarjeta. **Casa de Pip**: ventana normal con Mi manual, Mi resumen y Logros. |
+| Ventanas | **Overlay**: transparente, siempre encima, deja pasar los clics salvo sobre Pip; crece de acoplado a tarjeta. **Casa de Pip**: ventana normal estilo cuarto (Pip en su cuarto arriba, menú abajo) con Home, My profile (Mi manual), Achievements, Summary, Connections y Settings. |
 | UI | Tailwind v4 + shadcn, tematizado con Harbor mediante variables CSS. shadcn para lo interactivo (Button, Checkbox, Dialog, Tooltip); Tailwind puro para lo visual. Atkinson Hyperlegible incluida localmente. Las animaciones respetan `prefers-reduced-motion`. |
 | Idioma | Todo en inglés; textos en `src/renderer/src/locales/en.json` con i18next. Se agrega `es.json` para las pruebas con usuarios. Pip responde en el idioma del mensaje. |
 | Entrada | Solo lo que la persona selecciona. Atajo `Control+Shift+Space` (explícito, no `CommandOrControl`), configurable. Voz y "Hey Pip" en el nivel 3. |
@@ -22,7 +22,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 | Modelos | **Claude Haiku 5.5** genera todo el texto (pasos, expectativas, porqués, plan de transición, preguntas, resumen) con salida estructurada validada con Zod. **Jev (TypeSafe)** clasifica: `is_change`, tipo de cambio, tono, urgencia, `is_ambiguous`, con probabilidades calibradas. Jev clasifica primero (triage); Claude escribe solo al pulsar un botón, sin reintentos. Si Jev falla, el triage da error (no cae a Claude). Sin voto de mayoría. Modelo de Claude por `PIP_MODEL=sonnet|haiku` (por defecto Haiku; Sonnet es la alternativa opcional). |
 | Incertidumbre | Si `P(ambiguo)` supera el umbral, Pip no adivina: muestra "Ask, don't guess" con la pregunta ya redactada. |
 | Datos personales | El perfil lista personas (jefe, buddy, equipo). Antes de enviar, sus nombres se cambian por roles (`[Manager]`) y se quitan correos, teléfonos y URLs con regex. Se restauran localmente al volver la respuesta. |
-| Almacenamiento | Todo local (JSON en `userData`): perfil, check-ins, logros. Sin cuentas ni servidor. Para el demo, las API keys van en variables de entorno de la Mac. El backend proxy con suscripción es nivel 3. |
+| Almacenamiento | Todo local (JSON en `userData`): perfil, check-ins, logros, ajustes. Sin cuentas ni servidor. Para el demo, las API keys van en variables de entorno de la Mac. El backend proxy con suscripción es nivel 3. |
 | Respaldo del demo | Siempre llamada real; si falla o tarda más de 8 s y el mensaje es del guion (por hash), usa la respuesta guardada. Tecla de repetición que reinicia el demo. |
 | Mac | `.app` sin firmar; se abre con clic derecho → Abrir y el permiso de Accesibilidad se da un día antes. |
 | Desarrollo | Se puede desarrollar en Linux o Windows; se prueba en la Mac a diario (transparencia, Accesibilidad, encima de pantalla completa). |
@@ -33,11 +33,11 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 1. Shell del overlay: Pip acoplado, atajo, captura de la selección.
 2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess". **Flujo actual** (ver [DECISIONS.md §4](DECISIONS.md)): el atajo dispara un triage rápido de Jev y una burbuja junto al cursor con botones; cada botón pide a Claude una sola cosa (pasos, preguntas o plan de transición) y abre su propia tarjeta. Backend listo y burbuja hecha (PR #10); faltan las tarjetas de cada botón.
 3. Detector de cambios con mini plan de transición y preguntas sugeridas (es el botón "Plan for this change" del flujo anterior).
-4. Check-in de cucharas (1–5, visual, 9/13/17 h, se pospone y no insiste). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
+4. Check-in de cucharas (1–5, visual, se pospone y no insiste). Horarios editables en Settings: 9/13/17 h por defecto, hasta 6, cada uno se prende o apaga; con menos de 3 encendidos Pip sugiere 3 sin bloquear. Hecho (PR de la Casa de Pip). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
 5. Estrategia de calma del perfil (con ≤2 cucharas, al detectar un cambio o con "I'm stuck"), temporizador opcional y regreso al paso 1. Siempre se puede saltar.
-6. Mi resumen: versión por destinatario, viñetas marcables, exportar PDF o copiar. Nunca se envía solo.
-7. Mi manual: ver y editar el perfil de Sam, ya cargado.
-8. Logros tranquilos: pasos terminados, cambios atravesados, "You asked instead of guessing". Sin rachas.
+6. Mi resumen: versión por destinatario, viñetas marcables, copiar solo las marcadas. Nunca se envía solo. Interfaz hecha; falta la generación real con Claude (B; hoy usa datos de ejemplo) y exportar PDF (botón "Coming soon").
+7. Mi manual: ver y editar el perfil de Sam, ya cargado. Hecho; vive en la pestaña My profile.
+8. Logros tranquilos: pasos terminados, cambios atravesados, "You asked instead of guessing". Sin rachas. Lista por día hecha; falta que el flujo registre los logros.
 9. Personaje Pip (`<Pip mood=… />`, 12 estados de ánimo).
 10. Set de prueba de 30 mensajes con y sin perfil, con conteos reportados tal cual.
 11. Blindaje del demo: respaldo en caché, tecla de repetición, video de respaldo.
@@ -79,7 +79,7 @@ El esquema exacto está en `src/shared/schemas.ts`.
 | 0:25–0:50 | Tarjeta: qué piden; para cuándo ("before Monday, inferred"); qué se espera con porqué; 3 pasos por las 2 cucharas y "the rest can wait"; "Used your manual: you prefer written instructions". |
 | 0:50–1:05 | "Ask, don't guess" sobre "when you get a chance", con la pregunta redactada; Sam la copia y responde. |
 | 1:05–1:15 | Estrategia de calma ("Your manual says calm music helps. 10 min, then step 1?"); Sam la salta. |
-| 1:15–1:45 | Casa de Pip → Mi resumen: versiones Coach y Psychologist, desmarca una viñeta, exporta PDF. |
+| 1:15–1:45 | Casa de Pip → Mi resumen: versiones Coach y Psychologist, desmarca una viñeta y la copia (exportar PDF todavía es "Coming soon"). |
 | 1:45–1:55 | Logros: "You asked instead of guessing". Si hay que recortar tiempo, esto es lo primero que se va. |
 
 ## 6. Equipo
