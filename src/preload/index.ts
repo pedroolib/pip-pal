@@ -42,7 +42,9 @@ const api: PipApi = {
   setCorner: (corner) => ipcRenderer.send(IPC.cornerSet, corner),
   onCorner: (cb) => on(IPC.corner, cb),
   clickCorner: () => ipcRenderer.send(IPC.cornerClick),
-  onCornerOpen: (cb) => on<void>(IPC.cornerOpen, cb)
+  onCornerOpen: (cb) => on<void>(IPC.cornerOpen, cb),
+  onRecordHotkey: (cb) => on<void>(IPC.recordHotkey, cb),
+  transcribe: (audio) => ipcRenderer.invoke(IPC.transcribe, audio)
 }
 
 contextBridge.exposeInMainWorld('api', api)

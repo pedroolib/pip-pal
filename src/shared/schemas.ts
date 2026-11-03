@@ -434,6 +434,17 @@ export type Onboarding = z.infer<typeof Onboarding>
 export const hotkeyReady = (o: Onboarding | undefined): boolean =>
   !!o && (o.done || ONBOARDING_STEPS.indexOf(o.step) >= ONBOARDING_STEPS.indexOf('practice'))
 
+/** Where a recording comes from: the microphone, the computer's sound, or both mixed. */
+export const RecordSource = z.enum(['mic', 'system', 'both'])
+export type RecordSource = z.infer<typeof RecordSource>
+
+/** Sample rate of the audio sent to `transcribe` (mono). */
+export const RECORD_SAMPLE_RATE = 16000
+/** A recording stops by itself after this long. */
+export const RECORD_MAX_MS = 600_000
+/** In demo mode, how long `transcribe` may take before the scripted transcript is used. */
+export const TRANSCRIBE_TIMEOUT_MS = 8000
+
 export const Settings = z.object({
   checkIns: z
     .array(CheckInTime)
@@ -443,7 +454,9 @@ export const Settings = z.object({
   language: z.enum(['en', 'es']),
   calmMotion: z.boolean(),
   /** Missing until onboarding starts. In demo mode main reports it done. */
-  onboarding: Onboarding.optional()
+  onboarding: Onboarding.optional(),
+  /** Last source picked; Microphone when missing. */
+  recordSource: RecordSource.optional()
 })
 export type Settings = z.infer<typeof Settings>
 

@@ -8,6 +8,9 @@ import {
   hotkeyReady,
   Profile,
   QuestionTopic,
+  RecordSource,
+  Settings,
+  DEFAULT_SETTINGS,
   Triage,
   UnclearPart,
   UsageEvent
@@ -144,5 +147,26 @@ describe('onboarding contract', () => {
 
   it('Sam has no coach entries left', () => {
     expect(JSON.stringify(samJson)).not.toMatch(/"origin":\s*"(coach|pip)"/)
+  })
+})
+
+describe('record source setting', () => {
+  it('accepts each source, none, and rejects an unknown one', () => {
+    for (const s of RecordSource.options)
+      expect(Settings.safeParse({ ...DEFAULT_SETTINGS, recordSource: s }).success).toBe(true)
+    expect(Settings.safeParse(DEFAULT_SETTINGS).success).toBe(true)
+    expect(Settings.safeParse({ ...DEFAULT_SETTINGS, recordSource: 'speaker' }).success).toBe(false)
+  })
+
+  it('reads back through the mock after saving', async () => {
+    const api = createMockApi()
+    await api.saveSettings({ ...DEFAULT_SETTINGS, recordSource: 'both' })
+    expect((await api.getSettings()).recordSource).toBe('both')
+  })
+
+  it('mock transcribes after a delay and rejects empty audio', async () => {
+    const api = createMockApi()
+    await expect(api.transcribe(new Float32Array(0))).rejects.toThrow()
+    expect(await api.transcribe(new Float32Array(10))).toMatch(/weekly numbers/)
   })
 })
