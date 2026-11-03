@@ -1,7 +1,7 @@
 // The usage log (events.json): main stamps id and at, and drops events past EVENT_RETENTION_DAYS (docs/DECISIONS.md §6).
 import { EVENT_RETENTION_DAYS, LoggableEvent, UsageEvent } from '@shared/schemas'
 import { createLogStore } from './log-store'
-import { writeJsonAtomic } from './json-file'
+import { removeBackups, writeJsonAtomic } from './json-file'
 
 type Unstamped<T> = T extends unknown ? Omit<T, 'id' | 'at'> : never
 export type NewEvent = Unstamped<UsageEvent>
@@ -25,6 +25,7 @@ export function createEventStore(
     const all = log.list()
     const since = now().getTime() - EVENT_RETENTION_DAYS * 86_400_000
     const kept = all.filter((e) => new Date(e.at).getTime() >= since)
+    removeBackups(file, since) // message text must not outlive the retention inside a backup
     if (kept.length < all.length) writeJsonAtomic(file, kept)
     return kept
   }
@@ -49,6 +50,9 @@ export function createEventStore(
         fresh().filter((e) => e.id !== id)
       )
     },
-    clear: () => writeJsonAtomic(file, [])
+    clear() {
+      writeJsonAtomic(file, [])
+      removeBackups(file)
+    }
   }
 }

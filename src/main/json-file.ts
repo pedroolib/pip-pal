@@ -1,5 +1,13 @@
 // Safe JSON files in userData, shared by the profile and the day-to-day logs (docs/DECISIONS.md §6).
-import { copyFileSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'fs'
+import {
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync
+} from 'fs'
 import { basename, dirname, join } from 'path'
 
 export function writeJsonAtomic(file: string, data: unknown): void {
@@ -7,6 +15,17 @@ export function writeJsonAtomic(file: string, data: unknown): void {
   const tmp = file + '.tmp'
   writeFileSync(tmp, JSON.stringify(data, null, 2), { mode: 0o600 }) // health-related data
   renameSync(tmp, file) // atomic: a crash never leaves a half-written file
+}
+
+/** Deletes `file.<n>.bak` copies (all, or those made before `before`) and a leftover `.tmp`. */
+export function removeBackups(file: string, before = Infinity): void {
+  const dir = dirname(file)
+  const prefix = basename(file) + '.'
+  for (const f of readdirSync(dir)) {
+    const m = f.startsWith(prefix) && /^(\d+)\.bak$/.exec(f.slice(prefix.length))
+    if (m && parseInt(m[1], 10) < before) unlinkSync(join(dir, f))
+  }
+  rmSync(file + '.tmp', { force: true })
 }
 
 /** Copies `file` to `file.<n>.bak` before it is replaced, keeping the 3 newest copies. */

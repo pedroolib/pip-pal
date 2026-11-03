@@ -305,7 +305,7 @@ export const LoggableEvent = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('calm'),
     status: z.enum(['used', 'skipped']),
-    strategyId: z.string().nullable()
+    strategyId: z.string().min(1).max(100).nullable()
   })
 ])
 export type LoggableEvent = z.infer<typeof LoggableEvent>

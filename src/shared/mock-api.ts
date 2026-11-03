@@ -70,20 +70,30 @@ export function createMockApi(): PipApi {
     listEvents: async () => [...events],
     deleteEvent: async (id) => void (events = events.filter((e) => e.id !== id)),
     clearEvents: async () => void (events = []),
-    refreshLearned: async () => ({
-      ...profile,
-      pending: [
-        {
-          id: 'pending-energy-midday',
-          key: 'energy:midday',
-          section: 'energy',
-          text: 'Midday is often your lowest-energy time.',
-          origin: 'pip',
-          visibleTo: [],
-          why: 'Midday was your lowest check-in on 4 of the last 5 days.'
+    refreshLearned: async () => {
+      const text = 'Midday is often your lowest-energy time.'
+      const known =
+        profile.pending?.some((p) => p.key === 'energy:midday') ||
+        profile.dismissed?.some((d) => d.key === 'energy:midday') ||
+        profile.sections.energy?.some((e) => e.text === text)
+      if (!known)
+        profile = {
+          ...profile,
+          pending: [
+            ...(profile.pending ?? []),
+            {
+              id: 'pending-energy-midday',
+              key: 'energy:midday',
+              section: 'energy',
+              text,
+              origin: 'pip',
+              visibleTo: [],
+              why: 'Midday was your lowest check-in on 4 of the last 5 days.'
+            }
+          ]
         }
-      ]
-    }),
+      return profile
+    },
     generateSummary: async (r, period) => ({
       recipient: Recipient.parse(r),
       period: SummaryPeriod.parse(period),
