@@ -16,6 +16,20 @@ Application('System Events').keystroke('c', { using: 'command down' })
 $.NSWorkspace.sharedWorkspace.frontmostApplication.localizedName.js
 `
 
+// PowerShell: the same for Windows. Wait up to 1 s for Shift, Ctrl and Alt to be let go (otherwise
+// the app gets Ctrl+Shift+C), then press Ctrl+C. SendKeys can't wait for keys, so call user32.
+const COPY_WHEN_KEYS_RELEASED_WIN = `
+Add-Type -Namespace Pip -Name Keys -MemberDefinition '
+[DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
+[DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);'
+$held = { @(0x10, 0x11, 0x12 | Where-Object { [Pip.Keys]::GetAsyncKeyState($_) -lt 0 }).Count }
+for ($i = 0; $i -lt 100 -and (& $held); $i++) { Start-Sleep -Milliseconds 10 }
+[Pip.Keys]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero)
+[Pip.Keys]::keybd_event(0x43, 0, 0, [UIntPtr]::Zero)
+[Pip.Keys]::keybd_event(0x43, 0, 2, [UIntPtr]::Zero)
+[Pip.Keys]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero)
+`
+
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 export interface Capture {
@@ -31,8 +45,7 @@ export async function captureSelection(): Promise<Capture> {
   if (process.platform === 'linux') {
     return { text: await readPrimaryLinux(), fromSelection: true }
   }
-  // shortcut: Windows uses the last copied text until Ctrl+C is simulated (PowerShell SendKeys).
-  return { text: await clipboard.readText(), fromSelection: false }
+  return captureWindows()
 }
 
 // On native Wayland Electron reads the primary selection as empty, so ask wl-paste; fall back to
@@ -51,23 +64,43 @@ async function readPrimaryLinux(): Promise<string> {
 
 // Simulates ⌘C in the app in front, reads the clipboard and puts back what was there before.
 // Needs Accessibility permission (Terminal's while developing, Pip's once packaged).
-async function captureMac(): Promise<Capture> {
+function captureMac(): Promise<Capture> {
+  return captureByCopy(
+    async () =>
+      (await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])).stdout.trim(),
+    'Could not simulate ⌘C; using the last copied text. Allow Accessibility for Terminal (dev) or Pip.'
+  )
+}
+
+// Simulates Ctrl+C the same way; Windows needs no permission. -EncodedCommand (UTF-16LE base64)
+// keeps the script's quotes intact.
+function captureWindows(): Promise<Capture> {
+  const encoded = Buffer.from(COPY_WHEN_KEYS_RELEASED_WIN, 'utf16le').toString('base64')
+  return captureByCopy(async () => {
+    await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], {
+      timeout: 5000
+    })
+    return undefined
+  }, 'Could not simulate Ctrl+C; using the last copied text.')
+}
+
+// `copy` presses the copy keys in the app in front and may return that app's name.
+async function captureByCopy(
+  copy: () => Promise<string | undefined>,
+  failure: string
+): Promise<Capture> {
   const saved = await saveClipboard()
   const lastCopied = await clipboard.readText()
   clipboard.clear()
   try {
-    const { stdout } = await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])
-    const app = stdout.trim()
+    const app = await copy()
     const text = await waitForText(500)
     // Empty clipboard: nothing was selected, so fall back to what the person copied last.
     return text
       ? { text, fromSelection: true, app }
       : { text: lastCopied, fromSelection: false, app }
   } catch (err) {
-    console.warn(
-      '[capture] Could not simulate ⌘C; using the last copied text. Allow Accessibility for Terminal (dev) or Pip.',
-      err instanceof Error ? err.message : err
-    )
+    console.warn(`[capture] ${failure}`, err instanceof Error ? err.message : err)
     return { text: lastCopied, fromSelection: false }
   } finally {
     await restoreClipboard(saved)
