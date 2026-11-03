@@ -391,5 +391,14 @@
         "manual": "Summaries never send themselves. You copy or export them."
       }
     }
+  },
+  "expand": {
+    "working": "Pip is working on it. This takes a few seconds.",
+    "error": "Pip couldn't do this one. Try again in a moment.",
+    "close": "Close",
+    "stepsTitle": "Your steps",
+    "copyIntro": "Copy one and send it yourself if it helps.",
+    "questionsToAsk": "Questions you could ask",
+    "usedManual": "Used your manual"
   }
 }
