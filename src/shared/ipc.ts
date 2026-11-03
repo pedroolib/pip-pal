@@ -5,6 +5,7 @@ import type {
   CheckIn,
   Decoded,
   LoggableEvent,
+  OnboardingAnswers,
   ActionKind,
   Expansion,
   Triage,
@@ -61,6 +62,8 @@ export const IPC = {
   eventDelete: 'event:delete',
   eventClear: 'event:clear',
   learnedRefresh: 'learned:refresh',
+  onboardingDraft: 'onboarding:draft',
+  accessibility: 'system:accessibility',
   summaryGenerate: 'summary:generate',
   summaryExportPdf: 'summary:export-pdf',
   homeOpen: 'home:open',
@@ -116,6 +119,14 @@ export interface PipApi {
   clearEvents(): Promise<void>
   /** Runs pattern detection; returns the profile with any new pending entries. */
   refreshLearned(): Promise<Profile>
+  /**
+   * One Claude call: Pip turns the onboarding answers (scrubbed) into suggestions with origin `onboarding`,
+   * adds them to `pending` and returns the saved profile. Nothing else in the profile changes.
+   * Rejects with no API key, offline or on an invalid answer; the renderer then keeps the person's own words.
+   */
+  draftProfile(answers: OnboardingAnswers): Promise<Profile>
+  /** Mac: whether Pip may simulate ⌘C; `prompt` opens the system dialog. Null on other systems (none needed). */
+  checkAccessibility(prompt: boolean): Promise<boolean | null>
   generateSummary(recipient: Recipient, period: SummaryPeriod): Promise<Summary>
   /** Prints the open summary to PDF; resolves to the saved path, or null if cancelled. */
   exportSummaryPdf(): Promise<string | null>

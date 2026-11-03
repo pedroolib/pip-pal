@@ -51,7 +51,13 @@ export function CalmingCard({
             {t('calm.offer', { strategy: strategy.label, minutes, then })}
           </h1>
           <p className="text-sm text-body">
-            {t(strategy.origin === 'coach' ? 'calm.whyCoach' : 'calm.whySelf')}
+            {t(
+              {
+                self: 'calm.whySelf',
+                onboarding: 'calm.whyOnboarding',
+                learned: 'calm.whyLearned'
+              }[strategy.origin]
+            )}
           </p>
         </div>
       </div>

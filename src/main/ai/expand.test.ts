@@ -349,7 +349,7 @@ describe('createExpander', () => {
         experience: [
           {
             text: 'Alex says email ana.lopez@acme.com or call +52 55 1234 5678; https://acme.com/sam',
-            origin: 'coach',
+            origin: 'onboarding',
             visibleTo: ['coach']
           }
         ]

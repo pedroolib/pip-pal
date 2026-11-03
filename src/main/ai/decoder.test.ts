@@ -98,7 +98,7 @@ describe('createDecoder', () => {
         experience: [
           {
             text: 'Email ana.lopez@acme.com or call +52 55 1234 5678; wiki https://acme.com/sam',
-            origin: 'coach',
+            origin: 'onboarding',
             visibleTo: ['coach']
           }
         ]

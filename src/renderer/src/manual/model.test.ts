@@ -11,7 +11,8 @@ import {
   removeAt,
   removeById,
   splitAliases,
-  upsert
+  upsert,
+  writer
 } from './model'
 
 describe('manual list edits', () => {
@@ -153,7 +154,7 @@ describe('pending entries', () => {
     key: 'energy:midday',
     section: 'energy' as const,
     text: 'Midday is often your lowest-energy time.',
-    origin: 'pip' as const,
+    origin: 'learned' as const,
     visibleTo: [],
     why: 'Lowest on 4 of 5 days.'
   }
@@ -166,16 +167,22 @@ describe('pending entries', () => {
     pending: [pending, { ...pending, id: 'p2', key: 'ask:deadline' }]
   }
 
-  it('approve moves it into its section as a private pip entry', () => {
+  it('approve moves it into its section as a private entry with its origin', () => {
     const out = approvePending(base, 'p1')
     expect(out.sections.energy).toEqual([
-      { id: 'p1', text: pending.text, origin: 'pip', visibleTo: [] }
+      { id: 'p1', text: pending.text, origin: 'learned', visibleTo: [] }
     ])
     expect(out.pending?.map((p) => p.id)).toEqual(['p2'])
   })
 
-  it('approve keeps the person edit, trimmed, and refuses an empty one', () => {
-    expect(approvePending(base, 'p1', '  Mine.  ').sections.energy[0].text).toBe('Mine.')
+  it('approve keeps the person edit, trimmed, as their own, and refuses an empty one', () => {
+    expect(approvePending(base, 'p1', '  Mine.  ').sections.energy[0]).toMatchObject({
+      text: 'Mine.',
+      origin: 'self'
+    })
+    expect(approvePending(base, 'p1', ` ${pending.text} `).sections.energy[0].origin).toBe(
+      'learned'
+    )
     expect(approvePending(base, 'p1', '   ')).toBe(base)
   })
 
@@ -184,6 +191,28 @@ describe('pending entries', () => {
     expect(out.pending?.map((p) => p.id)).toEqual(['p2'])
     expect(out.dismissed).toEqual([{ key: 'energy:midday', at: '2026-11-03T10:00:00.000Z' }])
     expect(out.sections.energy).toEqual([])
+  })
+
+  it('approve turns a calming suggestion into a private strategy', () => {
+    const calm = {
+      ...pending,
+      id: 'c1',
+      section: 'calming' as const,
+      text: 'Calm music',
+      minutes: 15,
+      origin: 'onboarding' as const
+    }
+    const out = approvePending({ ...base, pending: [calm] }, 'c1')
+    expect(out.calmingStrategies).toEqual([
+      { id: 'c1', label: 'Calm music', minutes: 15, origin: 'onboarding', visibleTo: [] }
+    ])
+    expect(out.pending).toEqual([])
+    expect(Object.values(out.sections).flat()).toEqual([])
+  })
+
+  it('writer keeps the origin when only sharing changed, else it is the person', () => {
+    expect(writer('Same.', ' Same. ', 'onboarding')).toBe('onboarding')
+    expect(writer('Same.', 'Other.', 'learned')).toBe('self')
   })
 
   it('an unknown id changes nothing', () => {

@@ -69,7 +69,7 @@ describe('forRecipient', () => {
         why: 'w',
         section: 'stress',
         text: 'p',
-        origin: 'pip',
+        origin: 'learned',
         visibleTo: ['manager']
       }
     ]
@@ -104,7 +104,7 @@ describe('buildProfileContext', () => {
       feedback: [
         {
           text: 'Alex gives me feedback in writing. alexis is fine',
-          origin: 'coach',
+          origin: 'onboarding',
           visibleTo: []
         }
       ]
@@ -117,7 +117,7 @@ describe('buildProfileContext', () => {
         why: 'w',
         section: 'stress',
         text: 'PENDINGTEXT',
-        origin: 'pip',
+        origin: 'learned',
         visibleTo: []
       }
     ]
@@ -128,7 +128,7 @@ describe('buildProfileContext', () => {
     expect(out).not.toMatch(/\bAlex\b/)
     expect(out).toContain('[Manager] gives me feedback in writing')
     expect(out).toContain('alexis is fine')
-    expect(out).toContain('(coach)')
+    expect(out).toContain('(onboarding)')
     expect(out).toContain('Walk with [Manager] (5 min)')
   })
 
@@ -239,56 +239,56 @@ describe('buildProfileContext', () => {
       "[Me], Junior data analyst, 4 months in (first job)
 
       ## experience
-      - Degree in statistics. Built personal projects in Python and SQL before this job. (coach)
+      - Degree in statistics. Built personal projects in Python and SQL before this job. (onboarding)
 
       ## languages
-      - Spanish (native), English (professional, prefers it in writing). (coach)
+      - Spanish (native), English (professional, prefers it in writing). (onboarding)
 
       ## communication
-      - Prefers written instructions over spoken ones; spoken requests are easy to lose. (coach)
-      - Is direct in writing; short replies can read as cold even when they are not meant to. (coach)
+      - Prefers written instructions over spoken ones; spoken requests are easy to lose. (onboarding)
+      - Is direct in writing; short replies can read as cold even when they are not meant to. (onboarding)
 
       ## teamwork
-      - Works best with one clear owner per task and a known person to ask. (coach)
+      - Works best with one clear owner per task and a known person to ask. (onboarding)
 
       ## feedback
-      - Wants feedback that is specific and written down, with an example of what good looks like. (coach)
+      - Wants feedback that is specific and written down, with an example of what good looks like. (onboarding)
 
       ## stress
-      - Vague deadlines ("when you get a chance", "soon") are the main stress trigger. (coach)
-      - Under stress, delays replying to messages instead of asking. (coach)
+      - Vague deadlines ("when you get a chance", "soon") are the main stress trigger. (onboarding)
+      - Under stress, delays replying to messages instead of asking. (onboarding)
 
       ## relationships
-      - Builds trust slowly; one-to-one works better than group chats. (coach)
+      - Builds trust slowly; one-to-one works better than group chats. (onboarding)
 
       ## sensory
-      - Open-plan noise after lunch is draining; noise-cancelling headphones help. (coach)
+      - Open-plan noise after lunch is draining; noise-cancelling headphones help. (onboarding)
 
       ## motivations
       - Clean, correct data and knowing the work is used by someone. (self)
 
       ## strengths
-      - Spots patterns and errors others miss; follows processes carefully. (coach)
+      - Spots patterns and errors others miss; follows processes carefully. (onboarding)
 
       ## learning
-      - Learns best from a written example, then trying it alone. (coach)
-      - Prefers a task broken into small, concrete steps, each one saying what done looks like, so nothing is left to guess. (coach)
+      - Learns best from a written example, then trying it alone. (onboarding)
+      - Prefers a task broken into small, concrete steps, each one saying what done looks like, so nothing is left to guess. (onboarding)
 
       ## changes
-      - Needs the why of a change first, then who to ask and by when. (coach)
+      - Needs the why of a change first, then who to ask and by when. (onboarding)
       - Same-day changes are hard; a few days' notice makes a big difference. (self)
 
       ## adjustments
-      - Instructions in writing, with an explicit deadline. (coach)
-      - Lunch 30 minutes before the team to avoid the busy cafeteria. (coach)
+      - Instructions in writing, with an explicit deadline. (onboarding)
+      - Lunch 30 minutes before the team to avoid the busy cafeteria. (onboarding)
 
       ## managerTips
-      - Follow a spoken request with a two-line message: what, by when. (coach)
+      - Follow a spoken request with a two-line message: what, by when. (onboarding)
 
       ## calmingStrategies
       - Listen to calm music (10 min) (self)
       - Colouring (15 min) (self)
-      - Short walk outside (10 min) (coach)"
+      - Short walk outside (10 min) (onboarding)"
     `)
   })
 })
@@ -735,10 +735,10 @@ describe('aliases', () => {
     const out = buildProfileContext({
       ...profile,
       sections: sections({
-        feedback: [{ text: 'Ally and Sammy; ping @alexr', origin: 'coach', visibleTo: [] }]
+        feedback: [{ text: 'Ally and Sammy; ping @alexr', origin: 'onboarding', visibleTo: [] }]
       })
     })
-    expect(out).toContain('- [Manager] and [Me]; ping [Manager] (coach)')
+    expect(out).toContain('- [Manager] and [Me]; ping [Manager] (onboarding)')
     for (const leak of [/ally/i, /sammy/i, /alexr/i, /arod/i, /jean/i, /\bjp\b/i])
       expect(out).not.toMatch(leak)
   })
@@ -756,7 +756,9 @@ describe('aliases', () => {
     const ctx = buildProfileContext({
       ...odd,
       role: 'Analyst, works with @alexrँ',
-      sections: sections({ feedback: [{ text: 'ask @alexrँ', origin: 'coach', visibleTo: [] }] }),
+      sections: sections({
+        feedback: [{ text: 'ask @alexrँ', origin: 'onboarding', visibleTo: [] }]
+      }),
       calmingStrategies: [
         { label: 'walk with @srivera॑', minutes: 5, origin: 'self', visibleTo: [] }
       ]
@@ -1252,7 +1254,7 @@ describe('trie matcher against the old one-big-regex matcher', () => {
         // A person whose name has no letter or digit is swapped by alias here but skipped by the reference
         // (strictly more scrubbing), so such people are left out of the compared profile; their text stays in messages.
         people: people.filter((x) => /[\p{L}\p{N}]/u.test(x.name)),
-        sections: sections({ feedback: [{ text: msg(), origin: 'coach', visibleTo: [] }] }),
+        sections: sections({ feedback: [{ text: msg(), origin: 'onboarding', visibleTo: [] }] }),
         calmingStrategies: [{ label: msg(), minutes: 5, origin: 'self', visibleTo: [] }]
       }
       buildProfileContext(p)

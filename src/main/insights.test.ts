@@ -193,7 +193,7 @@ describe('mergeLearned', () => {
   it('adds a candidate as a private pip pending entry', () => {
     const p = mergeLearned(profile, [cand], now)
     expect(p.pending).toHaveLength(1)
-    expect(p.pending![0]).toMatchObject({ ...cand, origin: 'pip', visibleTo: [] })
+    expect(p.pending![0]).toMatchObject({ ...cand, origin: 'learned', visibleTo: [] })
     expect(p.pending![0].id).toBeTruthy()
   })
   it('never duplicates a pending key', () => {
@@ -202,7 +202,7 @@ describe('mergeLearned', () => {
   })
   it('skips a pattern already approved', () => {
     const approved = structuredClone(profile)
-    approved.sections.energy = [{ text: cand.text, origin: 'pip', visibleTo: [] }]
+    approved.sections.energy = [{ text: cand.text, origin: 'learned', visibleTo: [] }]
     expect(mergeLearned(approved, [cand], now).pending ?? []).toEqual([])
   })
   it('stays quiet for 30 days after a dismiss, then may suggest again', () => {

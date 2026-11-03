@@ -5,7 +5,15 @@ import { SECTIONS, type Profile, type Recipient, type Section } from '@shared/sc
 import { ensureIds } from '@shared/profile'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/api'
-import { activeIndex, approvePending, dismissPending, removeAt, removeById, upsert } from './model'
+import {
+  activeIndex,
+  approvePending,
+  dismissPending,
+  removeAt,
+  removeById,
+  upsert,
+  writer
+} from './model'
 import { Block, ConfirmDelete, Editor, PendingCard, Row, type Draft } from './parts'
 
 type Del = {
@@ -244,7 +252,12 @@ function Manual({
               onSave={(d) =>
                 commit(
                   setEntries(
-                    upsert(entries, { ...e, text: d.text.trim(), visibleTo: d.visibleTo })
+                    upsert(entries, {
+                      ...e,
+                      text: d.text.trim(),
+                      origin: writer(e.text, d.text, e.origin),
+                      visibleTo: d.visibleTo
+                    })
                   ),
                   key,
                   key
@@ -299,10 +312,13 @@ function Manual({
     ...profile,
     calmingStrategies: list
   })
-  const strategyOf = (d: Draft, base: object): (typeof strategies)[number] =>
+  const strategyOf = (
+    d: Draft,
+    base: Partial<(typeof strategies)[number]>
+  ): (typeof strategies)[number] =>
     ({
-      origin: 'self',
       ...base,
+      origin: base.label === undefined ? 'self' : writer(base.label, d.text, base.origin!),
       label: d.text.trim(),
       minutes: Number(d.minutes),
       visibleTo: d.visibleTo

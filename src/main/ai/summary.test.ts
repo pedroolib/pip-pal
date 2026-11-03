@@ -19,7 +19,7 @@ const profile: Profile = {
   sections: {
     ...base.sections,
     teamwork: [
-      { text: 'Pairs well with Alex Morgan-Reyes.', origin: 'coach', visibleTo: ['coach'] }
+      { text: 'Pairs well with Alex Morgan-Reyes.', origin: 'onboarding', visibleTo: ['coach'] }
     ]
   },
   pending: [
@@ -29,7 +29,7 @@ const profile: Profile = {
       why: 'Pending why ZXQV',
       section: 'energy',
       text: 'Pending text ZXQV',
-      origin: 'pip',
+      origin: 'learned',
       visibleTo: ['coach', 'manager']
     }
   ]

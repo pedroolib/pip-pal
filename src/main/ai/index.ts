@@ -1,15 +1,16 @@
-// Glue for the triage, expand and summary IPC handlers: validates what the untrusted renderer sends, then picks the
+// Glue for the triage, expand, summary and onboarding IPC handlers: validates what the untrusted renderer sends, then picks the
 // real pipeline (its key is set) or the fixture. Free of electron so it can be tested; mock.ts passes the real parts in.
 import { ActionKind, Recipient, SummaryPeriod, UnclearPart, type Profile } from '@shared/schemas'
 import type { PipApi } from '@shared/ipc'
 import type { NewEvent } from '../event-store'
 import { MAX_CHARS } from './decoder'
 import type { Expand } from './expand'
+import type { DraftProfile } from './onboarding'
 import type { Summarize, SummaryData } from './summary'
 import type { TriageFn } from './triage'
 
 type Env = Record<string, string | undefined>
-type Handlers = Pick<PipApi, 'triage' | 'expand' | 'generateSummary'>
+type Handlers = Pick<PipApi, 'triage' | 'expand' | 'generateSummary' | 'draftProfile'>
 
 const UnclearHints = UnclearPart.array()
   .max(UnclearPart.options.length)
@@ -43,9 +44,11 @@ export function createAiHandlers({
   env,
   api,
   load,
+  save,
   makeTriager,
   makeExpander,
   makeSummarizer,
+  makeDrafter,
   summaryData,
   logEvent,
   log = console.log
@@ -54,9 +57,11 @@ export function createAiHandlers({
   api: Handlers
   /** The live profile, read on every call. */
   load: () => Profile
+  save: (profile: Profile) => void
   makeTriager: () => TriageFn
   makeExpander: () => Expand
   makeSummarizer: () => Summarize
+  makeDrafter: () => DraftProfile
   /** The live check-ins, events and achievements, read on every summary. */
   summaryData: () => SummaryData
   /** Appends to the usage log (main's own kinds included). */
@@ -66,9 +71,12 @@ export function createAiHandlers({
   const triager = env.TYPESAFE_API_KEY ? makeTriager() : null
   const expander = env.ANTHROPIC_API_KEY ? makeExpander() : null
   const summarizer = env.ANTHROPIC_API_KEY ? makeSummarizer() : null
+  const drafter = env.ANTHROPIC_API_KEY ? makeDrafter() : null
   if (!triager) log('TYPESAFE_API_KEY not set: triage uses the demo fixture.')
   if (!expander) log('ANTHROPIC_API_KEY not set: expand uses the demo fixtures.')
   if (!summarizer) log('ANTHROPIC_API_KEY not set: summary uses the demo fixture.')
+  if (!drafter)
+    log('ANTHROPIC_API_KEY not set: onboarding keeps the answers as the person wrote them.')
 
   // The log is a side note: losing one event beats failing the person's call.
   const record = (make: () => NewEvent): void => {
@@ -81,6 +89,7 @@ export function createAiHandlers({
 
   const triaging = new Map<string, { input: string; promise: ReturnType<PipApi['triage']> }>()
   const expanding = new Map<string, { input: string; promise: ReturnType<PipApi['expand']> }>()
+  const drafting = new Map<string, { input: string; promise: ReturnType<PipApi['draftProfile']> }>()
 
   return {
     async triage(text) {
@@ -120,6 +129,18 @@ export function createAiHandlers({
       return summarizer
         ? summarizer(recipient, period, load(), summaryData())
         : api.generateSummary(recipient, period)
+    },
+    async draftProfile(answers) {
+      // Never the fixture: a real person must not get suggestions written for Sam.
+      if (!drafter) throw new Error('Pip cannot reach the model right now.')
+      return oneAtATime(drafting, 'draft', JSON.stringify(answers), async () => {
+        const drafted = await drafter(answers, load())
+        // Re-read after the call: the person may have saved the profile meanwhile. Only `pending` grows.
+        const profile = load()
+        const next = { ...profile, pending: [...(profile.pending ?? []), ...drafted] }
+        save(next)
+        return next
+      })
     }
   }
 }

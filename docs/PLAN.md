@@ -42,10 +42,11 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 10. Set de prueba de 30 mensajes con y sin perfil, con conteos reportados tal cual.
 11. Blindaje del demo: respaldo en caché, tecla de repetición, video de respaldo.
 12. Pruebas con usuarios (ya hay una persona en contacto); `es.json` para ellas.
+13. **Onboarding** (subió del nivel 2 el 3 de noviembre; ver [DECISIONS.md §13](DECISIONS.md)): la primera vez sin `PIP_DEMO=1`, Pip hace preguntas, una llamada a Claude convierte las respuestas en sugerencias para el perfil, y la persona practica el atajo con un mensaje de ejemplo. Fuera del demo en vivo; en el pitch va un clip grabado.
 
 **Nivel 1, si sobra antes de la entrega:** responder con el porqué; versión corta del manual para el jefe ("how I work best").
 
-**Nivel 2, rumbo a Phoenix:** objetos para Pip, onboarding por preguntas, maqueta de "Clear message" para jefes, correcciones del coach guardadas como ejemplo, modo oscuro, tarjeta de tarea por pasos dentro de otra app.
+**Nivel 2, rumbo a Phoenix:** objetos para Pip, maqueta de "Clear message" para jefes, correcciones del coach guardadas como ejemplo, modo oscuro, tarjeta de tarea por pasos dentro de otra app.
 
 **Nivel 3, después:** backend con suscripción (B2B por asientos o plan personal), voz y "Hey Pip", lectura de pantalla y resaltados en otras apps, wearable, ficha del rol con embeddings.
 
@@ -54,7 +55,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 Parte de las secciones del perfil profesional de Specialisterne: experiencia, idiomas, comunicación, trabajo en equipo, feedback, estrés, relaciones, sensorial, motivaciones, fortalezas, aprendizaje, ajustes y recomendaciones para el jefe. Le agregamos:
 
 - **Visibilidad por campo:** `private`, `coach`, `therapist`, `manager`. Arma las versiones de Mi resumen, y **el filtro es código, no el prompt**: a Claude solo le llega lo visible para ese destinatario.
-- **Origen:** `coach`, `self`, `pip`. Pip guarda lo que aprende como pendiente; nunca se usa ni se comparte hasta que la persona lo aprueba.
+- **Origen:** `self` (lo escribió la persona), `onboarding` (Pip, con las respuestas del onboarding) y `learned` (Pip, con patrones de uso). Lo de Pip llega como sugerencia; nunca se usa ni se comparte hasta que la persona la acepta. Editar el texto de una entrada la vuelve `self`.
 - **Cambios:** cómo reacciona la persona, qué necesita saber primero, con cuánta anticipación.
 - **Estrategias de calma** (`calming_strategies`), por ejemplo música tranquila 10 min o colorear 15 min.
 - **Patrones de energía**, que se llenan solos con los check-ins.

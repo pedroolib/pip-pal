@@ -10,6 +10,7 @@ import {
 import { tmpdir } from 'os'
 import { dirname, join } from 'path'
 import { beforeEach, describe, expect, it } from 'vitest'
+import samJson from '@shared/fixtures/sam.profile.json'
 import { Profile } from '@shared/schemas'
 import { createProfileStore } from './profile-store'
 
@@ -83,6 +84,28 @@ describe('profile store', () => {
   it.skipIf(process.platform === 'win32')('writes the file owner-only', () => {
     createProfileStore(file).load()
     expect(statSync(file).mode & 0o777).toBe(0o600)
+  })
+
+  it('seeds the given profile instead of Sam (a real first run starts empty)', () => {
+    const empty = { ...samJson, people: [], calmingStrategies: [], name: '', role: '' }
+    expect(createProfileStore(file, empty).load()).toMatchObject({ name: '', people: [] })
+  })
+
+  it('renames the old origins (coach, pip) instead of re-seeding', () => {
+    const old = JSON.parse(JSON.stringify(samJson))
+    old.name = 'Kept'
+    old.sections.communication[0].origin = 'coach'
+    old.calmingStrategies[0].origin = 'pip'
+    old.pending = [
+      { id: 'p', key: 'k', why: 'w', section: 'energy', text: 't', origin: 'pip', visibleTo: [] }
+    ]
+    writeFileSync(file, JSON.stringify(old))
+    const p = createProfileStore(file).load()
+    expect(p.name).toBe('Kept')
+    expect(p.sections.communication[0].origin).toBe('onboarding')
+    expect(p.calmingStrategies[0].origin).toBe('learned')
+    expect(p.pending?.[0].origin).toBe('learned')
+    expect(readdirSync(dirname(file)).some((f) => f.endsWith('.bak'))).toBe(false)
   })
 
   it('rejects an invalid save and leaves the file untouched', () => {

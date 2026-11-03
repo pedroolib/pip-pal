@@ -3,6 +3,9 @@ import {
   ActionKind,
   Expansion,
   LoggableEvent,
+  OnboardingStep,
+  PendingEntry,
+  hotkeyReady,
   Profile,
   QuestionTopic,
   Triage,
@@ -118,5 +121,28 @@ describe('usage events', () => {
     await api.refreshLearned()
     expect((await api.getProfile()).pending).toHaveLength(1)
     expect((await api.generateSummary('coach', '7d')).period).toBe('7d')
+  })
+})
+
+describe('onboarding contract', () => {
+  const s = { id: 'x', key: 'k', why: 'w', text: 't', origin: 'onboarding', visibleTo: [] }
+  it('a calming suggestion has minutes, a section suggestion has none', () => {
+    expect(PendingEntry.safeParse({ ...s, section: 'calming', minutes: 10 }).success).toBe(true)
+    expect(PendingEntry.safeParse({ ...s, section: 'calming' }).success).toBe(false)
+    expect(PendingEntry.safeParse({ ...s, section: 'sensory', minutes: 10 }).success).toBe(false)
+    expect(PendingEntry.safeParse({ ...s, section: 'sensory', origin: 'self' }).success).toBe(false)
+  })
+
+  it('the hotkey waits for the practice step', () => {
+    const at = (step: OnboardingStep, done = false): boolean =>
+      hotkeyReady({ step, done, answers: {} })
+    expect(hotkeyReady(undefined)).toBe(false)
+    expect(at('permission')).toBe(false)
+    expect(at('practice')).toBe(true)
+    expect(at('welcome', true)).toBe(true)
+  })
+
+  it('Sam has no coach entries left', () => {
+    expect(JSON.stringify(samJson)).not.toMatch(/"origin":\s*"(coach|pip)"/)
   })
 })

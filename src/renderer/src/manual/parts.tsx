@@ -57,7 +57,7 @@ function OriginBadge({ origin }: { origin: Origin }): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <Badge variant="outline" className="min-h-6 text-sm">
-      {origin === 'pip' && <span aria-hidden className="size-2 rounded-full bg-pip" />}
+      {origin !== 'self' && <span aria-hidden className="size-2 rounded-full bg-pip" />}
       {t(`manual.origin.${origin}`)}
     </Badge>
   )
@@ -388,10 +388,7 @@ export function PendingCard(props: {
       <ul>
         {props.entries.map((p) => (
           <li key={p.id} className="border-t px-5 py-4">
-            <Badge variant="outline" className="min-h-6 text-sm">
-              <span aria-hidden className="size-2 rounded-full bg-pip" />
-              {t('manual.pending.badge')}
-            </Badge>
+            <OriginBadge origin={p.origin} />
             {editing === p.id ? (
               <div className="mt-3 grid gap-2">
                 <Label htmlFor={`${uid}-${p.id}`}>{t('manual.editor.entry')}</Label>
@@ -405,7 +402,18 @@ export function PendingCard(props: {
                 />
               </div>
             ) : (
-              <p className="mt-2 max-w-[62ch] text-[17px] leading-[1.6]">{p.text}</p>
+              <p className="mt-2 max-w-[62ch] text-[17px] leading-[1.6]">
+                {p.minutes === undefined ? (
+                  p.text
+                ) : (
+                  <>
+                    <strong>{p.text}</strong>{' '}
+                    <span className="whitespace-nowrap text-body">
+                      {t('manual.calming.minutesShort', { count: p.minutes })}
+                    </span>
+                  </>
+                )}
+              </p>
             )}
             <p className="mt-1 text-sm text-muted-foreground">
               {t('manual.pending.why', { why: p.why })}

@@ -10,6 +10,8 @@ import {
   Decoded,
   LoggableEvent,
   Expansion,
+  OnboardingAnswers,
+  type PendingEntry,
   Profile,
   Recipient,
   SummaryPeriod,
@@ -86,7 +88,7 @@ export function createMockApi(): PipApi {
               key: 'energy:midday',
               section: 'energy',
               text,
-              origin: 'pip',
+              origin: 'learned',
               visibleTo: [],
               why: 'Midday was your lowest check-in on 4 of the last 5 days.'
             }
@@ -94,6 +96,40 @@ export function createMockApi(): PipApi {
         }
       return profile
     },
+    // Not Claude: each answer comes back as a suggestion, so the review screen has something to show.
+    draftProfile: async (a) => {
+      const answers = OnboardingAnswers.parse(a)
+      const said = (k: keyof OnboardingAnswers): string | undefined =>
+        answers[k]?.trim() || undefined
+      const where: [keyof OnboardingAnswers, PendingEntry['section']][] = [
+        ['instructions', 'communication'],
+        ['changesHelp', 'changes'],
+        ['changesNotice', 'changes'],
+        ['calming', 'calming'],
+        ['sensory', 'sensory'],
+        ['strengths', 'strengths']
+      ]
+      const drafted: PendingEntry[] = where.flatMap(([k, section]) => {
+        const text = said(k)
+        if (!text) return []
+        const id = crypto.randomUUID()
+        return [
+          {
+            id,
+            key: `onboarding:${id}`,
+            section,
+            text,
+            ...(section === 'calming' ? { minutes: 10 } : {}),
+            origin: 'onboarding' as const,
+            visibleTo: [],
+            why: `You said: "${text}"`
+          }
+        ]
+      })
+      profile = { ...profile, pending: [...(profile.pending ?? []), ...drafted] }
+      return profile
+    },
+    checkAccessibility: async () => null,
     generateSummary: async (r, period) => ({
       recipient: Recipient.parse(r),
       period: SummaryPeriod.parse(period),
