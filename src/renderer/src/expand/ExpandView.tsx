@@ -4,7 +4,7 @@
 // tucking the card away doesn't offer it twice.
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, BookOpen, Check, HelpCircle, Minus, RotateCcw, X } from 'lucide-react'
-import type { ActionKind, CalmingStrategy, Expansion, Triage } from '@shared/schemas'
+import type { ActionKind, CalmingStrategy, Expansion, QuestionTopic, Triage } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { CalmingCard } from '@renderer/calm/CalmingCard'
 import { Button } from '@renderer/components/ui/button'
@@ -17,6 +17,7 @@ import { TaskCard } from '@renderer/task/TaskCard'
 import { formatDue } from '@renderer/triage/model'
 
 type ProfileUsed = Expansion['profileUsed']
+type CopiedHandler = (what: string, question: string, topic: QuestionTopic) => void
 
 // The bubble says "Due Fri, Nov 6"; the card puts it after the step count, in lower case.
 const DUE_KEY = { 'bubble.due': 'card.due', 'bubble.before': 'card.before' } as const
@@ -120,7 +121,7 @@ function Questions({
   onCopied
 }: {
   questions: Extract<Expansion, { kind: 'questions' }>['questions']
-  onCopied: (what: string) => void
+  onCopied: CopiedHandler
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
@@ -136,7 +137,10 @@ function Questions({
             {q.suggestedQuestion}
           </blockquote>
           <div>
-            <CopyQuestion text={q.suggestedQuestion} onCopied={() => onCopied(q.what)} />
+            <CopyQuestion
+              text={q.suggestedQuestion}
+              onCopied={() => onCopied(q.what, q.suggestedQuestion, q.topic)}
+            />
           </div>
         </section>
       ))}
@@ -152,7 +156,7 @@ function Plan({
   onPlanned
 }: Omit<Extract<Expansion, { kind: 'transition' }>, 'kind' | 'profileUsed'> & {
   planned: boolean
-  onCopied: (what: string) => void
+  onCopied: CopiedHandler
   onPlanned: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -173,7 +177,8 @@ function Plan({
             <div key={i} className="flex flex-col gap-2 rounded-lg bg-secondary/60 p-3">
               <p className="text-sm">{q}</p>
               <div>
-                <CopyQuestion text={q} onCopied={() => onCopied(q)} />
+                {/* The plan's questions carry no topic in the contract. */}
+                <CopyQuestion text={q} onCopied={() => onCopied(q, q, 'other')} />
               </div>
             </div>
           ))}
@@ -238,7 +243,7 @@ export function ExpandView({
   /** "I'm stuck" with no calming strategy in the manual: ask what's unclear instead. */
   onAsk: () => void
   /** A drafted question was copied: the person is asking instead of guessing. */
-  onCopied: (what: string) => void
+  onCopied: CopiedHandler
   onPlanned: () => void
   /** Back to the bubble's other buttons, when there is a bubble. */
   onBack?: () => void

@@ -17,6 +17,8 @@ import {
   type ActionKind,
   type CalmingStrategy,
   type Expansion,
+  type LoggableEvent,
+  type QuestionTopic,
   type Triage
 } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
@@ -58,6 +60,8 @@ type Task = {
   planned: boolean
   /** A drafted question was copied; logged as an achievement once per card. */
   asked: boolean
+  /** Questions copied or steps left for later that are already in the log: each counts once. */
+  logged: string[]
 }
 type Tasks = Partial<Record<ActionKind, Task>>
 
@@ -68,12 +72,16 @@ const NEW_TASK: Task = {
   step: 0,
   calm: null,
   planned: false,
-  asked: false
+  asked: false,
+  logged: []
 }
 
 // A failed write only loses the log entry; the flow goes on.
 function logAchievement(kind: Achievement['kind'], label: string): void {
   api.addAchievement({ at: new Date().toISOString(), kind, label }).catch(() => {})
+}
+function logEvent(event: LoggableEvent): void {
+  api.logEvent(event).catch(() => {})
 }
 
 // The window's transparent padding around the bubble (p-[32px] below). The window is sized to
@@ -394,7 +402,15 @@ function Overlay(): React.JSX.Element {
     setActive(rest[0] ?? null)
     setView(rest.length > 0 && triage ? 'triage' : 'hidden')
   }
+  // Logs once per text, so copying a question twice or "Not now" twice on a step counts one.
+  const logOnce = (kind: ActionKind, text: string, event: LoggableEvent): void => {
+    if (tasks[kind]?.logged.includes(text)) return
+    logEvent(event)
+    patch(kind, (x) => ({ logged: [...x.logged, text] }))
+  }
   const remindLater = (): void => {
+    const left = stepsTask && steps?.[stepsTask.step]
+    if (left) logOnce('steps', left.text, { kind: 'step', status: 'can_wait', text: left.text })
     setView('hidden')
     if (later.current) clearTimeout(later.current)
     const id = request.current
@@ -408,10 +424,14 @@ function Overlay(): React.JSX.Element {
   }
   const stepDone = (): void => {
     const done = stepsTask && steps?.[stepsTask.step]
-    if (done) logAchievement('step_done', done.text)
+    if (done) {
+      logAchievement('step_done', done.text)
+      logEvent({ kind: 'step', status: 'done', text: done.text })
+    }
     patch('steps', (x) => ({ step: x.step + 1 }))
   }
-  const copied = (kind: ActionKind, what: string): void => {
+  const copied = (kind: ActionKind, what: string, question: string, topic: QuestionTopic): void => {
+    logOnce(kind, question, { kind: 'asked', topic, question })
     if (tasks[kind]?.asked) return
     logAchievement('asked_not_guessed', t('achievement.asked', { what }))
     patch(kind, () => ({ asked: true }))
@@ -487,7 +507,7 @@ function Overlay(): React.JSX.Element {
               onStepDone={stepDone}
               onLater={remindLater}
               onAsk={() => act('questions')}
-              onCopied={(what) => copied(active, what)}
+              onCopied={(what, question, topic) => copied(active, what, question, topic)}
               onPlanned={() => planned(active)}
               onBack={triage ? () => setView('triage') : undefined}
               onRetry={() => act(active)}

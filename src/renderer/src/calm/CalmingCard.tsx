@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CalmingStrategy } from '@shared/schemas'
+import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Pip } from '@renderer/pip/Pip'
@@ -40,6 +41,10 @@ export function CalmingCard({
   const { t } = useTranslation()
   const [running, setRunning] = useState(false)
   const minutes = strategy.minutes
+  // A failed write only loses the log entry; the flow goes on.
+  const log = (status: 'used' | 'skipped'): void => {
+    api.logEvent({ kind: 'calm', status, strategyId: strategy.id ?? null }).catch(() => {})
+  }
 
   return (
     <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
@@ -70,10 +75,25 @@ export function CalmingCard({
         </>
       ) : (
         <div className="flex gap-2">
-          <Button size="lg" className="flex-1" onClick={() => setRunning(true)}>
+          <Button
+            size="lg"
+            className="flex-1"
+            onClick={() => {
+              log('used')
+              setRunning(true)
+            }}
+          >
             {t('calm.start', { minutes })}
           </Button>
-          <Button size="lg" variant="outline" className="flex-1" onClick={onDone}>
+          <Button
+            size="lg"
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              log('skipped')
+              onDone()
+            }}
+          >
             {t('calm.skip')}
           </Button>
         </div>

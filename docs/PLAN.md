@@ -35,7 +35,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 3. Detector de cambios con mini plan de transición y preguntas sugeridas (es el botón "Plan for this change" del flujo anterior).
 4. Check-in de cucharas (1–5, visual, se pospone y no insiste). Horarios editables en Settings: 9/13/17 h por defecto, hasta 6, cada uno se prende o apaga; con menos de 3 encendidos Pip sugiere 3 sin bloquear. Hecho (PR de la Casa de Pip). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
 5. Estrategia de calma del perfil (con ≤2 cucharas, al detectar un cambio o con "I'm stuck"), temporizador opcional y regreso al paso 1. Siempre se puede saltar.
-6. Mi resumen: versión por destinatario, viñetas marcables, copiar solo las marcadas. Nunca se envía solo. Hecho (PR #19): periodos Today, 7, 14 y 30 días; generación real con Claude a partir del registro de uso; cada viñeta con su porqué. Pip detecta 4 patrones y los deja pendientes en My profile para aprobar. Falta exportar PDF (botón "Coming soon") y que las tarjetas llamen `api.logEvent` (ver [DECISIONS.md §6](DECISIONS.md)).
+6. Mi resumen: versión por destinatario, viñetas marcables, copiar solo las marcadas. Nunca se envía solo. Hecho (PR #19): periodos Today, 7, 14 y 30 días; generación real con Claude a partir del registro de uso; cada viñeta con su porqué. Pip detecta 4 patrones y los deja pendientes en My profile para aprobar. Las tarjetas ya registran preguntas, pasos y calma (ver [DECISIONS.md §6](DECISIONS.md)). Falta exportar PDF (botón "Coming soon").
 7. Mi manual: ver y editar el perfil de Sam, ya cargado. Hecho; vive en la pestaña My profile.
 8. Logros tranquilos: pasos terminados, cambios atravesados, "You asked instead of guessing". Sin rachas. Lista por día hecha; el flujo ya registra pasos, preguntas copiadas y planes de cambio.
 9. Personaje Pip (`<Pip mood=… />`, 12 estados de ánimo).
@@ -117,7 +117,6 @@ Revisado contra el código el 3 de noviembre. Las preguntas sin decidir siguen e
 | A | Mac: ⌃⇧Space con la tarjeta de revisión abierta lee la app de atrás, no la caja de Pip | En Mac, `blur()` podría no devolverle el foco a la otra app. Si falla, probar `app.hide()`. |
 | A | Windows, Electron real: audio de la computadora (loopback), Esc mientras escribe, ⌃⇧Space con la tarjeta de revisión abierta | El Esc de main y el foco no existen en la vista de navegador. |
 | A | App empaquetada: `npm run fetch:whisper`, construir y transcribir de verdad | Solo se comprobó que los binarios y el modelo quedan en `app.asar.unpacked`; nunca se transcribió empaquetado. |
-| C | Conectar `api.logEvent` en las tarjetas (`asked`, `step`, `calm`) | Sin esto, `ask:` y `calm:` no se detectan en uso real (DECISIONS §6). |
 | B | Respaldo en caché y tecla de repetición del demo (nivel 0, punto 11) | No existen en el código; hoy una llamada lenta o fallida da un error simple. |
 | B + D | Set de 30 mensajes con y sin perfil (nivel 0, punto 10) | La rúbrica pide evidencia; falta reportar los conteos finales. |
 | B | Cifrar el perfil con `safeStorage` | DECISIONS §6 lo pide antes de que una persona real meta su perfil, y el onboarding y las pruebas con usuarios ya lo permiten. |
