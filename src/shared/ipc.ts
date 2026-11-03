@@ -81,7 +81,11 @@ export const IPC = {
   corner: 'corner:state',
   /** corner window → main → overlay: the person clicked the corner Pip. */
   cornerClick: 'corner:click',
-  cornerOpen: 'overlay:corner-open'
+  cornerOpen: 'overlay:corner-open',
+  /** main → overlay: the record hotkey was pressed. */
+  recordHotkey: 'pip:record-hotkey',
+  /** overlay → main: audio in, transcript out; runs on this machine. */
+  transcribe: 'pip:transcribe'
 } as const
 
 export interface PipApi {
@@ -147,4 +151,12 @@ export interface PipApi {
   clickCorner(): void
   /** Overlay: the corner Pip was clicked, so swap the cursor's card with it. Returns an unsubscribe function. */
   onCornerOpen(cb: () => void): () => void
+  /** Each press opens the source card, or stops the recording if one is running. Returns an unsubscribe function. */
+  onRecordHotkey(cb: () => void): () => void
+  /**
+   * `audio`: 16 kHz mono, at most RECORD_MAX_MS + 5 s. Transcribed on this machine; nothing leaves it.
+   * Rejects on bad input or failure. With PIP_DEMO=1 it falls back to the scripted transcript on failure
+   * or after TRANSCRIBE_TIMEOUT_MS.
+   */
+  transcribe(audio: Float32Array): Promise<string>
 }
