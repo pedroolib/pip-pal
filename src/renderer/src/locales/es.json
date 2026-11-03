@@ -42,7 +42,8 @@
   "dock": {
     "open": "Abrir Pip",
     "stepDone": "Paso {{n}} listo",
-    "openCard": "Abrir: {{action}}"
+    "openMenu": "Mostrar los botones otra vez",
+    "openTask": "Volver a tu tarea"
   },
   "bubble": {
     "due": "Para el {{date}}",
