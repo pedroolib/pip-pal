@@ -9,6 +9,7 @@ import type {
   Triage,
   Profile,
   Recipient,
+  Settings,
   Slot,
   Summary,
   UnclearPart
@@ -34,6 +35,8 @@ export const IPC = {
   expand: 'pip:expand',
   profileGet: 'profile:get',
   profileSave: 'profile:save',
+  settingsGet: 'settings:get',
+  settingsSave: 'settings:save',
   checkInSave: 'check-in:save',
   checkInList: 'check-in:list',
   changeSave: 'change:save',
@@ -72,6 +75,8 @@ export interface PipApi {
   ): Promise<Expansion>
   getProfile(): Promise<Profile>
   saveProfile(profile: Profile): Promise<void>
+  getSettings(): Promise<Settings>
+  saveSettings(settings: Settings): Promise<void>
   saveCheckIn(checkIn: CheckIn): Promise<void>
   listCheckIns(): Promise<CheckIn[]>
   saveChange(change: ChangeEvent): Promise<void>

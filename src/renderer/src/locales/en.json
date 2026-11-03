@@ -249,5 +249,147 @@
       "retry": "Try again"
     },
     "saveError": "Could not save, try again. Your text is still here."
+  },
+  "house": {
+    "nav": "Pip's House",
+    "skip": "Skip to content",
+    "tabs": {
+      "home": "Home",
+      "profile": "My profile",
+      "achievements": "Achievements",
+      "summary": "Summary",
+      "connections": "Connections",
+      "settings": "Settings"
+    },
+    "tabsShort": {
+      "home": "Home",
+      "profile": "Profile",
+      "achievements": "Wins",
+      "summary": "Summary",
+      "connections": "Connect",
+      "settings": "Settings"
+    },
+    "titles": {
+      "achievements": "Achievements",
+      "summary": "Summary",
+      "connections": "Connections",
+      "settings": "Settings"
+    },
+    "home": {
+      "today": "Today",
+      "energy": "Your energy",
+      "spoonsOf": "{{count}} of 5 spoons",
+      "slot": {
+        "morning": "Morning check-in, {{time}}",
+        "midday": "Midday check-in, {{time}}",
+        "afternoon": "Afternoon check-in, {{time}}"
+      },
+      "noCheckIn": "No check-in yet",
+      "noCheckInHint": "Pip asks at your next check-in time.",
+      "latest": "Latest achievement",
+      "noAchievement": "Nothing here yet",
+      "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here."
+    },
+    "achievements": {
+      "intro": "Things you did, newest first.",
+      "kinds": {
+        "step_done": "Step done",
+        "change_navigated": "Change navigated",
+        "asked_not_guessed": "Asked, did not guess"
+      },
+      "emptyBody": "Nothing here yet. When you finish a step, ask a question or get through a change, it shows up here.",
+      "loading": "Loading your achievements",
+      "errorTitle": "Achievements did not load. Try again.",
+      "retry": "Try again"
+    },
+    "summary": {
+      "intro": "A short note about your week for someone who supports you.",
+      "privacy": "Nothing is sent. You choose what to share.",
+      "who": "Who is it for?",
+      "generate": "Generate",
+      "copy": "Copy",
+      "copied_one": "Copied {{count}} point",
+      "copied_other": "Copied {{count}} points",
+      "exportPdf": "Export PDF",
+      "retry": "Try again",
+      "loading": "Writing your summary…",
+      "errorTitle": "The summary did not generate",
+      "errorBody": "Nothing was sent. Check that you are online, then try again.",
+      "selected": "{{picked}} of {{total}} points selected. Only these are copied.",
+      "pointsLabel": "Summary points",
+      "empty": "There is nothing to summarise yet.",
+      "sources": {
+        "checkins": "From check-ins",
+        "changes": "From changes",
+        "achievements": "From achievements",
+        "profile": "From your profile"
+      }
+    },
+    "connections": {
+      "intro": "Later, Pip could use these to suggest your spoons. Nothing is connected now, and nothing is stored.",
+      "local": "Stays on your computer. Never sent anywhere.",
+      "soon": "Coming soon",
+      "now": "Planned first",
+      "later": "Later",
+      "appleWatch": {
+        "name": "Apple Watch",
+        "body": "Sleep and heart-rate variability, to suggest how many spoons you may have today."
+      },
+      "whoop": {
+        "name": "Whoop",
+        "body": "Sleep and recovery, to suggest how many spoons you may have today."
+      },
+      "email": {
+        "name": "Email",
+        "body": "Pick a message for Pip to explain."
+      },
+      "slack": {
+        "name": "Slack",
+        "body": "Pick a Slack message for Pip to explain."
+      }
+    },
+    "settings": {
+      "intro": "Changes save as you make them.",
+      "loading": "Loading your settings",
+      "saveFailed": "Settings did not save. Try again.",
+      "loadFailed": "Settings did not load.",
+      "retry": "Try again",
+      "checkIns": {
+        "title": "Check-in times",
+        "body": "Pip asks how many spoons you have at these times. Change, add or turn off any you like.",
+        "morning": "Morning",
+        "midday": "Midday",
+        "afternoon": "Afternoon",
+        "evening": "Evening",
+        "timeLabel": "Check-in time, {{part}}, {{time}}",
+        "toggle": "Ask at {{time}}",
+        "remove": "Remove {{time}}",
+        "add": "Add a time",
+        "max": "6 times is the most. Remove one to add another.",
+        "taken": "You already have a check-in at {{time}}. Pick another time.",
+        "fewNote": "We suggest at least 3 a day. Energy often shifts between morning and evening, so one check-in can miss how your day is going. Morning, midday and afternoon cover the start, middle and end of a workday."
+      },
+      "shortcut": {
+        "title": "Capture shortcut",
+        "body": "Select text anywhere, then press it. Pip reads only what you selected.",
+        "fixed": "You cannot change it here yet.",
+        "linux": "On Linux, bind {{command}} to this shortcut in your system settings."
+      },
+      "language": {
+        "title": "Language",
+        "en": "English",
+        "es": "Español",
+        "note": "Español is saved, but Pip stays in English until the translation is ready."
+      },
+      "calm": {
+        "title": "Calmer motion",
+        "body": "Pip stays still and screens fade less. Your computer's reduced-motion setting always applies too."
+      },
+      "privacy": {
+        "title": "Privacy",
+        "selected": "Only text you select leaves your computer, and only after names are swapped for roles like [Manager].",
+        "manual": "Summaries never send themselves. You copy or export them."
+      }
+    }
   }
 }

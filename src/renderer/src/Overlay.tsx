@@ -1,6 +1,6 @@
 // The overlay: check-in → triage bubble next to the cursor (Esc closes it) → Pip docked.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CheckIn, Triage } from '@shared/schemas'
+import { DEFAULT_SETTINGS, dueCheckIn, enabledTimes, type Triage } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { SNOOZE_MS, slotFor } from '@renderer/checkin/model'
@@ -8,6 +8,7 @@ import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
 import { useFitFont } from '@renderer/overlay/useFitFont'
 import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
 import { cn } from '@renderer/lib/utils'
+import { applySettings } from '@renderer/house/settings'
 import { DockedPip } from '@renderer/pip/DockedPip'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
 import { BUBBLE_WIDTH } from '@renderer/triage/model'
@@ -17,15 +18,6 @@ import { previewTriage } from '@renderer/triage/samples'
 function spoonsOverride(): number | null {
   const v = Number(new URLSearchParams(location.search).get('spoons'))
   return Number.isInteger(v) && v >= 1 && v <= 5 ? v : null
-}
-
-function todaysSpoons(checkIns: CheckIn[]): number | null {
-  const today = new Date().toDateString()
-  const latest = checkIns
-    .filter((c) => new Date(c.at).toDateString() === today)
-    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-    .at(-1)
-  return latest?.spoons ?? null
 }
 
 type View = 'checkIn' | 'triage' | 'docked'
@@ -43,7 +35,8 @@ function Overlay(): React.JSX.Element {
   const [error, setError] = useState(false)
   // Once a bubble has opened at the cursor, Pip docks where it was instead of in the screen corner.
   const [atCursor, setAtCursor] = useState(false)
-  const checkedIn = useRef(false)
+  // True while the latest check-in time is unanswered (dueCheckIn's rule): the docked Pip then reopens it on click.
+  const unanswered = useRef(false)
   const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
   const frame = useRef<HTMLDivElement>(null)
@@ -60,7 +53,14 @@ function Overlay(): React.JSX.Element {
     }
   }, [view])
 
+  // House and overlay are separate windows: re-read settings whenever Pip appears or the window
+  // gains focus, so a change made in the House shows up here. A failed read keeps the current state.
+  const refreshSettings = (): void => {
+    api.getSettings().then(applySettings, () => {})
+  }
+
   const capture = (text: string): void => {
+    refreshSettings()
     const id = ++request.current
     setAtCursor(true)
     setTriage(null)
@@ -76,19 +76,29 @@ function Overlay(): React.JSX.Element {
   const afterCheckIn = (): void => (inBrowser ? capture('') : setView('docked'))
 
   useEffect(() => {
-    api.listCheckIns().then((checkIns) => {
-      checkedIn.current = spoonsOverride() !== null || todaysSpoons(checkIns) !== null
-      if (checkedIn.current) afterCheckIn()
+    // A failed settings read means "ask at the default times".
+    const settings = api.getSettings().catch(() => null)
+    settings.then((s) => s && applySettings(s))
+    Promise.all([api.listCheckIns(), settings]).then(([checkIns, s]) => {
+      // Ask at launch only if the latest enabled time that passed today is unanswered (main's rule);
+      // after "Not now" the docked Pip still opens the check-in on click.
+      const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
+      unanswered.current = spoonsOverride() === null && !!due
+      if (spoonsOverride() !== null || !due) afterCheckIn()
       else setView('checkIn')
     })
     const offCaptured = api.onCaptured(capture)
+    window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
+      unanswered.current = true // "Not now" then leaves the docked Pip able to reopen it
+      refreshSettings()
       setAtCursor(false)
       setView('checkIn')
     })
     return () => {
       offCaptured()
       offDue()
+      window.removeEventListener('focus', refreshSettings)
       if (snooze.current) clearTimeout(snooze.current)
     }
     // Subscribe once: the handlers only use state setters and refs, which never go stale.
@@ -149,7 +159,7 @@ function Overlay(): React.JSX.Element {
   const answer = (n: number): void => {
     const at = new Date()
     api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons: n })
-    checkedIn.current = true
+    unanswered.current = false
     afterCheckIn()
   }
   // Asks once more later, then leaves it: Pip never insists.
@@ -187,7 +197,7 @@ function Overlay(): React.JSX.Element {
             doneStep={null}
             onOpen={() => {
               if (triage || error) setView('triage')
-              else if (!checkedIn.current) setView('checkIn')
+              else if (unanswered.current) setView('checkIn')
             }}
           />
         )}

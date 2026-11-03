@@ -67,6 +67,13 @@ Electron tiene ventanas transparentes, `globalShortcut` y portapapeles maduros, 
 
 **La burbuja se abre junto al cursor y se cierra con Esc** (idea en desarrollo: puede cambiar según evaluemos la UX). El overlay nunca recibe foco, así que no oye teclas. Por eso Esc se registra como atajo global solo mientras la burbuja está abierta, y se suelta al cerrar, al cerrar el overlay y al salir. También se cierra con `pip-pal --dismiss`. En Hyprland el cursor se pide con `hyprctl cursorpos`; en otros sistemas, a Electron.
 
+**Casa de Pip: un cuarto con menú abajo.** La referencia fue Finch, solo en layout y calidez (cuarto ilustrado con el personaje, tarjetas blancas grandes, barra de pestañas gruesa); no se copia su arte, colores ni nombres. Home es el cuarto a pantalla completa sobre el menú: pared de borde a borde, un piso con un solo arco suave a todo lo ancho y Pip (`<Pip mood="calm">`) parado en la alfombra; las tarjetas de "Today" (energía de hoy con puntos + palabras, último logro) van sobre el piso. Seis pestañas: Home, My profile (el `Manual` de siempre), Achievements, Summary, Connections y Settings, con ruta en el hash (`#/home/<pestaña>`, una desconocida vuelve a Home). Bajo 640 px las etiquetas se acortan (Profile, Wins, Connect); el `aria-label` siempre es el nombre completo. Hay "Skip to content" como primer foco.
+- **Sin barra de scroll visible** en la Casa (clase `house-page` en `<html>`): la barra movía el menú de abajo al cambiar entre páginas largas y cortas. Se sigue pudiendo hacer scroll.
+- **Cursor de mano en todo lo clicable** con una regla base en `main.css` (Tailwind v4 quitó `cursor: pointer` de los botones); lo deshabilitado muestra `not-allowed`.
+- **Connections** (Apple Watch, Whoop; después correo y Slack) son tarjetas "Coming soon": no conectan ni guardan nada.
+- **Summary:** al cambiar de destinatario se borra lo generado, para que nunca se copie la versión del coach con "Manager" elegido. "Copy" copia solo las viñetas marcadas. Exportar PDF está deshabilitado ("Coming soon") hasta implementarlo.
+- **Settings** guarda al cambiar: horarios del check-in, atajo de captura (solo lectura, ⌃⇧Space en Mac y Ctrl+Shift+Space en el resto), idioma (Español se guarda pero la interfaz sigue en inglés hasta que exista `es.json`), "Calmer motion" (aplica las mismas reglas que `prefers-reduced-motion`, también en el overlay) y una nota de privacidad.
+
 Detalles de diseño en [design/README.md](design/README.md).
 
 ## 4. IA
@@ -142,8 +149,9 @@ Es el centro del pitch de IA responsable.
 1. **Pip solo lee lo que la persona selecciona** y manda con el atajo. Nunca lee correo ni chat por su cuenta. (Resuelve la pregunta abierta de la entrevista.)
 2. **Se quitan los datos personales antes de enviar.** El perfil tiene una lista `people` (jefe, buddy, equipo): sus nombres se cambian por su rol (`[Manager]`) y los correos, teléfonos y URLs se quitan con regex. Al volver la respuesta, se restauran localmente. No usamos detección automática de nombres porque en 4 días no sería confiable.
 3. **El resumen se filtra con código, no con el prompt.** A Claude solo le llegan los campos del perfil visibles para ese destinatario, así que la versión del jefe no puede filtrar lo del psicólogo aunque el modelo se equivoque.
-4. **Pip nunca envía nada solo.** La persona revisa cada viñeta y exporta a PDF o copia.
+4. **Pip nunca envía nada solo.** La persona revisa cada viñeta y copia las que quiere (exportar PDF vendrá después).
 5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo aprendido por Pip solo se guarda si la persona lo aprueba.
+6. **Solo se abren enlaces `https://`** fuera de la app (`isSafeExternalUrl` en `src/main/external-links.ts`, usado por los dos `setWindowOpenHandler`); cualquier otro esquema se ignora. Pendiente si algún día se muestran enlaces de fuera: un `will-navigate` que bloquee la navegación dentro de las ventanas.
 
 **Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
 - Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Los **alias** (`aliases`, opcionales en cada persona y en el perfil) entran en la misma pasada: un alias se busca entero, con o sin "@" ("@srivera" y "srivera" dan `[Manager]`), antes de quitar los @handles; los del perfil dan `[Me]`. Al restaurar siempre sale el nombre completo. Se ignoran los alias con menos de 2 letras o dígitos, el nombre completo de otra persona gana y una clave que comparten dos personas es `[someone]`. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
@@ -166,11 +174,18 @@ Es el centro del pitch de IA responsable.
 
 ## 6. Datos
 
-**No hay base de datos.** Todo vive en archivos JSON en `app.getPath('userData')` (en Mac, `~/Library/Application Support/Pip/`): `profile.json`, `checkins.json`, `changes.json`, `achievements.json`. Son pocos datos, de una sola persona y en una máquina; leer y filtrar en JavaScript tarda milisegundos.
+**No hay base de datos.** Todo vive en archivos JSON en `app.getPath('userData')` (en Mac, `~/Library/Application Support/Pip/`): `profile.json`, `checkins.json`, `changes.json`, `achievements.json`, `settings.json`. Son pocos datos, de una sola persona y en una máquina; leer y filtrar en JavaScript tarda milisegundos.
 
 Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts`; la versión con datos de ejemplo vive en `src/shared/mock-api.ts` y se queda para el navegador):
 - **Escritura segura:** escribir a un archivo temporal y renombrarlo, para no corromper datos si la app se cierra a la mitad.
 - **Validar al leer** con los esquemas Zod. Si un archivo está corrupto, Pip avisa y guarda una copia; no se cae.
+
+**Ajustes y horarios del check-in** (`Settings` en `src/shared/schemas.ts`, `src/main/settings-store.ts`, `src/main/check-in-schedule.ts`):
+- `checkIns` es una lista de `{ id, time: "HH:MM", enabled }`: hasta 6, horas únicas, por defecto 09:00, 13:00 y 17:00. Main valida con Zod al guardar. Un `settings.json` con la forma vieja (`{ morning, midday, afternoon }`) se convierte al leer, sin tratarlo como corrupto.
+- Main programa las horas encendidas y se reprograma al guardar, sin reiniciar. `PIP_CHECK_IN_TIMES` (solo en dev) sigue ganando.
+- **Cuándo se queda callado:** una hora pregunta salvo que haya un check-in el mismo día desde 30 minutos antes de esa hora (`dueCheckIn`, `RECENT_MS`). Lo decidió el usuario al probar: con la regla anterior ("cualquier check-in desde la hora anterior cuenta") una hora nueva no preguntaba. El overlay usa la misma regla al abrir. Dos horas en la misma parte del día preguntan las dos. `CheckIn.slot` sigue siendo morning/midday/afternoon (calculado de la hora); la etiqueta de cada fila en Settings usa morning/midday/afternoon/evening solo para mostrar.
+- Con menos de 3 encendidos Pip sugiere 3, sin bloquear. No hay estudio que diga que 3 es el mínimo; es nuestra sugerencia (inicio, mitad y fin del día de trabajo). Fuentes en [research/check-in-frequency.md](research/check-in-frequency.md).
+- Límite conocido: el día del cambio de horario de primavera una hora puede sonar hasta una hora tarde.
 
 **Cuándo cambiar:**
 - **Cifrado con `safeStorage`** (llavero del sistema) **antes de que una persona real meta su propio perfil.** Sam es ficticio, así que no hace falta para el demo.
@@ -224,3 +239,5 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
 - Qué hacen los botones de la burbuja: ¿la tarjeta se expande, o Pip hace "mitosis" (un Pip nuevo baja a la derecha, piensa y abre su propia tarjeta)? Ahí se reusan `DecodeCard`, `CalmingCard` y `TaskCard`.
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).
+- Mi resumen: falta la generación real con Claude filtrada por destinatario en main (hoy la Casa usa el resumen de ejemplo, igual para todos) y exportar PDF.
+- Logros: la lista existe, pero el flujo todavía no registra pasos terminados, cambios atravesados ni "asked instead of guessing".
