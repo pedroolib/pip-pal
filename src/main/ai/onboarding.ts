@@ -11,7 +11,7 @@ const QUESTIONS: Record<keyof OnboardingAnswers, string> = {
   instructions: 'How do you like to get instructions?',
   changesHelp:
     'When something changes at work, like a new project, a new manager or new priorities, what helps you most?',
-  changesNotice: 'How much notice do you like before a change?',
+  changesNotice: 'When plans change at work, how far ahead do you like to know?',
   calming: 'What helps you calm down?',
   sensory: 'Anything about noise, light or interruptions?',
   strengths: 'What are you good at, and what do you enjoy?'
