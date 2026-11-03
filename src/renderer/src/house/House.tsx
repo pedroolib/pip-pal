@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { Settings } from '@shared/schemas'
 import { api } from '@renderer/api'
 import Manual from '@renderer/manual/Manual'
+import { Onboarding } from '@renderer/onboarding/Onboarding'
+import { FRESH } from '@renderer/onboarding/model'
 import { AchievementsView } from './AchievementsView'
 import { ConnectionsView } from './ConnectionsView'
 import { HomeView } from './HomeView'
@@ -35,8 +38,16 @@ export function House(): React.JSX.Element {
       () => {}
     )
   }, [])
+  // Onboarding shows until it is done; a failed read opens the House (it never traps the person).
+  const [setup, setSetup] = useState<Settings | null>(null)
   useEffect(() => {
-    api.getSettings().then(applySettings, () => {})
+    api.getSettings().then(
+      (s) => {
+        applySettings(s)
+        if (!s.onboarding?.done) setSetup(s)
+      },
+      () => {}
+    )
     // Hides the page scroll bar (main.css), so the tab bar never shifts between tabs.
     document.documentElement.classList.add('house-page')
     return () => document.documentElement.classList.remove('house-page')
@@ -45,6 +56,25 @@ export function House(): React.JSX.Element {
     document.title = `${t(`house.tabs.${tab}`)} - ${t('house.nav')}`
     window.scrollTo(0, 0)
   }, [tab, t])
+
+  if (setup)
+    return (
+      <div className="flex min-h-dvh flex-col bg-room-floor">
+        <Onboarding
+          settings={setup}
+          start={setup.onboarding ?? FRESH}
+          onDone={() => {
+            setSetup(null)
+            location.hash = '#/home'
+            // Learned during setup: the House badge counts what is still waiting.
+            api.getProfile().then(
+              (p) => setLearned(p.pending?.length ?? 0),
+              () => {}
+            )
+          }}
+        />
+      </div>
+    )
 
   const home = tab === 'home'
   return (
@@ -70,7 +100,9 @@ export function House(): React.JSX.Element {
         {tab === 'achievements' && <AchievementsView />}
         {tab === 'summary' && <SummaryView />}
         {tab === 'connections' && <ConnectionsView />}
-        {tab === 'settings' && <SettingsView />}
+        {tab === 'settings' && (
+          <SettingsView onRunSetup={(s) => setSetup({ ...s, onboarding: FRESH })} />
+        )}
       </div>
       <TabBar current={tab} />
     </div>
