@@ -73,6 +73,53 @@ describe('startCheckInSchedule', () => {
     expect(due).toEqual(['midday'])
   })
 
+  describe('with settings', () => {
+    let on: Record<Slot, boolean>
+    const startWith = (): ReturnType<typeof startCheckInSchedule> => {
+      const s = startCheckInSchedule({
+        listCheckIns: () => checkIns,
+        onDue: (x) => due.push(x),
+        enabled: (slot) => on[slot]
+      })
+      stop = s.stop
+      return s
+    }
+    beforeEach(() => {
+      on = { morning: true, midday: true, afternoon: true }
+    })
+
+    it('does not ask a disabled slot, and a toggle applies without restart', () => {
+      vi.setSystemTime(at(8))
+      startWith()
+      on.morning = false
+      vi.advanceTimersByTime(2 * 60 * 60 * 1000)
+      expect(due).toEqual([])
+      on.midday = false
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000) // midday skipped, afternoon asked, next morning skipped
+      expect(due).toEqual(['afternoon'])
+      on.morning = true
+      vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+      expect(due).toContain('morning')
+    })
+
+    it('asks nothing when all are off', () => {
+      on = { morning: false, midday: false, afternoon: false }
+      vi.setSystemTime(at(8))
+      startWith()
+      vi.advanceTimersByTime(48 * 60 * 60 * 1000)
+      expect(due).toEqual([])
+    })
+
+    it('on wake, does not ask for a disabled slot missed during sleep', () => {
+      vi.setSystemTime(at(12))
+      const s = startWith()
+      on.midday = false
+      vi.setSystemTime(at(14))
+      s.resume()
+      expect(due).toEqual([])
+    })
+  })
+
   it('leaves the launch slot to the overlay', () => {
     vi.setSystemTime(at(10))
     start().resume()

@@ -265,6 +265,7 @@ app.whenReady().then(() => {
       win.showInactive()
       win.webContents.send(IPC.checkInDue, slot)
     },
+    enabled: (slot) => storage.settings.load().checkIns[slot],
     times: is.dev ? parseCheckInTimes(process.env['PIP_CHECK_IN_TIMES']) : undefined
   })
   powerMonitor.on('resume', checkIns.resume)

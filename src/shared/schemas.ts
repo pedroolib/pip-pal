@@ -293,3 +293,23 @@ export const Summary = z.object({
   points: z.array(SummaryPoint)
 })
 export type Summary = z.infer<typeof Summary>
+
+// ---------- Settings (stored locally) ----------
+
+export const Settings = z.object({
+  // `satisfies` ties the keys to Slot: a new slot breaks the build until it gets a toggle.
+  checkIns: z.object({
+    morning: z.boolean(),
+    midday: z.boolean(),
+    afternoon: z.boolean()
+  }) satisfies z.ZodType<Record<Slot, boolean>>,
+  language: z.enum(['en', 'es']),
+  calmMotion: z.boolean()
+})
+export type Settings = z.infer<typeof Settings>
+
+export const DEFAULT_SETTINGS: Settings = {
+  checkIns: { morning: true, midday: true, afternoon: true },
+  language: 'en',
+  calmMotion: false
+}

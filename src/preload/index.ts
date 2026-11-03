@@ -16,6 +16,8 @@ const api: PipApi = {
     ipcRenderer.invoke(IPC.expand, text, kind, spoons, unclear),
   getProfile: () => ipcRenderer.invoke(IPC.profileGet),
   saveProfile: (profile) => ipcRenderer.invoke(IPC.profileSave, profile),
+  getSettings: () => ipcRenderer.invoke(IPC.settingsGet),
+  saveSettings: (settings) => ipcRenderer.invoke(IPC.settingsSave, settings),
   saveCheckIn: (checkIn) => ipcRenderer.invoke(IPC.checkInSave, checkIn),
   listCheckIns: () => ipcRenderer.invoke(IPC.checkInList),
   saveChange: (change) => ipcRenderer.invoke(IPC.changeSave, change),

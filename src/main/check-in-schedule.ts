@@ -42,6 +42,8 @@ export function answered(checkIns: CheckIn[], slot: Slot, now: Date): boolean {
 export function startCheckInSchedule(opts: {
   listCheckIns(): CheckIn[]
   onDue(slot: Slot): void
+  /** Read at fire time, so a settings toggle needs no restart. */
+  enabled?(slot: Slot): boolean
   times?: CheckInTime[]
   now?: () => Date
 }): { resume(): void; stop(): void } {
@@ -54,7 +56,8 @@ export function startCheckInSchedule(opts: {
     const slot = currentSlot(t, times)
     const key = `${t.toDateString()} ${slot}`
     if (!slot || asked.has(key)) return
-    asked.add(key)
+    asked.add(key) // a slot skipped as disabled stays skipped if re-enabled later
+    if (opts.enabled && !opts.enabled(slot)) return
     if (!answered(opts.listCheckIns(), slot, t)) opts.onDue(slot)
   }
   const arm = (): void => {

@@ -6,10 +6,12 @@ import {
   ActionKind,
   ChangeEvent,
   CheckIn,
+  DEFAULT_SETTINGS,
   Decoded,
   Expansion,
   Profile,
   Recipient,
+  Settings,
   Triage
 } from './schemas'
 import triageJson from './fixtures/demo.triage.json'
@@ -25,6 +27,7 @@ import achievementsJson from './fixtures/achievements.json'
 export function createMockApi(): PipApi {
   // Parsing up front doubles as the fixture self-check: a bad fixture fails loudly on startup.
   let profile = Profile.parse(samJson)
+  let settings = DEFAULT_SETTINGS
   const decoded = Decoded.parse(decodedJson)
   const triage = Triage.parse(triageJson)
   const expansions = Object.fromEntries(
@@ -40,6 +43,8 @@ export function createMockApi(): PipApi {
     decode: async () => decoded,
     triage: async () => triage,
     expand: async (_text, kind) => expansions[kind],
+    getSettings: async () => settings,
+    saveSettings: async (s) => void (settings = Settings.parse(s)),
     getProfile: async () => profile,
     saveProfile: async (p) => void (profile = Profile.parse(p)),
     listCheckIns: async () => checkIns,
