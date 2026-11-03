@@ -6,6 +6,8 @@ import { AMBIGUOUS_AT } from '../decode/model'
 export const CARD_WIDTH = 384
 export const PIP_SIZE = 44
 export const BUBBLE_WIDTH = CARD_WIDTH + PIP_SIZE + 8
+/** Room kept for the card while Jev reads (the samples run 200–360px), so the answer fits where Pip already is. */
+export const CARD_RESERVE = 480
 
 type Deadline = NonNullable<Triage['deadline']>
 

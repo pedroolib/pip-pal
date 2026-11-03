@@ -11,7 +11,7 @@ import { cn } from '@renderer/lib/utils'
 import { applySettings } from '@renderer/house/settings'
 import { DockedPip } from '@renderer/pip/DockedPip'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
-import { BUBBLE_WIDTH } from '@renderer/triage/model'
+import { BUBBLE_WIDTH, CARD_RESERVE } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
@@ -131,6 +131,9 @@ function Overlay(): React.JSX.Element {
   // The window is fitted to the bubble, keeping its top-left; docked or hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
   // snooze re-open would move it, or undo a size the person dragged).
+  // While Jev reads, the window already makes room for the card: main keeps the window on screen, so
+  // growing it only when the answer arrives would push Pip up or left near a screen edge.
+  const reading = view === 'triage' && !triage && !error
   useEffect(() => {
     const el = frame.current
     if (view === 'checkIn' && resized.current) {
@@ -148,13 +151,15 @@ function Overlay(): React.JSX.Element {
         x: screenX,
         y: screenY,
         width: BUBBLE_WIDTH + 2 * PAD,
-        height: Math.ceil(el.getBoundingClientRect().height) + 2 * PAD
+        height:
+          Math.max(Math.ceil(el.getBoundingClientRect().height), reading ? CARD_RESERVE : 0) +
+          2 * PAD
       })
     }
     const observer = new ResizeObserver(fit)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [view, atCursor])
+  }, [view, atCursor, reading])
 
   if (!view || view === 'hidden') return <></>
 
