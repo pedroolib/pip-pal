@@ -13,11 +13,110 @@ function setup(env: Record<string, string | undefined>) {
   const realExpand = vi.fn(async () => ({ real: 'expand' }) as never)
   const makeTriager = vi.fn(() => realTriage)
   const makeExpander = vi.fn(() => realExpand)
+  const realSummary = vi.fn(async () => ({ real: 'summary' }) as never)
+  const makeSummarizer = vi.fn(() => realSummary)
+  const summaryData = vi.fn(() => ({ checkIns: [], events: [], achievements: [] }))
+  const logEvent = vi.fn()
   const log = vi.fn()
   const load = vi.fn(() => profile)
-  const ai = createAiHandlers({ env, api, load, makeTriager, makeExpander, log })
-  return { ai, api, realTriage, realExpand, makeTriager, makeExpander, log, load }
+  const ai = createAiHandlers({
+    env,
+    api,
+    load,
+    makeTriager,
+    makeExpander,
+    makeSummarizer,
+    summaryData,
+    logEvent,
+    log
+  })
+  return {
+    ai,
+    api,
+    realTriage,
+    realExpand,
+    realSummary,
+    makeTriager,
+    makeExpander,
+    makeSummarizer,
+    logEvent,
+    log,
+    load
+  }
 }
+
+describe('usage logging', () => {
+  it('logs a decoded event with the raw text and labels after a triage', async () => {
+    const s = setup({})
+    const t = await s.ai.triage('Moving you to Q1.')
+    expect(s.logEvent).toHaveBeenCalledWith({
+      kind: 'decoded',
+      text: 'Moving you to Q1.',
+      isChange: t.isChange,
+      changeType: t.changeType,
+      isNewTask: t.isNewTask,
+      tone: t.tone.value
+    })
+  })
+
+  it('logs an action after each expand', async () => {
+    const s = setup({})
+    await s.ai.expand('hi', 'questions', 3)
+    expect(s.logEvent).toHaveBeenCalledWith({ kind: 'action', action: 'questions' })
+  })
+
+  it('logs nothing when the call fails', async () => {
+    const s = setup({ TYPESAFE_API_KEY: 'k', ANTHROPIC_API_KEY: 'k' })
+    s.realTriage.mockRejectedValueOnce(new Error('boom'))
+    s.realExpand.mockRejectedValueOnce(new Error('boom'))
+    await expect(s.ai.triage('a')).rejects.toThrow('boom')
+    await expect(s.ai.expand('a', 'steps', 3)).rejects.toThrow('boom')
+    expect(s.logEvent).not.toHaveBeenCalled()
+  })
+
+  it('a failed log never fails the triage or the expand', async () => {
+    const s = setup({})
+    s.logEvent.mockImplementation(() => {
+      throw new Error('disk full')
+    })
+    expect((await s.ai.triage('hello')).source).toBe('jev')
+    expect((await s.ai.expand('hello', 'steps', 3)).kind).toBe('steps')
+  })
+})
+
+describe('generateSummary', () => {
+  it('uses the real summarizer with the live profile and data when the key is set', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    expect(await s.ai.generateSummary('coach', '14d')).toEqual({ real: 'summary' })
+    expect(s.realSummary).toHaveBeenCalledWith('coach', '14d', profile, {
+      checkIns: [],
+      events: [],
+      achievements: []
+    })
+  })
+
+  it('without a key, returns the fixture for the recipient and period', async () => {
+    const s = setup({})
+    expect(s.makeSummarizer).not.toHaveBeenCalled()
+    expect(await s.ai.generateSummary('manager', 'today')).toMatchObject({
+      recipient: 'manager',
+      period: 'today'
+    })
+  })
+
+  it.each([
+    [SECRET, '7d'],
+    ['coach', SECRET],
+    [undefined, '7d'],
+    ['coach', null]
+  ])('rejects %s / %s without echoing it', async (r, p) => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    const e = await s.ai.generateSummary(r as never, p as never).catch((x: Error) => x)
+    expect((e as Error).message).toMatch(/Unknown/)
+    expect((e as Error).message).not.toContain('Quillfeather')
+    expect(s.realSummary).not.toHaveBeenCalled()
+  })
+})
 
 describe('key switch', () => {
   it('uses the real triager and expander when their keys are set, with the live profile', async () => {
@@ -34,7 +133,7 @@ describe('key switch', () => {
     expect(s.makeExpander).not.toHaveBeenCalled()
     expect(await s.ai.triage('hello')).toEqual(await s.api.triage('hello'))
     expect((await s.ai.expand('hello', 'questions', null)).kind).toBe('questions')
-    expect(s.log).toHaveBeenCalledTimes(2)
+    expect(s.log).toHaveBeenCalledTimes(3)
   })
 
   it('switches each path on its own key', async () => {
