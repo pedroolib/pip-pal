@@ -399,6 +399,7 @@ export function PendingCard(props: {
                   id={`${uid}-${p.id}`}
                   autoFocus
                   className="min-h-24 bg-background text-[17px] leading-[1.6]"
+                  aria-describedby={failed === p.id ? `${uid}-${p.id}-e` : undefined}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                 />
@@ -417,6 +418,7 @@ export function PendingCard(props: {
                 <>
                   <Button
                     className={pill}
+                    aria-describedby={failed === p.id ? `${uid}-${p.id}-e` : undefined}
                     disabled={!draft.trim()}
                     onClick={() => run(p.id, () => props.onApprove(p.id, draft))}
                   >
@@ -428,7 +430,11 @@ export function PendingCard(props: {
                 </>
               ) : (
                 <>
-                  <Button className={pill} onClick={() => run(p.id, () => props.onApprove(p.id))}>
+                  <Button
+                    className={pill}
+                    aria-describedby={failed === p.id ? `${uid}-${p.id}-e` : undefined}
+                    onClick={() => run(p.id, () => props.onApprove(p.id))}
+                  >
                     <Check aria-hidden /> {t('manual.pending.approve')}
                   </Button>
                   <Button
@@ -444,6 +450,7 @@ export function PendingCard(props: {
                   <Button
                     variant="ghost"
                     className={pill}
+                    aria-describedby={failed === p.id ? `${uid}-${p.id}-e` : undefined}
                     onClick={() => run(p.id, () => props.onDismiss(p.id))}
                   >
                     {t('manual.pending.dismiss')}

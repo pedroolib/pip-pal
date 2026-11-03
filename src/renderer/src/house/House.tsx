@@ -66,8 +66,7 @@ export function House(): React.JSX.Element {
       {/* Each view brings its own <main> landmark (Manual does too). */}
       <div className="flex min-h-0 flex-1 flex-col">
         {tab === 'home' && <HomeView learned={learned ?? 0} />}
-        {/* Remounts once when detection answers, so a fast visit never shows a stale manual. */}
-        {tab === 'profile' && <Manual key={learned} />}
+        {tab === 'profile' && <Manual onPendingChange={setLearned} />}
         {tab === 'achievements' && <AchievementsView />}
         {tab === 'summary' && <SummaryView />}
         {tab === 'connections' && <ConnectionsView />}
