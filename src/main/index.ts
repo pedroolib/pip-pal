@@ -6,6 +6,7 @@ import icon from '../../resources/icon.png?asset'
 import { IPC, OVERLAY_MIN, type Bounds } from '@shared/ipc'
 import { enabledTimes } from '@shared/schemas'
 import { captureSelection } from './capture'
+import { isSafeExternalUrl } from './external-links'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers } from './mock'
 import { openStorage } from './storage'
@@ -131,7 +132,7 @@ function createOverlay(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (isSafeExternalUrl(details.url)) shell.openExternal(details.url)
     return { action: 'deny' }
   })
 
@@ -203,7 +204,7 @@ function openHome(): void {
     if (home === win) home = null
   })
   win.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    if (isSafeExternalUrl(details.url)) shell.openExternal(details.url)
     return { action: 'deny' }
   })
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
