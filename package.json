@@ -68,5 +68,8 @@
   },
   "allowScripts": {
     "electron-winstaller@5.4.0": true
+  },
+  "overrides": {
+    "sharp": "^0.35.5"
   }
 }
