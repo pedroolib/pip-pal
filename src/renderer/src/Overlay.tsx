@@ -33,6 +33,7 @@ import { applySettings } from '@renderer/house/settings'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
 import { BUBBLE_WIDTH, CARD_RESERVE, unclearParts, type Flip } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
+import { RecordFlow } from '@renderer/record/RecordFlow'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
 function spoonsOverride(): number | null {
@@ -42,7 +43,8 @@ function spoonsOverride(): number | null {
 
 // 'hidden' draws nothing; the click-through window then lets every click reach the app below.
 // 'task' is what a bubble button opened; while cards are open, the corner Pip holds the other one.
-type View = 'checkIn' | 'triage' | 'task' | 'hidden'
+// 'record' is the voice capture flow (record hotkey); its transcript goes to the same triage.
+type View = 'checkIn' | 'triage' | 'task' | 'record' | 'hidden'
 
 /** A bubble button's task: its one Claude call, the spoons it was made with and where the person is. */
 type Task = {
@@ -111,6 +113,11 @@ function Overlay(): React.JSX.Element {
   const [tasks, setTasks] = useState<Tasks>({})
   // The card on screen (or that the corner Pip reopens).
   const [active, setActive] = useState<ActionKind | null>(null)
+  // Tells the subscribe-once record hotkey handler whether the record flow is already open.
+  const viewNow = useRef<View | null>(null)
+  useEffect(() => {
+    viewNow.current = view
+  }, [view])
   // A calming strategy is offered at most once per message, so Pip doesn't insist.
   const calmOffered = useRef(false)
   // The selected text, for the button's Claude call. Stays in this window.
@@ -128,7 +135,7 @@ function Overlay(): React.JSX.Element {
   // The bubble keeps its design size: the window is fitted to it, not the other way round, so the
   // window-based root size (main.css) must not scale it.
   useLayoutEffect(() => {
-    if (view !== 'triage' && view !== 'task') return
+    if (view !== 'triage' && view !== 'task' && view !== 'record') return
     document.documentElement.style.fontSize = '16px'
     return () => {
       document.documentElement.style.fontSize = ''
@@ -141,15 +148,9 @@ function Overlay(): React.JSX.Element {
     api.getSettings().then(applySettings, () => {})
   }
 
-  const capture = (selected: string): void => {
-    refreshSettings()
-    const id = ++request.current
-    text.current = selected
-    setTasks({})
-    setActive(null)
-    calmOffered.current = false
-    // Main put the window's top-left next to the cursor, so the cursor can be read back from it.
-    // The bubble opens left and/or up when the card wouldn't fit right of or below the cursor.
+  // Main put the window's top-left next to the cursor, so the cursor can be read back from it.
+  // The bubble opens left and/or up when the card wouldn't fit right of or below the cursor.
+  const openAtCursor = (): void => {
     const cursor = { x: screenX + PAD - CURSOR_GAP, y: screenY + PAD - CURSOR_GAP }
     const area = screen as Screen & { availLeft: number; availTop: number }
     const f = {
@@ -162,6 +163,16 @@ function Overlay(): React.JSX.Element {
     }
     setFlip(f)
     setAtCursor(true)
+  }
+  // `here`: text from the record flow opens where that flow already sits.
+  const capture = (selected: string, here = false): void => {
+    refreshSettings()
+    const id = ++request.current
+    text.current = selected
+    setTasks({})
+    setActive(null)
+    calmOffered.current = false
+    if (!here) openAtCursor()
     setTriage(null)
     setError(false)
     setView('triage')
@@ -188,6 +199,13 @@ function Overlay(): React.JSX.Element {
       },
       () => {}
     )
+  }
+  // The record hotkey opens the source card at the cursor; once open, RecordFlow handles it.
+  const openRecord = (): void => {
+    if (viewNow.current === 'record') return
+    refreshSettings()
+    openAtCursor()
+    setView('record')
   }
   // After an error, read the same selection again; the bubble stays where it is.
   const retryTriage = (): void => {
@@ -239,11 +257,14 @@ function Overlay(): React.JSX.Element {
       const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
       // Quiet until onboarding reaches its practice step, like main (the browser mock has no onboarding).
       const quiet = !inBrowser && !!s && !hotkeyReady(s.onboarding)
-      if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
+      // In a plain browser `?record=1` stands in for the record hotkey.
+      if (inBrowser && new URLSearchParams(location.search).get('record')) openRecord()
+      else if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
       else setView('checkIn')
     })
     const offCaptured = api.onCaptured(capture)
     const offCorner = api.onCornerOpen(swap)
+    const offRecord = api.onRecordHotkey(openRecord)
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
       refreshSettings()
@@ -253,6 +274,7 @@ function Overlay(): React.JSX.Element {
     return () => {
       offCaptured()
       offCorner()
+      offRecord()
       offDue()
       window.removeEventListener('focus', refreshSettings)
       if (snooze.current) clearTimeout(snooze.current)
@@ -305,7 +327,7 @@ function Overlay(): React.JSX.Element {
       resized.current = true
       api.setOverlayBounds(placeAt(anchor.current, flip, OVERLAY_MIN.width, OVERLAY_MIN.height))
     }
-    if ((view !== 'triage' && view !== 'task') || !el) return
+    if ((view !== 'triage' && view !== 'task' && view !== 'record') || !el) return
     const fit = (): void => {
       resized.current = true
       const height =
@@ -440,6 +462,13 @@ function Overlay(): React.JSX.Element {
             flip={flip}
             onAction={act}
             onRetry={retryTriage}
+          />
+        )}
+        {view === 'record' && (
+          <RecordFlow
+            flip={flip}
+            onRead={(said) => capture(said, true)}
+            onClose={() => setView('hidden')}
           />
         )}
         {view === 'task' && active && task && (

@@ -645,5 +645,50 @@
       "body": "Go through setup again. Pip only adds suggestions; nothing in your profile changes until you accept it.",
       "button": "Run setup again"
     }
+  },
+  "record": {
+    "sourceTitle": "What should I listen to?",
+    "sourceSub": "I only listen after you press Start.",
+    "sources": {
+      "mic": {
+        "label": "Microphone",
+        "sub": "Your voice and the room"
+      },
+      "system": {
+        "label": "Computer audio",
+        "sub": "Calls and videos"
+      },
+      "both": {
+        "label": "Both",
+        "sub": "You and the call"
+      }
+    },
+    "consent": "Let people know you're recording.",
+    "start": "Start",
+    "cancel": "Cancel",
+    "listening": "Listening · {{time}}",
+    "stop": "Stop",
+    "limit": "I stopped at 10 minutes so the notes stay short.",
+    "transcribing": "Writing down what was said…",
+    "cantHearTitle": "I can't hear the computer audio",
+    "cantHearMac": "Pip may not be allowed to listen to this Mac yet. Open System Settings, then Privacy & Security, then Screen & System Audio Recording, and turn on Pip. After that, try again.",
+    "cantHearWindows": "Make sure something is playing on this computer, and that the volume is up. Then try again.",
+    "tryAgain": "Try again",
+    "micOnly": "Use microphone only",
+    "reviewTitle": "Here's what I heard",
+    "reviewSub": "Fix anything I got wrong before I read it.",
+    "hintAll": "Select part of the text to read only that part.",
+    "hintPart": "I will read only the part you selected.",
+    "over": "That's more than I can read at once. Select the part you want me to read.",
+    "countLabel": "Characters to read:",
+    "count": "{{n}} / {{max}}",
+    "read": "Read this with Pip",
+    "close": "Close",
+    "emptyTitle": "I didn't catch any words",
+    "emptyBody": "Check that you picked the right source, then record again.",
+    "errorTitle": "I couldn't write that down",
+    "errorBody": "Nothing was sent anywhere. Try recording again.",
+    "noModelBody": "The speech model isn't installed yet. Run npm run fetch:whisper, then record again.",
+    "again": "Record again"
   }
 }
