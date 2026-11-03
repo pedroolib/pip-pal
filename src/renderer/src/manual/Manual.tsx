@@ -22,7 +22,11 @@ const CALMING = 'calming'
 const NEW = 'new'
 const NAV_IDS: string[] = [...SECTIONS, CALMING, PEOPLE]
 
-function Manual(): React.JSX.Element {
+function Manual({
+  onPendingChange
+}: {
+  onPendingChange?: (count: number) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [failed, setFailed] = useState(false)
@@ -57,6 +61,23 @@ function Manual(): React.JSX.Element {
     }
   }, [load])
 
+  // Detection may answer after the profile loads: take only its pending list, so open editors keep their state.
+  useEffect(() => {
+    let alive = true
+    api.refreshLearned().then(
+      (p) => {
+        if (!alive) return
+        setProfile((cur) => (cur ? { ...cur, pending: p.pending } : cur))
+        onPendingChange?.(p.pending?.length ?? 0)
+      },
+      () => {}
+    )
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (!saved) return
     const id = setTimeout(() => setSaved(null), 4000)
@@ -88,6 +109,7 @@ function Manual(): React.JSX.Element {
   /** Saves a pending-entry change; focus goes to the card's heading (or stays put once it is empty). */
   async function settle(next: Profile): Promise<boolean> {
     if (!(await persist(next))) return false
+    onPendingChange?.(next.pending?.length ?? 0)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-pending-h]')?.focus())
     return true
   }
