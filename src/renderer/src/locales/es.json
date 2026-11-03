@@ -90,7 +90,8 @@
       "what_or_who": "Sobre: qué hacer o con quién",
       "both": "Sobre: para cuándo es y qué hacer o con quién"
     },
-    "error": "Pip no pudo leer este. Inténtalo de nuevo en un momento."
+    "error": "Pip no pudo leer este. Inténtalo de nuevo en un momento.",
+    "retry": "Intentar de nuevo"
   },
   "decode": {
     "eyebrow": "Entendido. Esto es lo que necesitan",
@@ -302,7 +303,9 @@
       "noCheckInHint": "Pip te pregunta en tu próxima hora de check-in.",
       "latest": "Último logro",
       "noAchievement": "Todavía no hay nada aquí",
-      "noAchievementHint": "Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí."
+      "noAchievementHint": "Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí.",
+      "hello": "Hola, soy Pip. Esta es mi casa: aquí viven tu manual, tus logros y tus ajustes.",
+      "helloDone": "Entendido"
     },
     "achievements": {
       "intro": "Cosas que hiciste, de la más reciente a la más antigua.",
@@ -414,6 +417,7 @@
     "copyIntro": "Copia una y mándala tú si te sirve.",
     "questionsToAsk": "Preguntas que podrías hacer",
     "usedManual": "Usé tu manual",
+    "retry": "Intentar de nuevo",
     "back": "Volver a las opciones de Pip",
     "gotPlan": "Ya tengo un plan",
     "planned": "Guardado en tus logros. Atravesaste este cambio."

@@ -86,7 +86,8 @@
       "what_or_who": "About: what to do or with whom",
       "both": "About: when it's due and what to do or with whom"
     },
-    "error": "Pip couldn't read this one. Try again in a moment."
+    "error": "Pip couldn't read this one. Try again in a moment.",
+    "retry": "Try again"
   },
   "decode": {
     "eyebrow": "Got it. Here's what they need",
@@ -294,7 +295,9 @@
       "noCheckInHint": "Pip asks at your next check-in time.",
       "latest": "Latest achievement",
       "noAchievement": "Nothing here yet",
-      "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here."
+      "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here.",
+      "hello": "Hi, I'm Pip. This is my house: your manual, your wins and your settings live here.",
+      "helloDone": "Got it"
     },
     "achievements": {
       "intro": "Things you did, newest first.",
@@ -406,6 +409,7 @@
     "copyIntro": "Copy one and send it yourself if it helps.",
     "questionsToAsk": "Questions you could ask",
     "usedManual": "Used your manual",
+    "retry": "Try again",
     "back": "Back to Pip's options",
     "gotPlan": "I have a plan",
     "planned": "Saved to your achievements. You got through this change."

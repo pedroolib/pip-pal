@@ -1,10 +1,6 @@
 // Pip docked in the corner: a progress ring for the current task and a short "Step 2 done" pill.
-// With cards open, one docked Pip per card, each with its action's icon as a badge.
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ActionKind } from '@shared/schemas'
-import { cn } from '@renderer/lib/utils'
-import { ACTION_ICON } from '@renderer/triage/icons'
 import { PIP_SIZE } from '@renderer/triage/model'
 import { Pip, type Mood } from './Pip'
 
@@ -16,9 +12,7 @@ export function DockedPip({
   mood,
   progress,
   doneStep,
-  kind,
   label,
-  active = false,
   onOpen
 }: {
   mood: Mood
@@ -26,16 +20,11 @@ export function DockedPip({
   progress: number | null
   /** Number of the step just finished; shows the pill for a few seconds. */
   doneStep: number | null
-  /** The card this Pip reopens, shown as a badge; none for the plain docked Pip. */
-  kind?: ActionKind
-  /** Accessible name; defaults to "Open Pip". */
+  /** What a click opens, for screen readers; defaults to "Open Pip". */
   label?: string
-  /** The card that was open last. */
-  active?: boolean
   onOpen: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const Badge = kind && ACTION_ICON[kind]
   // Mounted fresh each time Pip docks, so the pill shows once and fades after a few seconds.
   const [pill, setPill] = useState(doneStep !== null)
   useEffect(() => {
@@ -63,11 +52,7 @@ export function DockedPip({
         data-overlay-hit
         onClick={onOpen}
         aria-label={label ?? t('dock.open')}
-        aria-current={active || undefined}
-        className={cn(
-          'pip-docked relative flex items-center justify-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-          active && 'ring-2 ring-primary/40 ring-offset-2 ring-offset-transparent'
-        )}
+        className="pip-docked relative flex items-center justify-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {progress !== null && (
           <svg
@@ -99,14 +84,6 @@ export function DockedPip({
           </svg>
         )}
         <Pip mood={mood} size={PIP_SIZE} />
-        {Badge && (
-          <span
-            className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full border bg-card text-primary shadow-sm"
-            aria-hidden
-          >
-            <Badge className="size-3.5" />
-          </span>
-        )}
       </button>
     </div>
   )

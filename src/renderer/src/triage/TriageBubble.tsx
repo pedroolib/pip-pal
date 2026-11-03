@@ -9,6 +9,7 @@ import {
   Frown,
   Meh,
   MessageSquare,
+  RotateCcw,
   Smile,
   Users,
   type LucideIcon
@@ -162,7 +163,8 @@ export function TriageBubble({
   triage,
   error,
   flip = { x: false, y: false },
-  onAction
+  onAction,
+  onRetry
 }: {
   /** null while Jev reads: Pip alone. */
   triage: Triage | null
@@ -171,6 +173,8 @@ export function TriageBubble({
   flip?: Flip
   /** A button was pressed: Pip makes the one Claude call for that kind. */
   onAction?: (kind: ActionKind) => void
+  /** Read the same selection again after an error. */
+  onRetry?: () => void
 }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const lines = useMemo(
@@ -193,8 +197,16 @@ export function TriageBubble({
           className={flip.y ? 'mb-3' : 'mt-3'}
         />
         {error && (
-          <Card role="status" style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-lg">
-            <p className="text-base">{t('bubble.error')}</p>
+          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-3 p-5 shadow-lg">
+            <p role="status" className="text-base">
+              {t('bubble.error')}
+            </p>
+            {onRetry && (
+              <Button variant="outline" className="self-start" onClick={onRetry}>
+                <RotateCcw aria-hidden />
+                {t('bubble.retry')}
+              </Button>
+            )}
           </Card>
         )}
         {!triage && !error && (
