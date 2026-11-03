@@ -304,7 +304,7 @@ Decidido el 3 de noviembre de 2026 tomando como referencia el onboarding de HeyC
 | Iniciar sesión con Google | No hay cuentas ni servidor. |
 | "¿Cómo nos encontraste?" | Sirve al marketing, no a la persona; cada paso cuesta energía. |
 | Elegir el estilo del personaje | Los objetos para Pip son nivel 2. |
-| Micrófono, prueba de voz, "Type instead" | La voz es nivel 3. |
+| Micrófono, prueba de voz, "Type instead" | La voz no es parte del onboarding; la captura de voz tiene su propio atajo (§14). |
 | Grabación de pantalla, dibujar y encerrar en pantalla | Rompe la promesa de leer solo lo seleccionado; además es nivel 3. |
 | Video del fundador con "sube el volumen" | Sonido y video automáticos son un riesgo sensorial. |
 | Conversación abierta con elogios ("I love the confidence") | Vaga e impredecible; preferimos preguntas fijas y literales. |
@@ -322,3 +322,16 @@ Decidido el 3 de noviembre de 2026 tomando como referencia el onboarding de HeyC
 **Práctica con llamadas reales:** el usuario quiere que la persona vea al modelo usando su perfil desde el primer día. El triage (Jev) no lee el perfil; por eso la práctica guía a pulsar "Break it into steps" y resalta "Used your profile". Si falla, se muestra el ejemplo guardado marcado como práctica. Se usa nuestro mensaje de ejemplo, no uno real de la persona.
 
 **Silencio mientras tanto:** el atajo y los check-ins no corren hasta que el onboarding termina o llega al paso de práctica (`hotkeyReady`); en demo siempre corren.
+
+## 14. Captura de voz
+
+Decidido el 3 de noviembre de 2026 (subió del nivel 3). Para instrucciones habladas, como un jefe que explica qué hacer, o una conversación corta.
+
+- **Atajo propio, ⌃⇧Enter.** El atajo de texto sigue significando "Pip lee solo lo que seleccionaste", y con la selección vacía sigue usando lo último copiado. El mismo atajo detiene la grabación. Se puede cambiar después.
+- **Fuente:** una tarjeta pregunta Microphone, Computer audio o Both. Viene marcada la última fuente usada (`Settings.recordSource`), Microphone la primera vez. Enter empieza y Esc cancela. Nunca graba sola.
+- **Consentimiento:** con Computer audio o Both aparece una línea tranquila: "Let people know you're recording". Grabar a otras personas puede pedir aviso según el lugar, y es un riesgo social para quien ya teme romper normas.
+- **Mientras graba:** una píldora con el tiempo y Stop. Para sola a los **10 minutos**, porque más que eso no cabe en el triage (`MAX_CHARS` = 8000). Las notas de juntas largas quedan en el nivel 3 y parten de aquí.
+- **Privacidad:** el audio nunca sale de la máquina. Whisper (`whisper-base` multilingüe, transformers.js) corre en main con el modelo empaquetado y sin descargas mientras se usa. La persona revisa y edita la transcripción y elige qué parte mandar, así sigue siendo "texto que seleccionó" y pasa por el mismo borrado de datos personales. El audio se descarta en cuanto existe la transcripción, y ni el audio ni la transcripción sin mandar se guardan en disco. Lo que la persona manda queda en el registro local como cualquier texto seleccionado (se puede borrar en la Casa).
+- **Salida:** la transcripción entra al triage de siempre (burbuja y tarjetas por botón). No hay tarjeta nueva de "notas de la junta".
+- **Demo:** en vivo, solo micrófono. Computer audio y Both se construyen y se prueban, pero no se muestran. Con `PIP_DEMO=1`, si la transcripción falla o tarda más de 8 s, main devuelve la transcripción guardada de la frase del guion. El modelo se precarga unos segundos después de abrir Pip.
+- **Notas técnicas:** en Windows el audio del sistema sale con `audio: 'loopback'` en `setDisplayMediaRequestHandler`. En macOS 14.2 o más nuevo pasa por el tap de CoreAudio y pide `NSAudioCaptureUsageDescription` y el permiso "System Audio Recording". **Si falta el permiso no hay error: la pista llega terminada y muda**, así que la interfaz lo detecta y explica cómo darlo. Desde la terminal (`npm run dev`), el permiso se le da a la terminal. El micrófono pide `NSMicrophoneUsageDescription` y el entitlement `com.apple.security.device.audio-input`.

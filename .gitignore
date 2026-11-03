@@ -5,6 +5,7 @@ out
 .eslintcache
 *.log*
 scripts/.out/
+resources/models/
 .env
 .env.*
 !.env.example

@@ -1,5 +1,6 @@
 // shortcut: serves the fixture-backed mock over IPC. Replace one handler at a time with the real implementation.
-import { ipcMain, systemPreferences } from 'electron'
+import { join } from 'path'
+import { app, ipcMain, systemPreferences } from 'electron'
 import { IPC } from '@shared/ipc'
 import { createMockApi } from '@shared/mock-api'
 import { LEARN_WINDOW_DAYS, type Profile } from '@shared/schemas'
@@ -12,10 +13,20 @@ import { createTriager } from './ai/triage'
 import { createAiHandlers } from './ai/index'
 import { detectPatterns, mergeLearned } from './insights'
 import type { Storage } from './storage'
+import { createTranscriber, type Transcriber } from './transcribe'
+
+let transcriber: Transcriber | null = null
+
+/** Loads the speech model in the background; call it after registerMockHandlers. Never rejects. */
+export function warmUpTranscriber(): Promise<void> {
+  return transcriber ? transcriber.warmUp() : Promise.resolve()
+}
 
 export function registerMockHandlers(
   { demo, profiles, settings, checkIns, changes, achievements, events }: Storage,
-  onSettingsSaved: () => void
+  onSettingsSaved: () => void,
+  /** Only the overlay records, so only it may transcribe. */
+  isOverlay: (sender: Electron.WebContents) => boolean
 ): void {
   const api = createMockApi()
   const decoder = process.env.ANTHROPIC_API_KEY
@@ -100,4 +111,14 @@ export function registerMockHandlers(
       : null
   )
   ipcMain.handle(IPC.summaryExportPdf, () => api.exportSummaryPdf())
+  // electron-builder unpacks resources/** from the asar, so the packaged model sits beside it.
+  const modelDir = app.isPackaged
+    ? join(process.resourcesPath, 'app.asar.unpacked/resources/models')
+    : join(app.getAppPath(), 'resources/models')
+  const t = createTranscriber({ demo, modelDir, language: () => settings.load().language })
+  transcriber = t
+  ipcMain.handle(IPC.transcribe, (event, audio) => {
+    if (!isOverlay(event.sender)) throw new Error("Only Pip's overlay can transcribe.")
+    return t.transcribe(audio)
+  })
 }

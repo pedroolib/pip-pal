@@ -29,6 +29,7 @@ import checkInsJson from './fixtures/week.checkins.json'
 import changesJson from './fixtures/week.changes.json'
 import achievementsJson from './fixtures/achievements.json'
 import eventsJson from './fixtures/week.events.json'
+import transcriptJson from './fixtures/demo.transcript.json'
 
 export function createMockApi(): PipApi {
   // Parsing up front doubles as the fixture self-check: a bad fixture fails loudly on startup.
@@ -162,10 +163,17 @@ export function createMockApi(): PipApi {
     setOverlayBounds: () => {},
     onDismiss: () => () => {},
     setBubbleOpen: () => {},
+    setOverlayFocus: () => {},
     // A plain browser has no corner window: the overlay draws the corner Pip in the page instead.
     setCorner: () => {},
     onCorner: () => () => {},
     clickCorner: () => {},
-    onCornerOpen: () => () => {}
+    onCornerOpen: () => () => {},
+    onRecordHotkey: () => () => {},
+    transcribe: async (audio) => {
+      if (audio.length === 0) throw new Error('No audio')
+      await new Promise((r) => setTimeout(r, 800))
+      return transcriptJson.text
+    }
   }
 }

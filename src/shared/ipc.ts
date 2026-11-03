@@ -75,13 +75,19 @@ export const IPC = {
   dismiss: 'pip:dismiss',
   /** overlay → main: whether the triage bubble is open; Esc is a global shortcut only while it is. */
   bubbleOpen: 'overlay:bubble-open',
+  /** overlay → main: let the overlay take the keyboard while a record card that needs typing or Enter is open. */
+  overlayFocus: 'overlay:focus',
   /** overlay → main: show the corner Pip holding this, or hide it (null). */
   cornerSet: 'overlay:corner',
   /** main → corner window: what the corner Pip holds, or null while hidden. */
   corner: 'corner:state',
   /** corner window → main → overlay: the person clicked the corner Pip. */
   cornerClick: 'corner:click',
-  cornerOpen: 'overlay:corner-open'
+  cornerOpen: 'overlay:corner-open',
+  /** main → overlay: the record hotkey was pressed. */
+  recordHotkey: 'pip:record-hotkey',
+  /** overlay → main: audio in, transcript out; runs on this machine. */
+  transcribe: 'pip:transcribe'
 } as const
 
 export interface PipApi {
@@ -139,6 +145,8 @@ export interface PipApi {
   onDismiss(cb: () => void): () => void
   /** Overlay only: tell main the bubble opened or closed; ignored from other windows. */
   setBubbleOpen(open: boolean): void
+  /** Overlay only: ignored from other windows. */
+  setOverlayFocus(on: boolean): void
   /** Overlay only: show the corner Pip holding this, or hide it (null); ignored from other windows. */
   setCorner(corner: CornerPip | null): void
   /** Corner window: what to show. Returns an unsubscribe function. */
@@ -147,4 +155,12 @@ export interface PipApi {
   clickCorner(): void
   /** Overlay: the corner Pip was clicked, so swap the cursor's card with it. Returns an unsubscribe function. */
   onCornerOpen(cb: () => void): () => void
+  /** Each press opens the source card, or stops the recording if one is running. Returns an unsubscribe function. */
+  onRecordHotkey(cb: () => void): () => void
+  /**
+   * `audio`: 16 kHz mono, at most RECORD_MAX_MS + 5 s. Transcribed on this machine; nothing leaves it.
+   * Rejects on bad input or failure. With PIP_DEMO=1 it falls back to the scripted transcript on failure
+   * or after TRANSCRIBE_TIMEOUT_MS.
+   */
+  transcribe(audio: Float32Array): Promise<string>
 }
