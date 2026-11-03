@@ -25,7 +25,12 @@ describe('onboarding model', () => {
       (q) => `Q:${q}`
     )
     expect(out.sections.stress).toEqual([
-      expect.objectContaining({ text: 'Q:calming: music', origin: 'self', visibleTo: [] })
+      expect.objectContaining({
+        text: 'Q:calming: music',
+        origin: 'self',
+        visibleTo: [],
+        fromAnswer: 'calming'
+      })
     ])
     expect(out.sections.communication[0].text).toBe('Q:instructions: In writing')
     expect(out.sections.sensory).toEqual([])

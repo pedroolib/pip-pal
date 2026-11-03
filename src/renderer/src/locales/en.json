@@ -266,7 +266,13 @@
       "body": "The file on this computer could not be read. Nothing was changed.",
       "retry": "Try again"
     },
-    "saveError": "Could not save, try again. Your text is still here."
+    "saveError": "Could not save, try again. Your text is still here.",
+    "rewrite": {
+      "button": "Let Pip rewrite this",
+      "working": "Pip is rewriting this…",
+      "note": "Sends this, with names removed, to Claude (Anthropic's AI). Pip's version comes back as a suggestion; your words stay until you delete them.",
+      "failed": "Pip could not reach the model. Your words are safe; try again later."
+    }
   },
   "house": {
     "nav": "Pip's House",

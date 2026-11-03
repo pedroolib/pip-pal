@@ -1,23 +1,16 @@
 // Pure onboarding helpers: step order and the "keep my words" fallback. The screens live in Onboarding.tsx.
 import {
+  ONBOARDING_QUESTIONS as QUESTIONS,
   ONBOARDING_STEPS,
   type Onboarding,
   type OnboardingAnswers,
+  type OnboardingQuestion as Question,
   type OnboardingStep,
   type Profile,
   type Section
 } from '@shared/schemas'
 
-/** The "about you" questions in the order they are asked. */
-export const QUESTIONS = [
-  'instructions',
-  'changesHelp',
-  'changesNotice',
-  'calming',
-  'sensory',
-  'strengths'
-] as const satisfies readonly (keyof OnboardingAnswers)[]
-export type Question = (typeof QUESTIONS)[number]
+export { QUESTIONS, type Question }
 
 /** Where each answer goes when it is kept word for word (no minutes, so calming lands in `stress`). */
 const SECTION_OF: Record<Question, Section> = {
@@ -43,7 +36,8 @@ export const prevStep = (s: OnboardingStep): OnboardingStep | null =>
 
 /**
  * Each non-empty answer, word for word, as a private `self` entry in its section. `label` names the
- * question ("Helps me calm down") so a bare answer like "music" still reads right later.
+ * question ("Helps me calm down") so a bare answer like "music" still reads right later; `fromAnswer`
+ * lets My profile offer to have Pip rewrite it.
  */
 export function keepWords(
   profile: Profile,
@@ -59,7 +53,8 @@ export function keepWords(
       id: crypto.randomUUID(),
       text: `${label(q)}: ${said}`,
       origin: 'self' as const,
-      visibleTo: []
+      visibleTo: [],
+      fromAnswer: q
     }
     sections[s] = [...sections[s], entry]
   }
