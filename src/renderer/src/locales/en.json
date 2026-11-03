@@ -315,7 +315,7 @@
       "loading": "Writing your summary…",
       "errorTitle": "The summary did not generate",
       "errorBody": "Nothing was sent. Check that you are online, then try again.",
-      "selected": "{{picked}} of {{total}} points selected. Only these are copied or exported.",
+      "selected": "{{picked}} of {{total}} points selected. Only these are copied.",
       "pointsLabel": "Summary points",
       "empty": "There is nothing to summarise yet.",
       "sources": {

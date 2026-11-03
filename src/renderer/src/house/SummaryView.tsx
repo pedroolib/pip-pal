@@ -62,7 +62,14 @@ export function SummaryView(): React.JSX.Element {
           <RadioGroup
             aria-labelledby="summary-who"
             value={recipient}
-            onValueChange={(v) => setRecipient(Recipient.parse(v))}
+            onValueChange={(v) => {
+              // A summary is for one recipient: drop it, and ignore any generate still in flight.
+              run.current++
+              setPoints([])
+              setCopied(0)
+              setState('idle')
+              setRecipient(Recipient.parse(v))
+            }}
             className="flex flex-wrap gap-2.5"
           >
             {Recipient.options.map((r) => (
