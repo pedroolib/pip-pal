@@ -123,7 +123,8 @@ html:has([data-overlay-root]) {
   animation: pip-blink 5s infinite;
 }
 
-/* Honour the OS "reduce motion" setting for Pip and every shadcn animation. */
+/* Honour the OS "reduce motion" setting for Pip and every shadcn animation. The Settings
+   "Calmer motion" switch adds .calm-motion to <html> for the same rules; the OS setting always applies. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
@@ -132,4 +133,12 @@ html:has([data-overlay-root]) {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+.calm-motion,
+.calm-motion *,
+.calm-motion ::before,
+.calm-motion ::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }

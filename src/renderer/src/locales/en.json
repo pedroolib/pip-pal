@@ -348,7 +348,42 @@
       }
     },
     "settings": {
-      "stub": "Settings are coming."
+      "intro": "Changes save as you make them.",
+      "loading": "Loading your settings",
+      "saveFailed": "Settings did not save. Try again.",
+      "loadFailed": "Settings did not load.",
+      "retry": "Try again",
+      "checkIns": {
+        "title": "Check-in times",
+        "body": "Pip asks how many spoons you have at these times. Turn off any you do not want.",
+        "morning": "Morning",
+        "midday": "Midday",
+        "afternoon": "Afternoon",
+        "morningTime": "9:00",
+        "middayTime": "13:00",
+        "afternoonTime": "17:00"
+      },
+      "shortcut": {
+        "title": "Capture shortcut",
+        "body": "Select text anywhere, then press it. Pip reads only what you selected.",
+        "fixed": "You cannot change it here yet.",
+        "linux": "On Linux, bind {{command}} to this shortcut in your system settings."
+      },
+      "language": {
+        "title": "Language",
+        "en": "English",
+        "es": "Español",
+        "note": "Español is saved, but Pip stays in English until the translation is ready."
+      },
+      "calm": {
+        "title": "Calmer motion",
+        "body": "Pip stays still and screens fade less. Your computer's reduced-motion setting always applies too."
+      },
+      "privacy": {
+        "title": "Privacy",
+        "selected": "Only text you select leaves your computer, and only after names are swapped for roles like [Manager].",
+        "manual": "Summaries never send themselves. You copy or export them."
+      }
     }
   }
 }

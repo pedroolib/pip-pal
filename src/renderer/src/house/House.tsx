@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { api } from '@renderer/api'
 import Manual from '@renderer/manual/Manual'
 import { AchievementsView } from './AchievementsView'
 import { ConnectionsView } from './ConnectionsView'
 import { HomeView } from './HomeView'
 import { tabFromHash, type Tab } from './route'
 import { SettingsView } from './SettingsView'
+import { applySettings } from './settings'
 import { SummaryView } from './SummaryView'
 import { TabBar } from './TabBar'
 
@@ -17,6 +19,9 @@ export function House(): React.JSX.Element {
     const sync = (): void => setTab(tabFromHash(location.hash))
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
+  }, [])
+  useEffect(() => {
+    api.getSettings().then(applySettings, () => {})
   }, [])
   useEffect(() => {
     document.title = `${t(`house.tabs.${tab}`)} - ${t('house.nav')}`
