@@ -35,7 +35,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 3. Detector de cambios con mini plan de transición y preguntas sugeridas (es el botón "Plan for this change" del flujo anterior).
 4. Check-in de cucharas (1–5, visual, se pospone y no insiste). Horarios editables en Settings: 9/13/17 h por defecto, hasta 6, cada uno se prende o apaga; con menos de 3 encendidos Pip sugiere 3 sin bloquear. Hecho (PR de la Casa de Pip). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
 5. Estrategia de calma del perfil (con ≤2 cucharas, al detectar un cambio o con "I'm stuck"), temporizador opcional y regreso al paso 1. Siempre se puede saltar.
-6. Mi resumen: versión por destinatario, viñetas marcables, copiar solo las marcadas. Nunca se envía solo. Interfaz hecha; falta la generación real con Claude (B; hoy usa datos de ejemplo) y exportar PDF (botón "Coming soon").
+6. Mi resumen: versión por destinatario, viñetas marcables, copiar solo las marcadas. Nunca se envía solo. Hecho (PR #19): periodos Today, 7, 14 y 30 días; generación real con Claude a partir del registro de uso; cada viñeta con su porqué. Pip detecta 4 patrones y los deja pendientes en My profile para aprobar. Falta exportar PDF (botón "Coming soon") y que las tarjetas llamen `api.logEvent` (ver [DECISIONS.md §6](DECISIONS.md)).
 7. Mi manual: ver y editar el perfil de Sam, ya cargado. Hecho; vive en la pestaña My profile.
 8. Logros tranquilos: pasos terminados, cambios atravesados, "You asked instead of guessing". Sin rachas. Lista por día hecha; el flujo ya registra pasos, preguntas copiadas y planes de cambio.
 9. Personaje Pip (`<Pip mood=… />`, 12 estados de ánimo).
