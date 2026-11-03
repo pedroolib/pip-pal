@@ -160,12 +160,12 @@ async function capture(): Promise<void> {
     }
     const win = overlay
     if (!text.trim() || !win) return
-    // The bubble opens next to the cursor, its card just inside the transparent padding.
+    // The bubble opens next to the cursor, its card just inside the transparent padding. Not clamped:
+    // the renderer reads the cursor back from this position and fits the bubble on screen itself,
+    // opening it left or up near an edge (CURSOR_GAP in Overlay.tsx).
     const cursor = await cursorPoint()
     const { width, height } = win.getBounds()
-    win.setBounds(
-      clampBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
-    )
+    win.setBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
     win.showInactive()
     win.webContents.send(IPC.captured, text)
   } finally {

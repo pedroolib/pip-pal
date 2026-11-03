@@ -8,6 +8,8 @@ export const PIP_SIZE = 44
 export const BUBBLE_WIDTH = CARD_WIDTH + PIP_SIZE + 8
 /** Room kept for the card while Jev reads (the samples run 200–360px), so the answer fits where Pip already is. */
 export const CARD_RESERVE = 480
+/** Which way the bubble opens from the cursor: left and/or up when the screen has no room right or below. */
+export type Flip = { x: boolean; y: boolean }
 
 type Deadline = NonNullable<Triage['deadline']>
 
