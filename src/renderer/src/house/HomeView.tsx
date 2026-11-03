@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { api } from '@renderer/api'
+import { Button } from '@renderer/components/ui/button'
+import { hashFor } from './route'
 import { AchievementRow } from './AchievementRow'
 import { isToday, latest, timeLabel } from './days'
 import { HouseCard } from './parts'
@@ -22,7 +24,7 @@ function Spoons({ count }: { count: number }): React.JSX.Element {
 }
 
 /** The room, with today's calm summary on the floor. Failed reads just show the empty text. */
-export function HomeView(): React.JSX.Element {
+export function HomeView({ learned }: { learned: number }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const checkIns = useLoad(() => api.listCheckIns()).data
   const achievements = useLoad(() => api.listAchievements()).data
@@ -75,6 +77,17 @@ export function HomeView(): React.JSX.Element {
               )}
             </HouseCard>
           </div>
+          {learned > 0 && (
+            <HouseCard aria-labelledby="home-learned">
+              <h2 id="home-learned" className="text-[1.0625rem] leading-snug font-bold">
+                {t('house.home.learned', { count: learned })}
+              </h2>
+              <p className="text-sm text-muted-foreground">{t('house.home.learnedHint')}</p>
+              <Button asChild className="min-h-11 w-fit rounded-full px-5 font-bold">
+                <a href={hashFor('profile')}>{t('house.home.learnedAction')}</a>
+              </Button>
+            </HouseCard>
+          )}
         </div>
       </div>
     </main>

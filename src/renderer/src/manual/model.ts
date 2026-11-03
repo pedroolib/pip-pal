@@ -1,5 +1,6 @@
 // Pure list edits for the manual. New items get an id here, never in the UI.
 import { ALIAS_MAX, aliasKey } from '@shared/profile'
+import type { Profile } from '@shared/schemas'
 
 type WithId = { id?: string }
 
@@ -66,4 +67,28 @@ export function splitAliases(list: string[], text: string): { aliases: string[];
 /** The aliases to save with the text left in the box, or null while that text holds a part over the cap. */
 export function aliasesToSave(list: string[], pending: string): string[] | null {
   return hasTooLongAlias(pending) ? null : addAlias(list, pending)
+}
+
+/** Moves a pending entry into its section as a private `pip` entry; `text` is the person's edit, if any. */
+export function approvePending(profile: Profile, id: string, text?: string): Profile {
+  const p = profile.pending?.find((x) => x.id === id)
+  const final = (text ?? p?.text)?.trim()
+  if (!p || !final) return profile
+  const entry = { id: p.id, text: final, origin: 'pip' as const, visibleTo: [] }
+  return {
+    ...profile,
+    sections: { ...profile.sections, [p.section]: [...profile.sections[p.section], entry] },
+    pending: removeById(profile.pending ?? [], id)
+  }
+}
+
+/** Removes a pending entry and remembers its key, so Pip stays quiet about it (main enforces the window). */
+export function dismissPending(profile: Profile, id: string, now: Date): Profile {
+  const p = profile.pending?.find((x) => x.id === id)
+  if (!p) return profile
+  return {
+    ...profile,
+    pending: removeById(profile.pending ?? [], id),
+    dismissed: [...(profile.dismissed ?? []), { key: p.key, at: now.toISOString() }]
+  }
 }

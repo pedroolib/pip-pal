@@ -5,8 +5,8 @@ import { SECTIONS, type Profile, type Recipient, type Section } from '@shared/sc
 import { ensureIds } from '@shared/profile'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/api'
-import { activeIndex, removeAt, removeById, upsert } from './model'
-import { Block, ConfirmDelete, Editor, Row, type Draft } from './parts'
+import { activeIndex, approvePending, dismissPending, removeAt, removeById, upsert } from './model'
+import { Block, ConfirmDelete, Editor, PendingCard, Row, type Draft } from './parts'
 
 type Del = {
   title: string
@@ -82,6 +82,13 @@ function Manual(): React.JSX.Element {
     requestAnimationFrame(() =>
       document.querySelector<HTMLElement>(`[data-edit="${key}"]`)?.focus()
     )
+    return true
+  }
+
+  /** Saves a pending-entry change; focus goes to the card's heading (or stays put once it is empty). */
+  async function settle(next: Profile): Promise<boolean> {
+    if (!(await persist(next))) return false
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-pending-h]')?.focus())
     return true
   }
 
@@ -345,6 +352,13 @@ function Manual(): React.JSX.Element {
       }
     >
       <div className="grid gap-5">
+        {!!profile.pending?.length && (
+          <PendingCard
+            entries={profile.pending}
+            onApprove={(id, text) => settle(approvePending(profile, id, text))}
+            onDismiss={(id) => settle(dismissPending(profile, id, new Date()))}
+          />
+        )}
         {SECTIONS.map(renderSection)}
 
         <Block

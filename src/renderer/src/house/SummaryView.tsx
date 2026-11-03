@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Copy, FileDown, Info, LoaderCircle } from 'lucide-react'
-import { Recipient, type SummaryPoint } from '@shared/schemas'
+import { Recipient, SummaryPeriod, type SummaryPoint } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Checkbox } from '@renderer/components/ui/checkbox'
@@ -12,21 +12,69 @@ import { HouseCard, Page } from './parts'
 
 type State = 'idle' | 'loading' | 'error' | 'ready'
 
+/** A labelled group of pills (a radio group); each item sits in a Label so it has visible text. */
+function Pills({
+  id,
+  label,
+  value,
+  options,
+  onChange
+}: {
+  id: string
+  label: string
+  value: string
+  options: { value: string; text: string }[]
+  onChange: (v: string) => void
+}): React.JSX.Element {
+  return (
+    <div className="grid gap-2.5">
+      <p id={id} className="font-bold">
+        {label}
+      </p>
+      <RadioGroup
+        aria-labelledby={id}
+        value={value}
+        onValueChange={onChange}
+        className="flex flex-wrap gap-2.5"
+      >
+        {options.map((o) => (
+          <Label
+            key={o.value}
+            className="h-11 cursor-pointer text-base rounded-full border-[1.5px] bg-surface px-[18px] font-bold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-solid has-[:focus-visible]:outline-ring has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-secondary"
+          >
+            <RadioGroupItem value={o.value} />
+            {o.text}
+          </Label>
+        ))}
+      </RadioGroup>
+    </div>
+  )
+}
+
 export function SummaryView(): React.JSX.Element {
   const { t } = useTranslation()
   const [recipient, setRecipient] = useState<Recipient>('coach')
+  const [period, setPeriod] = useState<SummaryPeriod>('7d')
   const [state, setState] = useState<State>('idle')
   const [points, setPoints] = useState<SummaryPoint[]>([])
   const [copied, setCopied] = useState(0)
   const picked = points.filter((p) => p.include).length
   const run = useRef(0) // only the latest Generate may set state
 
+  /** A summary is for one recipient and period: drop it, and ignore any generate still in flight. */
+  function clear(): void {
+    run.current++
+    setPoints([])
+    setCopied(0)
+    setState('idle')
+  }
+
   async function generate(): Promise<void> {
     const mine = ++run.current
     setState('loading')
     setCopied(0)
     try {
-      const s = await api.generateSummary(recipient)
+      const s = await api.generateSummary(recipient, period)
       if (mine !== run.current) return
       setPoints(s.points)
       setState('ready')
@@ -55,34 +103,29 @@ export function SummaryView(): React.JSX.Element {
       </p>
 
       <HouseCard>
-        <div className="grid gap-2.5">
-          <p id="summary-who" className="font-bold">
-            {t('house.summary.who')}
-          </p>
-          <RadioGroup
-            aria-labelledby="summary-who"
-            value={recipient}
-            onValueChange={(v) => {
-              // A summary is for one recipient: drop it, and ignore any generate still in flight.
-              run.current++
-              setPoints([])
-              setCopied(0)
-              setState('idle')
-              setRecipient(Recipient.parse(v))
-            }}
-            className="flex flex-wrap gap-2.5"
-          >
-            {Recipient.options.map((r) => (
-              <Label
-                key={r}
-                className="h-11 cursor-pointer text-base rounded-full border-[1.5px] bg-surface px-[18px] font-bold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-solid has-[:focus-visible]:outline-ring has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-secondary"
-              >
-                <RadioGroupItem value={r} />
-                {t(`manual.recipients.${r}`)}
-              </Label>
-            ))}
-          </RadioGroup>
-        </div>
+        <Pills
+          id="summary-who"
+          label={t('house.summary.who')}
+          value={recipient}
+          options={Recipient.options.map((r) => ({ value: r, text: t(`manual.recipients.${r}`) }))}
+          onChange={(v) => {
+            clear()
+            setRecipient(Recipient.parse(v))
+          }}
+        />
+        <Pills
+          id="summary-period"
+          label={t('house.summary.period')}
+          value={period}
+          options={SummaryPeriod.options.map((p) => ({
+            value: p,
+            text: t(`house.summary.periods.${p}`)
+          }))}
+          onChange={(v) => {
+            clear()
+            setPeriod(SummaryPeriod.parse(v))
+          }}
+        />
         <Button
           className="min-h-11 w-fit rounded-full px-5 font-bold"
           disabled={loading}
@@ -141,6 +184,11 @@ export function SummaryView(): React.JSX.Element {
                       <span className="block text-sm text-muted-foreground">
                         {t(`house.summary.sources.${p.source}`)}
                       </span>
+                      {p.why && (
+                        <span className="block text-sm text-muted-foreground">
+                          {t('house.summary.why', { why: p.why })}
+                        </span>
+                      )}
                     </span>
                   </label>
                 </li>
