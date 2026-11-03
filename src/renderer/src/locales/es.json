@@ -470,7 +470,7 @@
     "emptyBody": "Comprueba que elegiste la fuente correcta y vuelve a grabar.",
     "errorTitle": "No pude escribirlo",
     "errorBody": "No se envió nada a ningún sitio. Intenta grabar de nuevo.",
-    "noModelBody": "El modelo de voz aún no está instalado. Ejecuta npm run fetch:whisper y vuelve a grabar.",
+    "noModelBody": "Mi parte que escucha aún no está lista en este equipo. Pregunta a quien instaló Pip.",
     "again": "Grabar de nuevo"
   }
 }

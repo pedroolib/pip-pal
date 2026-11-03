@@ -25,3 +25,14 @@ export function failureOf(e: unknown): Failure {
   if (message.includes("The speech model isn't installed.")) return 'noModel'
   return 'error'
 }
+
+/** A focused button handles its own Enter; a Radix radio is a button too but leaves Enter to the card. */
+export function ownsEnter(target: EventTarget | null): boolean {
+  const el = target as Element | null
+  return el?.tagName === 'BUTTON' && el.getAttribute('role') !== 'radio'
+}
+
+/** getDisplayMedia refused (no permission) or could not read the computer audio. */
+export function isCantHear(e: unknown): boolean {
+  return e instanceof Error && (e.name === 'NotAllowedError' || e.name === 'NotReadableError')
+}

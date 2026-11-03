@@ -24,7 +24,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { cn } from '@renderer/lib/utils'
 import { Pip, type Mood } from '@renderer/pip/Pip'
 import { CARD_WIDTH, PIP_SIZE, type Flip } from '@renderer/triage/model'
-import { MAX_READ, failureOf, formatElapsed, toRead } from './model'
+import { MAX_READ, failureOf, formatElapsed, ownsEnter, toRead } from './model'
 import { CantHearError, startRecording, type Recording } from './recorder'
 
 type Phase =
@@ -139,12 +139,18 @@ export function RecordFlow({
     )
   }
   // Start on the source card: the choice becomes the next preselection.
+  // Read through a ref so the key effect below does not re-register Esc on every radio click.
+  const chosen = useRef(source)
+  useEffect(() => {
+    chosen.current = source
+  }, [source])
   const begin = (): void => {
+    const from = chosen.current
     api
       .getSettings()
-      .then((s) => api.saveSettings({ ...s, recordSource: source }))
+      .then((s) => api.saveSettings({ ...s, recordSource: from }))
       .catch(() => {})
-    start(source)
+    start(from)
   }
   const stop = (auto = false): void => {
     const r = rec.current
@@ -188,26 +194,27 @@ export function RecordFlow({
   }, [phase, started])
 
   // The record hotkey while this is open (the overlay only opens it): stop the recording, or start
-  // over from a finished card.
+  // over from a finished card. Review keeps its (maybe edited) transcript: only Esc or Close drop it.
   useEffect(
     () =>
       api.onRecordHotkey(() => {
         if (phase === 'recording') stop()
-        else if (phase !== 'starting' && phase !== 'transcribing') setPhase('source')
+        else if (phase !== 'starting' && phase !== 'transcribing' && phase !== 'review')
+          setPhase('source')
       }),
     [phase]
   )
 
-  // While a card shows, Esc closes it (main grabs Esc only then, as for the bubble) and Enter starts
-  // from the source card. During a recording no key is taken from the app the person works in.
-  const card = phase !== 'recording' && phase !== 'transcribing'
+  // While a card shows, or while writing down, Esc closes it (main grabs Esc only then, as for the
+  // bubble); a late transcript is then ignored by `run`. Enter starts from the source card. During a
+  // recording no key is taken from the app the person works in.
+  const card = phase !== 'recording'
   useEffect(() => {
     if (!card) return
     api.setBubbleOpen(true)
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') close()
-      // A focused button handles its own Enter.
-      if (e.key === 'Enter' && phase === 'source' && !(e.target instanceof HTMLButtonElement)) {
+      if (e.key === 'Enter' && phase === 'source' && !ownsEnter(e.target)) {
         e.preventDefault()
         begin()
       }
@@ -220,7 +227,7 @@ export function RecordFlow({
       window.removeEventListener('keydown', onKey)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card, phase, source])
+  }, [card, phase])
 
   // These two cards need the keyboard (Enter, typing); every other step gives it back.
   const typing = phase === 'source' || phase === 'review'

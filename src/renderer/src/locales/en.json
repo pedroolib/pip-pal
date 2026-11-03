@@ -688,7 +688,7 @@
     "emptyBody": "Check that you picked the right source, then record again.",
     "errorTitle": "I couldn't write that down",
     "errorBody": "Nothing was sent anywhere. Try recording again.",
-    "noModelBody": "The speech model isn't installed yet. Run npm run fetch:whisper, then record again.",
+    "noModelBody": "My listening part isn't set up on this computer yet. Ask whoever installed Pip.",
     "again": "Record again"
   }
 }

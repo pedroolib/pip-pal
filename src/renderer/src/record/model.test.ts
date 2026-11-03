@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { failureOf, formatElapsed, toRead } from './model'
+import { failureOf, formatElapsed, isCantHear, ownsEnter, toRead } from './model'
 
 describe('formatElapsed', () => {
   it('shows minutes and seconds, padded', () => {
@@ -27,5 +27,25 @@ describe('failureOf', () => {
     )
     expect(failureOf(ipc('Transcription timed out.'))).toBe('error')
     expect(failureOf('weird')).toBe('error')
+  })
+})
+
+describe('ownsEnter', () => {
+  const el = (tagName: string, role: string | null = null): EventTarget =>
+    ({ tagName, getAttribute: () => role }) as unknown as EventTarget
+  it('lets a real button keep its Enter, but not a focused radio or other element', () => {
+    expect(ownsEnter(el('BUTTON'))).toBe(true)
+    expect(ownsEnter(el('BUTTON', 'radio'))).toBe(false)
+    expect(ownsEnter(el('DIV', 'radiogroup'))).toBe(false)
+    expect(ownsEnter(null)).toBe(false)
+  })
+})
+
+describe('isCantHear', () => {
+  it('maps a refused or unreadable computer-audio capture to the can-not-hear card', () => {
+    expect(isCantHear(new DOMException('denied', 'NotAllowedError'))).toBe(true)
+    expect(isCantHear(new DOMException('busy', 'NotReadableError'))).toBe(true)
+    expect(isCantHear(new DOMException('bad', 'AbortError'))).toBe(false)
+    expect(isCantHear(new Error('boom'))).toBe(false)
   })
 })
