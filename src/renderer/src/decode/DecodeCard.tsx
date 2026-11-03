@@ -36,7 +36,7 @@ function Section({
   )
 }
 
-function StepNumber({ n }: { n: number }): React.JSX.Element {
+export function StepNumber({ n }: { n: number }): React.JSX.Element {
   return (
     <span
       aria-hidden
@@ -47,7 +47,7 @@ function StepNumber({ n }: { n: number }): React.JSX.Element {
   )
 }
 
-function CopyQuestion({ text }: { text: string }): React.JSX.Element {
+export function CopyQuestion({ text }: { text: string }): React.JSX.Element {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   useEffect(() => {

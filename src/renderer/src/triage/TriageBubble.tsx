@@ -126,12 +126,14 @@ function ActionButton({
   kind,
   maybe,
   eyebrow,
-  about
+  about,
+  onClick
 }: {
   kind: ActionKind
   maybe: boolean
   eyebrow?: string
   about?: string | null
+  onClick?: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const Icon = ACTION_ICON[kind]
@@ -140,6 +142,7 @@ function ActionButton({
     <Button
       type="button"
       variant="outline"
+      onClick={onClick}
       className={cn(
         'h-auto min-h-11 w-full items-start justify-start gap-3 rounded-md border bg-white px-3 py-2 text-left whitespace-normal shadow-xs hover:bg-accent',
         single && 'items-center',
@@ -164,13 +167,16 @@ function ActionButton({
 export function TriageBubble({
   triage,
   error,
-  flip = { x: false, y: false }
+  flip = { x: false, y: false },
+  onAction
 }: {
   /** null while Jev reads: Pip alone. */
   triage: Triage | null
   error: boolean
   /** Pip stays at the cursor's corner of the card: right of it when flipped on x, below when on y. */
   flip?: Flip
+  /** A button was pressed: Pip makes the one Claude call for that kind. */
+  onAction?: (kind: ActionKind) => void
 }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const lines = useMemo(
@@ -249,6 +255,7 @@ export function TriageBubble({
                         t(eyebrow.key, eyebrow.typeKey ? { type: t(eyebrow.typeKey) } : undefined)
                       }
                       about={kind === 'questions' && lines.about ? t(lines.about) : null}
+                      onClick={() => onAction?.(kind)}
                     />
                   ))}
                 </div>
