@@ -11,6 +11,7 @@ import {
   DEFAULT_SETTINGS,
   LOW_SPOONS,
   dueCheckIn,
+  hotkeyReady,
   enabledTimes,
   type Achievement,
   type ActionKind,
@@ -236,7 +237,9 @@ function Overlay(): React.JSX.Element {
       // Ask at launch only if the latest enabled time that passed today is unanswered (main's rule);
       // after "Not now" it asks once more later.
       const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
-      if (spoonsOverride() !== null || !due) afterCheckIn()
+      // Quiet until onboarding reaches its practice step, like main (the browser mock has no onboarding).
+      const quiet = !inBrowser && !!s && !hotkeyReady(s.onboarding)
+      if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
       else setView('checkIn')
     })
     const offCaptured = api.onCaptured(capture)

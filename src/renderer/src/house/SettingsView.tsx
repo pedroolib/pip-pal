@@ -7,6 +7,7 @@ import {
   Languages,
   Moon,
   Plus,
+  RotateCcw,
   ShieldCheck,
   Sun,
   Sunrise,
@@ -65,7 +66,12 @@ function Heading({
 }
 
 /** Settings save as you make them. A failed save puts the control back and says so, calmly. */
-export function SettingsView(): React.JSX.Element {
+export function SettingsView({
+  onRunSetup
+}: {
+  /** Opens onboarding again; it saves its own progress. */
+  onRunSetup: (settings: Settings) => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const { data, failed, reload } = useLoad(() => api.getSettings())
   const [saved, setSaved] = useState<Settings | null>(null)
@@ -203,6 +209,19 @@ export function SettingsView(): React.JSX.Element {
         <Heading Icon={ShieldCheck}>{t('house.settings.privacy.title')}</Heading>
         <p>{t('house.settings.privacy.selected')}</p>
         <p>{t('house.settings.privacy.manual')}</p>
+      </HouseCard>
+
+      <HouseCard>
+        <Heading Icon={RotateCcw}>{t('onboarding.rerun.title')}</Heading>
+        <p>{t('onboarding.rerun.body')}</p>
+        <Button
+          variant="outline"
+          className="min-h-11 self-start rounded-full px-5 font-bold"
+          disabled={!settings}
+          onClick={() => settings && onRunSetup(settings)}
+        >
+          {t('onboarding.rerun.button')}
+        </Button>
       </HouseCard>
 
       <Remembers />
