@@ -249,5 +249,106 @@
       "retry": "Try again"
     },
     "saveError": "Could not save, try again. Your text is still here."
+  },
+  "house": {
+    "nav": "Pip's House",
+    "tabs": {
+      "home": "Home",
+      "profile": "My profile",
+      "achievements": "Achievements",
+      "summary": "Summary",
+      "connections": "Connections",
+      "settings": "Settings"
+    },
+    "tabsShort": {
+      "home": "Home",
+      "profile": "Profile",
+      "achievements": "Wins",
+      "summary": "Summary",
+      "connections": "Connect",
+      "settings": "Settings"
+    },
+    "titles": {
+      "achievements": "Achievements",
+      "summary": "Summary",
+      "connections": "Connections",
+      "settings": "Settings"
+    },
+    "home": {
+      "today": "Today",
+      "energy": "Your energy",
+      "spoonsOf": "{{count}} of 5 spoons",
+      "slot": {
+        "morning": "Morning check-in, {{time}}",
+        "midday": "Midday check-in, {{time}}",
+        "afternoon": "Afternoon check-in, {{time}}"
+      },
+      "noCheckIn": "No check-in yet",
+      "noCheckInHint": "Pip asks at your next check-in time.",
+      "latest": "Latest achievement",
+      "noAchievement": "Nothing here yet",
+      "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here."
+    },
+    "achievements": {
+      "intro": "Things you did, newest first.",
+      "kinds": {
+        "step_done": "Step done",
+        "change_navigated": "Change navigated",
+        "asked_not_guessed": "Asked, did not guess"
+      },
+      "emptyBody": "Nothing here yet. When you finish a step, ask a question or get through a change, it shows up here.",
+      "loading": "Loading your achievements",
+      "errorTitle": "Achievements did not load. Try again.",
+      "retry": "Try again"
+    },
+    "summary": {
+      "intro": "A short note about your week for someone who supports you.",
+      "privacy": "Nothing is sent. You choose what to share.",
+      "who": "Who is it for?",
+      "generate": "Generate",
+      "copy": "Copy",
+      "copied": "Copied",
+      "exportPdf": "Export PDF",
+      "retry": "Try again",
+      "loading": "Pip is writing your summary",
+      "errorTitle": "The summary did not generate",
+      "errorBody": "Nothing was sent. Check that you are online, then try again.",
+      "selected": "{{picked}} of {{total}} points selected. Only these are copied or exported.",
+      "pointsLabel": "Summary points",
+      "savedTo": "Saved to {{path}}",
+      "exportFailed": "The PDF did not export. Try again.",
+      "empty": "There is nothing to summarise yet.",
+      "sources": {
+        "checkins": "From check-ins",
+        "changes": "From changes",
+        "achievements": "From achievements",
+        "profile": "From your profile"
+      }
+    },
+    "connections": {
+      "intro": "Later, Pip could use these to suggest your spoons. Nothing is connected now, and nothing is stored.",
+      "local": "Stays on your computer. Never sent anywhere.",
+      "soon": "Coming soon",
+      "later": "Later",
+      "appleWatch": {
+        "name": "Apple Watch",
+        "body": "Sleep and heart-rate variability, to suggest how many spoons you may have today."
+      },
+      "whoop": {
+        "name": "Whoop",
+        "body": "Sleep and recovery, to suggest how many spoons you may have today."
+      },
+      "email": {
+        "name": "Email",
+        "body": "Pick a message for Pip to explain."
+      },
+      "slack": {
+        "name": "Slack",
+        "body": "Pick a Slack message for Pip to explain."
+      }
+    },
+    "settings": {
+      "stub": "Settings are coming."
+    }
   }
 }

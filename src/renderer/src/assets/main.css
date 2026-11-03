@@ -32,9 +32,24 @@
   /* Harbor-only tokens */
   --pip: #66a3bf;
   --body: #3a4652;
+
+  /* Pip's House: white cards on cream, and the room's tints (never sky blue, that is Pip's). */
+  --surface: #ffffff;
+  --radius-card: 1.5rem;
+  --shadow-card: 0 1px 2px rgb(30 42 54 / 0.06), 0 10px 24px -14px rgb(30 42 54 / 0.22);
+  --room-wall: #d9e9e5;
+  --room-floor: #e6e1d4;
+  --room-glass: #dce7f1;
+  --room-leaf: #6f9d97;
+  --room-leaf-dark: #4f7f79;
 }
 
 @theme inline {
+  --color-surface: var(--surface);
+  --color-room-wall: var(--room-wall);
+  --color-room-floor: var(--room-floor);
+  --radius-card: 1.5rem;
+  --shadow-card: 0 1px 2px rgb(30 42 54 / 0.06), 0 10px 24px -14px rgb(30 42 54 / 0.22);
   --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

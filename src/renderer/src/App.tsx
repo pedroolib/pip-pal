@@ -1,9 +1,9 @@
-import Manual from './manual/Manual'
+import { House } from './house/House'
 import Overlay from './Overlay'
 
-// Tiny routing, no dependency: Pip's House window loads this page with the hash #/home.
+// Tiny routing, no dependency: Pip's House window loads this page with the hash #/home (or #/home/<tab>).
 function App(): React.JSX.Element {
-  return location.hash === '#/home' ? <Manual /> : <Overlay />
+  return /^#\/home(\/|$)/.test(location.hash) ? <House /> : <Overlay />
 }
 
 export default App
