@@ -137,6 +137,8 @@ function Overlay(): React.JSX.Element {
         ref={frame}
         className={cn(
           'relative flex max-h-full w-full flex-col items-end select-none',
+          // Narrow window: button labels wrap and the button grows taller, instead of spilling out.
+          '[&_[data-slot=button]]:h-auto [&_[data-slot=button]]:min-h-10 [&_[data-slot=button]]:min-w-0 [&_[data-slot=button]]:py-2 [&_[data-slot=button]]:text-center [&_[data-slot=button]]:whitespace-normal',
           view !== 'docked' &&
             'h-full [&>[data-slot=card]]:flex-1 [&>[data-slot=card]]:justify-between'
         )}

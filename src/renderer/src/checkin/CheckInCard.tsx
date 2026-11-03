@@ -4,15 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { LOW_SPOONS } from '@shared/schemas'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
-import { Pip } from '@renderer/pip/Pip'
+import { Pip, type Mood } from '@renderer/pip/Pip'
 
-function Spoon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 16 32" className="-ml-1 h-6 w-3 first:ml-0" aria-hidden>
-      <ellipse cx={8} cy={8} rx={6} ry={7} fill="var(--primary)" />
-      <rect x={6.75} y={14} width={2.5} height={16} rx={1.25} fill="var(--primary)" />
-    </svg>
-  )
+// Each answer is Pip's face for that much energy, from worn out to full of beans.
+const FACES: Record<number, Mood> = {
+  1: 'sleepy',
+  2: 'quiet',
+  3: 'calm',
+  4: 'happy',
+  5: 'celebrate'
 }
 
 export function CheckInCard({
@@ -46,7 +46,7 @@ export function CheckInCard({
     <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
       <div className="flex items-center gap-3">
         <Pip mood="gentle" size={44} />
-        <div>
+        <div className="min-w-0 break-words">
           <h1 className="font-bold">{t('checkIn.title')}</h1>
           <p className="text-sm text-body">{t('checkIn.hint')}</p>
         </div>
@@ -58,12 +58,11 @@ export function CheckInCard({
             variant="outline"
             aria-label={t('checkIn.spoons', { count: n })}
             onClick={() => setPicked(n)}
-            className="h-auto flex-col gap-1 px-1 py-2"
+            className="h-auto min-w-0 flex-col gap-1 overflow-hidden px-1 py-2"
           >
-            <span className="flex h-6 items-end">
-              {Array.from({ length: n }, (_, i) => (
-                <Spoon key={i} />
-              ))}
+            {/* Sized by its wrapper so it shrinks with the button (Button forces size-4 on bare svgs). */}
+            <span className="flex h-10 w-full min-w-0 justify-center">
+              <Pip mood={FACES[n]} className="size-full" />
             </span>
             <span className="text-sm font-bold">{n}</span>
           </Button>
