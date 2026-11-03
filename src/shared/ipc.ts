@@ -4,6 +4,7 @@ import type {
   ChangeEvent,
   CheckIn,
   Decoded,
+  LoggableEvent,
   ActionKind,
   Expansion,
   Triage,
@@ -12,7 +13,9 @@ import type {
   Settings,
   Slot,
   Summary,
-  UnclearPart
+  SummaryPeriod,
+  UnclearPart,
+  UsageEvent
 } from './schemas'
 
 export interface Bounds {
@@ -43,6 +46,11 @@ export const IPC = {
   changeList: 'change:list',
   achievementAdd: 'achievement:add',
   achievementList: 'achievement:list',
+  eventLog: 'event:log',
+  eventList: 'event:list',
+  eventDelete: 'event:delete',
+  eventClear: 'event:clear',
+  learnedRefresh: 'learned:refresh',
   summaryGenerate: 'summary:generate',
   summaryExportPdf: 'summary:export-pdf',
   homeOpen: 'home:open',
@@ -83,7 +91,15 @@ export interface PipApi {
   listChanges(): Promise<ChangeEvent[]>
   addAchievement(achievement: Achievement): Promise<void>
   listAchievements(): Promise<Achievement[]>
-  generateSummary(recipient: Recipient): Promise<Summary>
+  /** Appends an event the cards report (asked, step, calm). Main assigns id and at, and rejects other kinds. */
+  logEvent(e: LoggableEvent): Promise<void>
+  /** Newest first is up to the caller; events older than EVENT_RETENTION_DAYS are already pruned. */
+  listEvents(): Promise<UsageEvent[]>
+  deleteEvent(id: string): Promise<void>
+  clearEvents(): Promise<void>
+  /** Runs pattern detection; returns the profile with any new pending entries. */
+  refreshLearned(): Promise<Profile>
+  generateSummary(recipient: Recipient, period: SummaryPeriod): Promise<Summary>
   /** Prints the open summary to PDF; resolves to the saved path, or null if cancelled. */
   exportSummaryPdf(): Promise<string | null>
   openHome(): void

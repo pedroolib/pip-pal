@@ -62,7 +62,17 @@ describe('forRecipient', () => {
       { label: 'Walk', minutes: 5, origin: 'self', visibleTo: ['coach'] },
       { label: 'Secret', minutes: 2, origin: 'self', visibleTo: [] }
     ],
-    pending: [{ id: 'x', section: 'stress', text: 'p', origin: 'pip', visibleTo: ['manager'] }]
+    pending: [
+      {
+        id: 'x',
+        key: 'k',
+        why: 'w',
+        section: 'stress',
+        text: 'p',
+        origin: 'pip',
+        visibleTo: ['manager']
+      }
+    ]
   })
 
   it('never shows a coach-only entry to the manager, and drops empty sections', () => {
@@ -100,7 +110,17 @@ describe('buildProfileContext', () => {
       ]
     }),
     calmingStrategies: [{ label: 'Walk with Alex', minutes: 5, origin: 'self', visibleTo: [] }],
-    pending: [{ id: 'x', section: 'stress', text: 'PENDINGTEXT', origin: 'pip', visibleTo: [] }]
+    pending: [
+      {
+        id: 'x',
+        key: 'k',
+        why: 'w',
+        section: 'stress',
+        text: 'PENDINGTEXT',
+        origin: 'pip',
+        visibleTo: []
+      }
+    ]
   }
 
   it('swaps names for roles everywhere, tags origin, lists calming strategies', () => {

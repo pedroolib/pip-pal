@@ -187,6 +187,14 @@ Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts
 - Con menos de 3 encendidos Pip sugiere 3, sin bloquear. No hay estudio que diga que 3 es el mínimo; es nuestra sugerencia (inicio, mitad y fin del día de trabajo). Fuentes en [research/check-in-frequency.md](research/check-in-frequency.md).
 - Límite conocido: el día del cambio de horario de primavera una hora puede sonar hasta una hora tarde.
 
+**Registro de uso y lo que Pip aprende** (`UsageEvent` en `src/shared/schemas.ts`, `events.json`):
+- **Periodos de Mi resumen:** `today` (desde la medianoche local), `7d` (por defecto), `14d`, `30d`. Son ventanas móviles contadas hacia atrás desde ahora, no semanas ni meses de calendario.
+- **Eventos:** `decoded`, `action`, `asked`, `step`, `calm`. Quién los registra: **main** registra `decoded` (en cada triage, con el texto crudo y las etiquetas) y `action` (en cada expand). **Las tarjetas** llaman `api.logEvent` para `asked` (uno por pregunta copiada), `step` (hecho o puede esperar) y `calm` (usada u omitida), y agregan el logro `asked_not_guessed` en la primera copia por mensaje. `LoggableEvent` rechaza `decoded` y `action`; main asigna `id` y `at`.
+- **Privacidad:** el texto crudo se queda en la máquina. Solo sale limpio (`scrubForModel`), y la versión del jefe recibe solo conteos y temas, nunca texto de mensajes. El filtro por destinatario es código, no el prompt.
+- **Retención:** 90 días (`EVENT_RETENTION_DAYS`); se borra al leer o escribir. En Ajustes la persona puede borrar un evento o todos.
+- **Patrones** (solo código, sin Claude; ventana de 14 días, mínimo 3 veces): `energy:<franja>` (la franja más baja del día en 3 o más días), `drain:<categoría>` (baja de cucharas entre dos check-ins con un mensaje de esa categoría en medio; dice "suele venir con", nunca "causa"), `ask:<tema>` (3 o más preguntas copiadas del mismo tema), `calm:<estrategia>` (usada y el siguiente check-in del día fue más alto). Con menos de 3 check-ins en el periodo no hay patrones.
+- **Pendientes:** cada patrón es un `PendingEntry` con `key` estable y `why`. Aprobar lo mueve a su sección con origen `pip` y `visibleTo: []`. Descartar guarda la `key` en `Profile.dismissed` 30 días. Pip nunca edita entradas `coach` o `self` ni muestra nada en el overlay.
+
 **Cuándo cambiar:**
 - **Cifrado con `safeStorage`** (llavero del sistema) **antes de que una persona real meta su propio perfil.** Sam es ficticio, así que no hace falta para el demo.
 - **SQLite local** si el historial crece a meses o llega la ficha del rol con embeddings (`sqlite-vec`, nivel 3).

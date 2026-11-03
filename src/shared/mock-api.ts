@@ -8,9 +8,12 @@ import {
   CheckIn,
   DEFAULT_SETTINGS,
   Decoded,
+  LoggableEvent,
   Expansion,
   Profile,
   Recipient,
+  SummaryPeriod,
+  UsageEvent,
   Settings,
   Triage
 } from './schemas'
@@ -23,6 +26,7 @@ import decodedJson from './fixtures/demo.decoded.json'
 import checkInsJson from './fixtures/week.checkins.json'
 import changesJson from './fixtures/week.changes.json'
 import achievementsJson from './fixtures/achievements.json'
+import eventsJson from './fixtures/week.events.json'
 
 export function createMockApi(): PipApi {
   // Parsing up front doubles as the fixture self-check: a bad fixture fails loudly on startup.
@@ -36,6 +40,7 @@ export function createMockApi(): PipApi {
   const checkIns = CheckIn.array().parse(checkInsJson)
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
+  let events = UsageEvent.array().parse(eventsJson)
 
   return {
     onCaptured: () => () => {},
@@ -53,22 +58,56 @@ export function createMockApi(): PipApi {
     saveChange: async (c) => void changes.push(ChangeEvent.parse(c)),
     listAchievements: async () => achievements,
     addAchievement: async (a) => void achievements.push(Achievement.parse(a)),
-    generateSummary: async (r) => ({
+    logEvent: async (e) => {
+      events.push(
+        UsageEvent.parse({
+          ...LoggableEvent.parse(e),
+          id: crypto.randomUUID(),
+          at: new Date().toISOString()
+        })
+      )
+    },
+    listEvents: async () => [...events],
+    deleteEvent: async (id) => void (events = events.filter((e) => e.id !== id)),
+    clearEvents: async () => void (events = []),
+    refreshLearned: async () => ({
+      ...profile,
+      pending: [
+        {
+          id: 'pending-energy-midday',
+          key: 'energy:midday',
+          section: 'energy',
+          text: 'Midday is often your lowest-energy time.',
+          origin: 'pip',
+          visibleTo: [],
+          why: 'Midday was your lowest check-in on 4 of the last 5 days.'
+        }
+      ]
+    }),
+    generateSummary: async (r, period) => ({
       recipient: Recipient.parse(r),
+      period: SummaryPeriod.parse(period),
       from: checkIns[0].at,
       to: checkIns[checkIns.length - 1].at,
       points: [
         {
           text: 'Energy dipped mid-week (1–2 spoons on Thursday).',
+          why: 'Thursday check-ins: 2, 1, 2 spoons.',
           source: 'checkins',
           include: true
         },
         {
           text: 'The report deadline moved with one day of notice.',
+          why: 'One project change logged this week.',
           source: 'changes',
           include: true
         },
-        { text: 'Asked instead of guessing once this week.', source: 'achievements', include: true }
+        {
+          text: 'Asked instead of guessing once this week.',
+          why: 'One "asked, not guessed" achievement this week.',
+          source: 'achievements',
+          include: true
+        }
       ]
     }),
     exportSummaryPdf: async () => null,
