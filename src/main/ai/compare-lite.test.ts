@@ -58,7 +58,13 @@ describe('formatLite', () => {
                 ms: 400,
                 output: {
                   kind: 'questions',
-                  questions: [{ what: '"soon" has no date.', suggestedQuestion: 'By when?' }],
+                  questions: [
+                    {
+                      what: '"soon" has no date.',
+                      suggestedQuestion: 'By when?',
+                      topic: 'deadline'
+                    }
+                  ],
                   profileUsed: []
                 },
                 error: null

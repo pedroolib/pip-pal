@@ -7,7 +7,7 @@
   { "id": "ev-06", "at": "2026-10-27T11:00:00-06:00", "kind": "decoded", "text": "Sam, Alex here. The forecasting kickoff moves from Thursday to tomorrow at 10:00, can you join?", "isChange": 0.85, "changeType": "project", "isNewTask": 0.1, "tone": "worried" },
   { "id": "ev-07", "at": "2026-10-27T11:02:00-06:00", "kind": "action", "action": "transition" },
   { "id": "ev-08", "at": "2026-10-27T11:05:00-06:00", "kind": "step", "status": "done", "text": "Move the Thursday slot to tomorrow at 10:00 in my calendar" },
-  { "id": "ev-09", "at": "2026-10-27T14:00:00-06:00", "kind": "calm", "status": "used", "strategyId": "walk" },
+  { "id": "ev-09", "at": "2026-10-27T14:00:00-06:00", "kind": "calm", "status": "used", "strategyId": "music" },
   { "id": "ev-10", "at": "2026-10-28T10:10:00-06:00", "kind": "decoded", "text": "Rui: can you take a look at the churn notebook when you have a minute? Nothing urgent.", "isChange": 0.05, "changeType": "none", "isNewTask": 0.7, "tone": "friendly" },
   { "id": "ev-11", "at": "2026-10-28T10:11:00-06:00", "kind": "action", "action": "steps" },
   { "id": "ev-12", "at": "2026-10-28T15:00:00-06:00", "kind": "decoded", "text": "Sam, the client wants the dashboard handed over by Friday instead of next week. Alex says Dana will pick it up after.", "isChange": 0.8, "changeType": "project", "isNewTask": 0.4, "tone": "upset" },
@@ -22,5 +22,5 @@
   { "id": "ev-21", "at": "2026-10-29T14:30:00-06:00", "kind": "calm", "status": "used", "strategyId": "coloring" },
   { "id": "ev-22", "at": "2026-10-30T09:40:00-06:00", "kind": "decoded", "text": "Hi Sam, can you update the weekly numbers when you can? Thanks, Dana", "isChange": 0.05, "changeType": "none", "isNewTask": 0.8, "tone": "neutral" },
   { "id": "ev-23", "at": "2026-10-30T09:41:00-06:00", "kind": "action", "action": "steps" },
-  { "id": "ev-24", "at": "2026-10-30T15:00:00-06:00", "kind": "calm", "status": "skipped", "strategyId": "music" }
+  { "id": "ev-24", "at": "2026-10-30T15:00:00-06:00", "kind": "calm", "status": "used", "strategyId": "music" }
 ]

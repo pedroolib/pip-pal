@@ -5,6 +5,8 @@ import { Achievement, ChangeEvent, CheckIn } from '@shared/schemas'
 import checkInsJson from '@shared/fixtures/week.checkins.json'
 import changesJson from '@shared/fixtures/week.changes.json'
 import achievementsJson from '@shared/fixtures/achievements.json'
+import eventsJson from '@shared/fixtures/week.events.json'
+import { createEventStore } from './event-store'
 import { createLogStore } from './log-store'
 import { createProfileStore } from './profile-store'
 import { createSettingsStore } from './settings-store'
@@ -15,6 +17,7 @@ export function openStorage(): {
   checkIns: ReturnType<typeof createLogStore<CheckIn>>
   changes: ReturnType<typeof createLogStore<ChangeEvent>>
   achievements: ReturnType<typeof createLogStore<Achievement>>
+  events: ReturnType<typeof createEventStore>
 } {
   const data = (name: string): string => join(app.getPath('userData'), name)
   return {
@@ -23,7 +26,8 @@ export function openStorage(): {
     // Seeded with Sam's demo week so Mi resumen has something to summarize on first run.
     checkIns: createLogStore(data('checkins.json'), CheckIn, checkInsJson),
     changes: createLogStore(data('changes.json'), ChangeEvent, changesJson),
-    achievements: createLogStore(data('achievements.json'), Achievement, achievementsJson)
+    achievements: createLogStore(data('achievements.json'), Achievement, achievementsJson),
+    events: createEventStore(data('events.json'), eventsJson)
   }
 }
 

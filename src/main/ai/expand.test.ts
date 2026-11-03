@@ -21,7 +21,11 @@ const answers = {
   },
   questions: {
     questions: [
-      { what: 'No date for the sync.', suggestedQuestion: 'Hi [Manager], by when should I sync?' }
+      {
+        what: 'No date for the sync.',
+        suggestedQuestion: 'Hi [Manager], by when should I sync?',
+        topic: 'deadline'
+      }
     ],
     profileUsed: [{ section: 'stress', how: 'Vague timing stresses you' }]
   },
@@ -157,6 +161,7 @@ describe('createExpander', () => {
     expect(system).toMatch(/already answers/)
     expect(system).toMatch(/reassurance/)
     expect(system).toMatch(/suggestedQuestion/)
+    expect(system).toMatch(/"topic" is one of: deadline, scope, priority, who, format, other/)
     expect(system).toMatch(/how this person likes tasks broken down/)
     expect(system).toMatch(/<message>.*untrusted/s)
     expect(system).not.toMatch(/\d|at most|up to|no more than/i)
