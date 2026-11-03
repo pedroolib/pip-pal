@@ -1,4 +1,4 @@
-// The overlay: check-in → triage bubble next to the cursor (Esc closes it) → Pip docked.
+// The overlay: check-in → triage bubble next to the cursor (Esc closes it) → hidden until the hotkey.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { DEFAULT_SETTINGS, dueCheckIn, enabledTimes, type Triage } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
@@ -20,7 +20,9 @@ function spoonsOverride(): number | null {
   return Number.isInteger(v) && v >= 1 && v <= 5 ? v : null
 }
 
-type View = 'checkIn' | 'triage' | 'docked'
+// 'hidden' draws nothing; the click-through window then lets every click reach the app below.
+// 'docked' is kept for while a task is open (Break it into steps etc.), once those are wired.
+type View = 'checkIn' | 'triage' | 'docked' | 'hidden'
 
 // The window's transparent padding around the bubble (p-[32px] below). The window is sized to
 // BUBBLE_WIDTH, not measured, so a window that starts too narrow can't keep the card squeezed.
@@ -72,8 +74,8 @@ function Overlay(): React.JSX.Element {
       .then((result) => id === request.current && setTriage(result))
       .catch(() => id === request.current && setError(true))
   }
-  // Nothing opens by itself in the app: after the check-in Pip docks and waits for the hotkey.
-  const afterCheckIn = (): void => (inBrowser ? capture('') : setView('docked'))
+  // Nothing opens by itself in the app: after the check-in Pip hides and waits for the hotkey.
+  const afterCheckIn = (): void => (inBrowser ? capture('') : setView('hidden'))
 
   useEffect(() => {
     // A failed settings read means "ask at the default times".
@@ -81,7 +83,7 @@ function Overlay(): React.JSX.Element {
     settings.then((s) => s && applySettings(s))
     Promise.all([api.listCheckIns(), settings]).then(([checkIns, s]) => {
       // Ask at launch only if the latest enabled time that passed today is unanswered (main's rule);
-      // after "Not now" the docked Pip still opens the check-in on click.
+      // after "Not now" it asks once more later.
       const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
       unanswered.current = spoonsOverride() === null && !!due
       if (spoonsOverride() !== null || !due) afterCheckIn()
@@ -112,7 +114,7 @@ function Overlay(): React.JSX.Element {
     api.setBubbleOpen(true)
     const close = (): void => {
       request.current++ // a late answer must not reopen what was closed
-      setView('docked')
+      setView('hidden')
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') close()
@@ -126,7 +128,7 @@ function Overlay(): React.JSX.Element {
     }
   }, [view])
 
-  // The window is fitted to the bubble, keeping its top-left; docked, it shrinks back around Pip;
+  // The window is fitted to the bubble, keeping its top-left; docked or hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
   // snooze re-open would move it, or undo a size the person dragged).
   useEffect(() => {
@@ -135,7 +137,7 @@ function Overlay(): React.JSX.Element {
       resized.current = false
       api.setOverlayBounds({ x: screenX, y: screenY, ...CHECKIN_SIZE })
     }
-    if (view === 'docked' && atCursor) {
+    if ((view === 'docked' || view === 'hidden') && atCursor) {
       resized.current = true
       api.setOverlayBounds({ x: screenX, y: screenY, width: 0, height: 0 })
     }
@@ -154,7 +156,7 @@ function Overlay(): React.JSX.Element {
     return () => observer.disconnect()
   }, [view, atCursor])
 
-  if (!view) return <></>
+  if (!view || view === 'hidden') return <></>
 
   const answer = (n: number): void => {
     const at = new Date()
@@ -164,9 +166,9 @@ function Overlay(): React.JSX.Element {
   }
   // Asks once more later, then leaves it: Pip never insists.
   const snoozeCheckIn = (): void => {
-    setView('docked')
+    setView('hidden')
     if (snooze.current) return
-    snooze.current = setTimeout(() => setView((v) => (v === 'docked' ? 'checkIn' : v)), SNOOZE_MS)
+    snooze.current = setTimeout(() => setView((v) => (v === 'hidden' ? 'checkIn' : v)), SNOOZE_MS)
   }
 
   const corner = view === 'checkIn' || (view === 'docked' && !atCursor)
