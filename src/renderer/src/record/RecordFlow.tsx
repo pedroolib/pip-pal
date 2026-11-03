@@ -131,6 +131,11 @@ export function RecordFlow({
       (r) => {
         if (id !== run.current) return r.cancel()
         rec.current = r
+        // Only a source that really started becomes the next preselection.
+        api
+          .getSettings()
+          .then((s) => api.saveSettings({ ...s, recordSource: from }))
+          .catch(() => {})
         setStarted(Date.now())
         setNow(Date.now())
         setPhase('recording')
@@ -138,20 +143,13 @@ export function RecordFlow({
       (e) => id === run.current && setPhase(e instanceof CantHearError ? 'cantHear' : 'error')
     )
   }
-  // Start on the source card: the choice becomes the next preselection.
+  // Start on the source card.
   // Read through a ref so the key effect below does not re-register Esc on every radio click.
   const chosen = useRef(source)
   useEffect(() => {
     chosen.current = source
   }, [source])
-  const begin = (): void => {
-    const from = chosen.current
-    api
-      .getSettings()
-      .then((s) => api.saveSettings({ ...s, recordSource: from }))
-      .catch(() => {})
-    start(from)
-  }
+  const begin = (): void => start(chosen.current)
   const stop = (auto = false): void => {
     const r = rec.current
     if (!r) return

@@ -236,11 +236,25 @@ function setCorner(state: CornerPip | null): void {
   win.showInactive()
 }
 
+// The overlay is unfocusable except while a record card needs the keyboard (IPC.overlayFocus).
+function setOverlayFocus(win: BrowserWindow, on: boolean): void {
+  if (on) {
+    win.setFocusable(true)
+    win.focus()
+  } else {
+    win.blur()
+    win.setFocusable(false)
+  }
+}
+
 // Hotkey pressed: read the selection and hand it to the overlay. Ignores presses while one is running.
 let capturing = false
 async function capture(): Promise<void> {
   if (capturing) return
   capturing = true
+  // A record card may hold the keyboard: give it back first, or the copy keys land in Pip itself.
+  const held = !!overlay?.isFocused()
+  if (held) setOverlayFocus(overlay!, false)
   try {
     const { text, fromSelection, app: from } = await captureSelection()
     if (is.dev) {
@@ -250,7 +264,11 @@ async function capture(): Promise<void> {
       console.log(`[capture] ${source}${where}, ${text.length} chars: ${text.slice(0, 80)}…`)
     }
     const win = overlay
-    if (!text.trim() || !win) return
+    if (!text.trim() || !win) {
+      // Nothing to read, so the record card stays open and needs its keyboard back.
+      if (held && win) setOverlayFocus(win, true)
+      return
+    }
     // The bubble opens next to the cursor, its card just inside the transparent padding. Not clamped:
     // the renderer reads the cursor back from this position and fits the bubble on screen itself,
     // opening it left or up near an edge (CURSOR_GAP in Overlay.tsx).
@@ -420,13 +438,7 @@ app.whenReady().then(() => {
   ipcMain.on(IPC.overlayFocus, (event, on: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== overlay || typeof on !== 'boolean') return
-    if (on) {
-      win.setFocusable(true)
-      win.focus()
-    } else {
-      win.blur()
-      win.setFocusable(false)
-    }
+    setOverlayFocus(win, on)
   })
 
   // Only the overlay sets the corner Pip; its click goes back to the overlay to swap.
