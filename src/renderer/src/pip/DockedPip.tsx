@@ -12,6 +12,7 @@ export function DockedPip({
   mood,
   progress,
   doneStep,
+  label,
   onOpen
 }: {
   mood: Mood
@@ -19,6 +20,8 @@ export function DockedPip({
   progress: number | null
   /** Number of the step just finished; shows the pill for a few seconds. */
   doneStep: number | null
+  /** What a click opens, for screen readers; defaults to "Open Pip". */
+  label?: string
   onOpen: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -48,7 +51,7 @@ export function DockedPip({
         type="button"
         data-overlay-hit
         onClick={onOpen}
-        aria-label={t('dock.open')}
+        aria-label={label ?? t('dock.open')}
         className="relative flex items-center justify-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {progress !== null && (

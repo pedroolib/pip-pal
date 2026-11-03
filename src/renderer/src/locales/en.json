@@ -37,7 +37,9 @@
   },
   "dock": {
     "open": "Open Pip",
-    "stepDone": "Step {{n}} done"
+    "stepDone": "Step {{n}} done",
+    "openMenu": "Show the buttons again",
+    "openTask": "Back to your task"
   },
   "bubble": {
     "due": "Due {{date}}",
