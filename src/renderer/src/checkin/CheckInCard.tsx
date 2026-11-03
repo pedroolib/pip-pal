@@ -5,6 +5,7 @@ import { LOW_SPOONS } from '@shared/schemas'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Pip } from '@renderer/pip/Pip'
+import { slotFor } from './model'
 
 function Spoon(): React.JSX.Element {
   return (
@@ -42,10 +43,12 @@ export function CheckInCard({
     )
   }
 
+  // The afternoon check-in closes the day, so Pip winds down; earlier ones stay gentle.
+  const winding = slotFor(new Date()) === 'afternoon'
   return (
     <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
       <div className="flex items-center gap-3">
-        <Pip mood="gentle" size={44} />
+        <Pip mood={winding ? 'sleepy' : 'gentle'} size={44} />
         <div>
           <h1 className="font-bold">{t('checkIn.title')}</h1>
           <p className="text-sm text-body">{t('checkIn.hint')}</p>

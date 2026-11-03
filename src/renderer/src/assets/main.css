@@ -162,6 +162,137 @@ html:has([data-overlay-root]) {
   animation: pip-blink 5s infinite;
 }
 
+/* Motion: short, small and soft. Only opacity and a few pixels of movement (never a bounce on a
+   surface), so nothing jumps at the person; Pip alone gets small reactions. Overlay cards only move,
+   never scale, because the window is fitted to their measured size. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --motion-fast: 160ms;
+  --motion-base: 260ms;
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise, 6px));
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+/* Pip reacts to a new mood: a small squash and settle. */
+@keyframes pip-react {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.08, 0.94);
+  }
+  70% {
+    transform: scale(0.97, 1.03);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+/* Breathing pace for the calming timer: 4 s in, 4 s out. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+/* The "Step 2 done" pill slides in, stays, and fades before it goes. */
+@keyframes pill-life {
+  0% {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  8%,
+  88% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Every overlay card (bubble, task, calm, check-in) rises in when it appears; it opens toward the
+   cursor's side, so a bubble flipped up rises down. */
+[data-overlay-root] [data-slot='card'] {
+  animation: rise-in var(--motion-base) var(--ease-out) both;
+}
+[data-overlay-root][data-flip-y] [data-slot='card'] {
+  --rise: -6px;
+}
+/* A new step, a calm offer or a switched card's content fades across. */
+.motion-swap {
+  animation: rise-in var(--motion-base) var(--ease-out) both;
+  --rise: 4px;
+}
+/* Lists arrive one after another, quickly. */
+.motion-stagger > * {
+  animation: rise-in var(--motion-base) var(--ease-out) both;
+  --rise: 4px;
+}
+.motion-stagger > :nth-child(2) {
+  animation-delay: 40ms;
+}
+.motion-stagger > :nth-child(3) {
+  animation-delay: 80ms;
+}
+.motion-stagger > :nth-child(4) {
+  animation-delay: 120ms;
+}
+.motion-stagger > :nth-child(5) {
+  animation-delay: 160ms;
+}
+.motion-stagger > :nth-child(n + 6) {
+  animation-delay: 200ms;
+}
+.pip-docked,
+.motion-pop {
+  animation: pop-in var(--motion-base) var(--ease-out) both;
+}
+.pip-react {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+  animation: pip-react 480ms var(--ease-out);
+}
+.pip-breathe {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: breathe 8s var(--ease-in-out) infinite;
+}
+.pill-life {
+  animation: pill-life 4s var(--ease-out) both;
+}
+/* Pressing anything gives way a little. */
+[data-slot='button'] {
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--ease-out);
+}
+[data-slot='button']:not(:disabled):active {
+  transform: scale(0.97);
+}
+/* Pip's House: a tab's view fades up when it opens. */
+html.house-page main {
+  animation: rise-in var(--motion-base) var(--ease-out) both;
+  --rise: 8px;
+}
+
 /* Honour the OS "reduce motion" setting for Pip and every shadcn animation. The Settings
    "Calmer motion" switch adds .calm-motion to <html> for the same rules; the OS setting always applies. */
 @media (prefers-reduced-motion: reduce) {

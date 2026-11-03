@@ -9,7 +9,7 @@ import { useLoad } from './useLoad'
 
 export function AchievementsView(): React.JSX.Element {
   const { t, i18n } = useTranslation()
-  const { data, failed, reload } = useLoad(() => api.listAchievements())
+  const { data, failed, reload } = useLoad(() => api.listAchievements(), { onFocus: true })
   const groups = groupByDay(data ?? [])
 
   return (
@@ -38,7 +38,7 @@ export function AchievementsView(): React.JSX.Element {
           <section key={g.at} className="flex flex-col gap-2.5">
             <h2 className="px-1 font-bold text-body">{dayLabel(g.at, i18n.language)}</h2>
             <HouseCard className="gap-0 py-2">
-              <ul>
+              <ul className="motion-stagger">
                 {g.items.map((a) => (
                   <li key={a.at + a.label} className="border-border py-3.5 not-first:border-t">
                     <AchievementRow a={a} when="time" />
