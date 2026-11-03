@@ -91,6 +91,15 @@ describe('startCheckInSchedule', () => {
     expect(due).toEqual(['morning', 'morning'])
   })
 
+  it('does not ask a time moved into the past, on the next wake', () => {
+    vi.setSystemTime(at(14))
+    const s = start()
+    times = ['09:00', '13:00', '13:30'] // 17:00 moved to 13:30
+    s.reschedule()
+    s.resume()
+    expect(due).toEqual([])
+  })
+
   it('does not ask a turned-off time', () => {
     vi.setSystemTime(at(8))
     const s = start()

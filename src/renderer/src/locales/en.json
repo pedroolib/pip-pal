@@ -362,6 +362,8 @@
         "morning": "Morning",
         "midday": "Midday",
         "afternoon": "Afternoon",
+        "evening": "Evening",
+        "timeLabel": "Check-in time, {{part}}, {{time}}",
         "toggle": "Ask at {{time}}",
         "remove": "Remove {{time}}",
         "add": "Add a time",

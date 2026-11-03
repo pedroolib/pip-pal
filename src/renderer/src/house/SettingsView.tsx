@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Keyboard, Languages, Plus, ShieldCheck, Sun, Sunrise, Sunset, Wind, X } from 'lucide-react'
 import {
-  MAX_CHECK_INS,
-  slotForHour,
-  type CheckInTime,
-  type Settings,
-  type Slot
-} from '@shared/schemas'
+  Keyboard,
+  Languages,
+  Moon,
+  Plus,
+  ShieldCheck,
+  Sun,
+  Sunrise,
+  Sunset,
+  Wind,
+  X
+} from 'lucide-react'
+import { MAX_CHECK_INS, type CheckInTime, type Settings } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -21,13 +26,10 @@ import {
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
 import { HouseCard, Page } from './parts'
-import { applySettings, isMac, nextFreeTime, shortcutKeys } from './settings'
+import { applySettings, isMac, nextFreeTime, rowBucket, shortcutKeys, showTime } from './settings'
 import { useLoad } from './useLoad'
 
-const SLOT_ICONS = { morning: Sunrise, midday: Sun, afternoon: Sunset } satisfies Record<
-  Slot,
-  unknown
->
+const BUCKET_ICONS = { morning: Sunrise, midday: Sun, afternoon: Sunset, evening: Moon }
 
 /** Fewer enabled check-ins than this shows a gentle suggestion; it never blocks. */
 const SUGGESTED_CHECK_INS = 3
@@ -58,14 +60,17 @@ export function SettingsView(): React.JSX.Element {
   const [saved, setSaved] = useState<Settings | null>(null)
   const [error, setError] = useState<string | null>(null)
   const settings = saved ?? data
+  const seq = useRef(0)
 
   const change = (key: string, next: Settings): void => {
     const prev = settings
     if (!prev) return
+    const mine = ++seq.current
     setSaved(next)
     setError(null)
     applySettings(next)
     api.saveSettings(next).catch(() => {
+      if (mine !== seq.current) return // a later change superseded this one
       setSaved(prev)
       applySettings(prev)
       setError(key)
@@ -126,7 +131,11 @@ export function SettingsView(): React.JSX.Element {
       <div className="grid gap-4 sm:grid-cols-2">
         <HouseCard className="h-full">
           <Heading Icon={Languages}>
-            <Label htmlFor="language" className="text-[1.0625rem] leading-snug font-bold">
+            <Label
+              htmlFor="language"
+              data-disabled={off || undefined}
+              className="text-[1.0625rem] leading-snug font-bold"
+            >
               {t('house.settings.language.title')}
             </Label>
           </Heading>
@@ -158,7 +167,11 @@ export function SettingsView(): React.JSX.Element {
             <span className={iconChip}>
               <Wind className="size-6" aria-hidden />
             </span>
-            <Label htmlFor="calm" className="flex-1 text-[1.0625rem] leading-snug font-bold">
+            <Label
+              htmlFor="calm"
+              data-disabled={off || undefined}
+              className="flex-1 text-[1.0625rem] leading-snug font-bold"
+            >
               {t('house.settings.calm.title')}
             </Label>
             <Switch
@@ -239,6 +252,11 @@ function CheckInTimes({
     focusNext.current = `time-${id}`
     save('add', [...list, { id, time: nextFreeTime(list.map((c) => c.time)), enabled: true }])
   }
+  const leave = (id: string): void => {
+    // Back to the last saved time, so the row never shows a time that isn't saved.
+    dropDraft(id)
+    if (taken === id) setTaken(null)
+  }
   const remove = (id: string): void => {
     dropDraft(id)
     if (taken === id) setTaken(null)
@@ -259,8 +277,9 @@ function CheckInTimes({
       </div>
       <div>
         {list.map((c) => {
-          const slot = slotForHour(+c.time.slice(0, 2))
-          const Icon = SLOT_ICONS[slot]
+          const shown = draft[c.id] || c.time
+          const bucket = rowBucket(shown)
+          const Icon = BUCKET_ICONS[bucket]
           return (
             <div
               key={c.id}
@@ -270,8 +289,12 @@ function CheckInTimes({
                 <Icon className="size-6" aria-hidden />
               </span>
               <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
-                <Label htmlFor={`time-${c.id}`} className="font-bold">
-                  {t(`house.settings.checkIns.${slot}`)}
+                <Label
+                  htmlFor={`time-${c.id}`}
+                  data-disabled={off || undefined}
+                  className="font-bold"
+                >
+                  {t(`house.settings.checkIns.${bucket}`)}
                 </Label>
                 <Input
                   id={`time-${c.id}`}
@@ -280,13 +303,18 @@ function CheckInTimes({
                   disabled={off}
                   value={draft[c.id] ?? c.time}
                   onChange={(e) => edit(c.id, e.target.value)}
-                  onBlur={() => draft[c.id] === '' && dropDraft(c.id)}
+                  onBlur={() => leave(c.id)}
+                  aria-label={t('house.settings.checkIns.timeLabel', {
+                    part: t(`house.settings.checkIns.${bucket}`),
+                    time: showTime(shown)
+                  })}
+                  aria-invalid={taken === c.id || undefined}
                   aria-describedby={taken === c.id ? `taken-${c.id}` : undefined}
                   className="min-h-11 w-fit rounded-md border-[1.5px] bg-surface text-base focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid"
                 />
               </div>
               <Switch
-                aria-label={t('house.settings.checkIns.toggle', { time: c.time })}
+                aria-label={t('house.settings.checkIns.toggle', { time: showTime(c.time) })}
                 disabled={off}
                 checked={c.enabled}
                 onCheckedChange={(enabled) =>
@@ -300,18 +328,17 @@ function CheckInTimes({
                 variant="ghost"
                 size="icon"
                 disabled={off}
-                aria-label={t('house.settings.checkIns.remove', { time: c.time })}
+                aria-label={t('house.settings.checkIns.remove', { time: showTime(c.time) })}
                 onClick={() => remove(c.id)}
-                className="size-11 rounded-full"
+                className="size-11 rounded-full focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring"
               >
                 <X className="size-5" aria-hidden />
               </Button>
               <div className="basis-full pl-[54px] empty:hidden">
-                {taken === c.id && (
-                  <p id={`taken-${c.id}`} role="status" className="text-sm text-body">
-                    {t('house.settings.checkIns.taken', { time: draft[c.id] })}
-                  </p>
-                )}
+                <p id={`taken-${c.id}`} role="status" className="text-sm text-body empty:hidden">
+                  {taken === c.id &&
+                    t('house.settings.checkIns.taken', { time: showTime(draft[c.id]) })}
+                </p>
                 {fail(c.id)}
               </div>
             </div>
@@ -329,14 +356,16 @@ function CheckInTimes({
           <Plus className="size-5" aria-hidden />
           {t('house.settings.checkIns.add')}
         </Button>
-        {full && (
-          <p className="text-sm text-muted-foreground">{t('house.settings.checkIns.max')}</p>
-        )}
+        <p role="status" className="text-sm text-muted-foreground empty:hidden">
+          {full && t('house.settings.checkIns.max')}
+        </p>
       </div>
       {fail('add')}
-      {settings && list.filter((c) => c.enabled).length < SUGGESTED_CHECK_INS && (
-        <p className="text-sm text-muted-foreground">{t('house.settings.checkIns.fewNote')}</p>
-      )}
+      <p role="status" className="text-sm text-muted-foreground empty:hidden">
+        {settings &&
+          list.filter((c) => c.enabled).length < SUGGESTED_CHECK_INS &&
+          t('house.settings.checkIns.fewNote')}
+      </p>
     </HouseCard>
   )
 }

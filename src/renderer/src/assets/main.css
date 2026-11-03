@@ -112,6 +112,10 @@
 
 /* Pip's House hides its scroll bars (House.tsx sets the class) so the tab bar never shifts
    between tabs; wheel, trackpad and keys still scroll. The overlay keeps the default. */
+html.house-page {
+  /* Focused rows scroll clear of the sticky tab bar. */
+  scroll-padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
 html.house-page,
 html.house-page * {
   scrollbar-width: none;

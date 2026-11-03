@@ -1,16 +1,13 @@
 // When Pip asks for spoons. Each time is asked at most once a day and only if it wasn't answered:
 // Pip never insists (the overlay's "Not now" handles the one reminder).
-import { dueCheckIn, slotForHour, type CheckIn, type Slot } from '@shared/schemas'
-
-const on = (day: Date, time: string): Date =>
-  new Date(day.getFullYear(), day.getMonth(), day.getDate(), +time.slice(0, 2), +time.slice(3, 5))
+import { dueCheckIn, onDay, slotForHour, type CheckIn, type Slot } from '@shared/schemas'
 
 /** The first of `times` (sorted "HH:MM") strictly after `now`; after the last one, tomorrow's first. */
 export function nextCheckIn(now: Date, times: string[]): Date | null {
   if (!times.length) return null
-  const next = times.find((t) => on(now, t) > now)
-  if (next) return on(now, next)
-  return on(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1), times[0])
+  const next = times.find((t) => onDay(now, t) > now)
+  if (next) return onDay(now, next)
+  return onDay(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1), times[0])
 }
 
 /**
@@ -31,7 +28,7 @@ export function startCheckInSchedule(opts: {
   const latestPassed = (t: Date): string | undefined =>
     opts
       .times()
-      .filter((x) => on(t, x) <= t)
+      .filter((x) => onDay(t, x) <= t)
       .at(-1)
 
   const check = (): void => {
@@ -42,6 +39,9 @@ export function startCheckInSchedule(opts: {
     asked.add(key)
     if (dueCheckIn(opts.times(), opts.listCheckIns(), t)) opts.onDue(slotForHour(+time.slice(0, 2)))
   }
+  // The latest passed time counts as asked, as at launch: a time moved into the past isn't asked on wake.
+  const markAsked = (): void => void asked.add(`${now().toDateString()} ${latestPassed(now())}`)
+  // shortcut: on the spring-forward day a time can fire up to an hour late; fine once a year.
   const arm = (): void => {
     clearTimeout(timer)
     const t = now()
@@ -54,14 +54,17 @@ export function startCheckInSchedule(opts: {
   }
 
   // The overlay already asks at launch when the latest time is unanswered.
-  asked.add(`${now().toDateString()} ${latestPassed(now())}`)
+  markAsked()
   arm()
   return {
     resume(): void {
       check()
       arm()
     },
-    reschedule: arm,
+    reschedule(): void {
+      markAsked()
+      arm()
+    },
     stop: () => clearTimeout(timer)
   }
 }

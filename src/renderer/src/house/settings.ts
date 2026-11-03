@@ -6,6 +6,20 @@ export const isMac = (platform: string): boolean => /mac/i.test(platform)
 export const shortcutKeys = (mac: boolean): string[] =>
   mac ? ['⌃', '⇧', 'Space'] : ['Ctrl', 'Shift', 'Space']
 
+export type RowBucket = 'morning' | 'midday' | 'afternoon' | 'evening'
+
+/** The label a check-in row shows for its time (display only; CheckIn.slot uses slotForHour). */
+export const rowBucket = (time: string): RowBucket => {
+  const h = +time.slice(0, 2)
+  return h < 12 ? 'morning' : h < 15 ? 'midday' : h < 18 ? 'afternoon' : 'evening'
+}
+
+/** "HH:MM" as the time input shows it (12 h or 24 h by language). */
+export const showTime = (time: string): string =>
+  new Intl.DateTimeFormat(i18n.language, { hour: 'numeric', minute: '2-digit' }).format(
+    new Date(2000, 0, 1, +time.slice(0, 2), +time.slice(3, 5))
+  )
+
 /** A time for "Add a time": an hour after the latest one (9:00 if none), skipping used times. */
 export function nextFreeTime(times: string[]): string {
   const minutes = (t: string): number => +t.slice(0, 2) * 60 + +t.slice(3, 5)

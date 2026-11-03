@@ -1,12 +1,6 @@
 // The overlay: check-in → triage bubble next to the cursor (Esc closes it) → Pip docked.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import {
-  DEFAULT_SETTINGS,
-  dueCheckIn,
-  enabledTimes,
-  type CheckIn,
-  type Triage
-} from '@shared/schemas'
+import { DEFAULT_SETTINGS, dueCheckIn, enabledTimes, type Triage } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { SNOOZE_MS, slotFor } from '@renderer/checkin/model'
@@ -26,15 +20,6 @@ function spoonsOverride(): number | null {
   return Number.isInteger(v) && v >= 1 && v <= 5 ? v : null
 }
 
-function todaysSpoons(checkIns: CheckIn[]): number | null {
-  const today = new Date().toDateString()
-  const latest = checkIns
-    .filter((c) => new Date(c.at).toDateString() === today)
-    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-    .at(-1)
-  return latest?.spoons ?? null
-}
-
 type View = 'checkIn' | 'triage' | 'docked'
 
 // The window's transparent padding around the bubble (p-[32px] below). The window is sized to
@@ -50,7 +35,8 @@ function Overlay(): React.JSX.Element {
   const [error, setError] = useState(false)
   // Once a bubble has opened at the cursor, Pip docks where it was instead of in the screen corner.
   const [atCursor, setAtCursor] = useState(false)
-  const checkedIn = useRef(false)
+  // True while the latest check-in time is unanswered (dueCheckIn's rule): the docked Pip then reopens it on click.
+  const unanswered = useRef(false)
   const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
   const frame = useRef<HTMLDivElement>(null)
@@ -94,10 +80,10 @@ function Overlay(): React.JSX.Element {
     const settings = api.getSettings().catch(() => null)
     settings.then((s) => s && applySettings(s))
     Promise.all([api.listCheckIns(), settings]).then(([checkIns, s]) => {
-      checkedIn.current = spoonsOverride() !== null || todaysSpoons(checkIns) !== null
       // Ask at launch only if the latest enabled time that passed today is unanswered (main's rule);
-      // the docked Pip still opens the check-in on click.
+      // after "Not now" the docked Pip still opens the check-in on click.
       const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
+      unanswered.current = spoonsOverride() === null && !!due
       if (spoonsOverride() !== null || !due) afterCheckIn()
       else setView('checkIn')
     })
@@ -172,7 +158,7 @@ function Overlay(): React.JSX.Element {
   const answer = (n: number): void => {
     const at = new Date()
     api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons: n })
-    checkedIn.current = true
+    unanswered.current = false
     afterCheckIn()
   }
   // Asks once more later, then leaves it: Pip never insists.
@@ -210,7 +196,7 @@ function Overlay(): React.JSX.Element {
             doneStep={null}
             onOpen={() => {
               if (triage || error) setView('triage')
-              else if (!checkedIn.current) setView('checkIn')
+              else if (unanswered.current) setView('checkIn')
             }}
           />
         )}

@@ -298,7 +298,7 @@ export type Summary = z.infer<typeof Summary>
 
 /** A time of day Pip asks for spoons, "HH:MM" in 24 h. */
 export const CheckInTime = z.object({
-  id: z.string(),
+  id: z.string().min(1).max(64),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
   enabled: z.boolean()
 })
@@ -311,10 +311,8 @@ export const Settings = z.object({
   checkIns: z
     .array(CheckInTime)
     .max(MAX_CHECK_INS)
-    .refine(
-      (ts) => new Set(ts.map((t) => t.time)).size === ts.length,
-      'Check-in times must differ'
-    ),
+    .refine((ts) => new Set(ts.map((t) => t.time)).size === ts.length, 'Check-in times must differ')
+    .refine((ts) => new Set(ts.map((t) => t.id)).size === ts.length, 'Check-in ids must differ'),
   language: z.enum(['en', 'es']),
   calmMotion: z.boolean()
 })
@@ -341,7 +339,7 @@ export const enabledTimes = (s: Settings): string[] =>
     .map((c) => c.time)
     .sort()
 
-const onDay = (day: Date, time: string): Date =>
+export const onDay = (day: Date, time: string): Date =>
   new Date(day.getFullYear(), day.getMonth(), day.getDate(), +time.slice(0, 2), +time.slice(3, 5))
 
 /**

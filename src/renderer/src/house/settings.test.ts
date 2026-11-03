@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { dueCheckIn, type CheckIn } from '@shared/schemas'
-import { isMac, nextFreeTime, shortcutKeys } from './settings'
+import { isMac, rowBucket, nextFreeTime, shortcutKeys } from './settings'
 
 describe('shortcutKeys', () => {
   it('uses the Mac symbols on Mac and words elsewhere', () => {
@@ -44,5 +44,22 @@ describe('nextFreeTime', () => {
     expect(nextFreeTime([])).toBe('09:00')
     expect(nextFreeTime(['23:30'])).toBe('00:30')
     expect(nextFreeTime(['23:00', '00:00'])).toBe('01:00')
+  })
+})
+
+describe('rowBucket', () => {
+  it('follows the time: before 12 Morning, 12-14:59 Midday, 15-17:59 Afternoon, 18+ Evening', () => {
+    expect(
+      ['09:00', '11:59', '12:00', '14:59', '15:00', '17:59', '18:00', '23:30'].map(rowBucket)
+    ).toEqual([
+      'morning',
+      'morning',
+      'midday',
+      'midday',
+      'afternoon',
+      'afternoon',
+      'evening',
+      'evening'
+    ])
   })
 })
