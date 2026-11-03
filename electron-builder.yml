@@ -18,13 +18,21 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+# Unsigned, for the demo Mac (Apple Silicon). Pip uses no camera, microphone or folders, so the
+# template's prompts for them are gone (docs/DECISIONS.md, notes for A).
 mac:
+  target:
+    - target: dmg
+      arch: arm64
+  # Ad-hoc signature: no Apple account needed, and the whole bundle is sealed so macOS can keep
+  # its Accessibility permission. Hardened runtime would refuse ad-hoc-signed Electron frameworks.
+  identity: '-'
+  hardenedRuntime: false
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    # The hotkey presses ⌘C through System Events (src/main/capture.ts); macOS asks once.
+    NSAppleEventsUsageDescription: Pip copies the text you selected when you press Control+Shift+Space.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
