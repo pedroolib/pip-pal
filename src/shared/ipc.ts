@@ -25,6 +25,16 @@ export interface Bounds {
   height: number
 }
 
+/**
+ * The Pip waiting in the screen's bottom-right corner while a task is open: it holds whichever of
+ * the bubble's buttons and the task card isn't at the cursor, and clicking it swaps the two.
+ */
+export interface CornerPip {
+  holds: 'menu' | 'task'
+  /** 0–1 while it holds a steps task, else null (no ring). */
+  progress: number | null
+}
+
 /** Smallest overlay window: a card stays readable (includes the transparent p-8 around it). */
 export const OVERLAY_MIN = { width: 320, height: 240 }
 
@@ -61,7 +71,14 @@ export const IPC = {
   /** main → overlay: close the open bubble (Esc or `pip-pal --dismiss`). */
   dismiss: 'pip:dismiss',
   /** overlay → main: whether the triage bubble is open; Esc is a global shortcut only while it is. */
-  bubbleOpen: 'overlay:bubble-open'
+  bubbleOpen: 'overlay:bubble-open',
+  /** overlay → main: show the corner Pip holding this, or hide it (null). */
+  cornerSet: 'overlay:corner',
+  /** main → corner window: what the corner Pip holds, or null while hidden. */
+  corner: 'corner:state',
+  /** corner window → main → overlay: the person clicked the corner Pip. */
+  cornerClick: 'corner:click',
+  cornerOpen: 'overlay:corner-open'
 } as const
 
 export interface PipApi {
@@ -111,4 +128,12 @@ export interface PipApi {
   onDismiss(cb: () => void): () => void
   /** Overlay only: tell main the bubble opened or closed; ignored from other windows. */
   setBubbleOpen(open: boolean): void
+  /** Overlay only: show the corner Pip holding this, or hide it (null); ignored from other windows. */
+  setCorner(corner: CornerPip | null): void
+  /** Corner window: what to show. Returns an unsubscribe function. */
+  onCorner(cb: (corner: CornerPip | null) => void): () => void
+  /** Corner window only: the person clicked the corner Pip. */
+  clickCorner(): void
+  /** Overlay: the corner Pip was clicked, so swap the cursor's card with it. Returns an unsubscribe function. */
+  onCornerOpen(cb: () => void): () => void
 }

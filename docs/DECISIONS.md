@@ -97,9 +97,11 @@ Detalles de diseño en [design/README.md](design/README.md).
 - **Reglas de prompt (anti-masking y autismo):** no adivinar al remitente (es "the sender" salvo que el mensaje lo nombre); no coachear el tono ("sé más amable") salvo que se pida; **no apelar al "sentido común" ni a lo "obvio"** (las normas no dichas son justo lo que la persona puede no saber); no preguntar lo que se resuelve con la fecha de hoy; cada paso lleva su razón. Tras cada cambio de prompt hay que repetir `npm run ai:lite`.
 - **Haiku es el modelo por defecto** (decidido el 2026-11-02 tras las corridas locales de `ai:lite` y `ai:compare`): gustó más que Sonnet en `ai:lite` (≈5 s contra 6.5–8 s). Sonnet queda como alternativa con `PIP_MODEL=sonnet`.
 
-**La interfaz que se construye sobre esto** (aún no implementada; el contrato y los fixtures ya existen):
+**La interfaz que se construye sobre esto** (botones conectados en PR #15; tarjetas por botón, calma y logros el 2026-11-03):
 - Con el atajo aparece un Pip junto al cursor con una burbuja: el triage y los botones.
-- Cada botón abre su **propia tarjeta acoplada**: los Pips quedan en columna abajo a la derecha, con una tarjeta abierta a la vez ("mitosis": Pip se divide por acción). La tarjeta muestra "thinking" hasta que llega la expansión (Claude puede tardar 10–15 s), así que `expand` se llama por tipo, en paralelo.
+- Cada botón abre su **propia tarjeta**, con su propia llamada a `expand` (en paralelo) y su progreso; se ve una tarjeta a la vez y la flecha "Back" vuelve a los botones de la burbuja sin cancelar nada. Volver a pulsar un botón reabre su tarjeta (tras un error, reintenta). La tarjeta muestra "thinking" hasta que llega la expansión (Claude puede tardar 10–15 s). Mientras hay tarjetas abiertas, un Pip en la esquina de la pantalla (ventana propia, PR #16) guarda lo que no está en el cursor: los botones de la burbuja o la tarjeta; al pulsarlo se intercambian. Guardar la tarjeta o Esc la deja en ese Pip.
+- **Calma:** al llegar los pasos con ≤2 cucharas, o el plan de un cambio, Pip ofrece la primera estrategia del manual antes de seguir, una sola vez por mensaje; "I'm stuck" la vuelve a ofrecer. Siempre se puede saltar.
+- **Logros:** "Done" en un paso registra `step_done` con el texto del paso; copiar una pregunta registra `asked_not_guessed` (una vez por tarjeta); "I have a plan" en el plan de cambio registra `change_navigated` y guarda el `ChangeEvent`. La Casa vuelve a leer logros y check-ins al recibir el foco.
 - Pip aparece al llamarlo y se queda donde está.
 - **Reglas para quien construya la interfaz:** (1) todo texto del modelo se muestra como **texto plano** (nada de HTML, Markdown ni enlaces automáticos; `suggestedQuestion` es texto listo para enviar); (2) manejar el rechazo "still working"; (3) pasar a `expand('questions', …, unclear)` las pistas del triage (`deadline`, `what_or_who`); (4) recortar a 3 pasos con pocas cucharas; (5) mostrar la `evidence` del tono solo si no es neutral (el tono es una elección forzada y siempre trae cita).
 - Contrato: `PipApi.triage(text)` y `PipApi.expand(text, kind, spoons, unclear?)`, con fixtures en `src/shared/fixtures/demo.triage.json` y `demo.expansion.*.json`; `mock-api.ts` los sirve en el navegador.
@@ -245,7 +247,6 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - ¿Podemos citar a nuestra contacto de Specialisterne con su nombre?
 - Confirmar las citas del pitch contra el audio de la entrevista (vienen de una transcripción automática).
 - Respaldo en caché (plan 11): hoy una llamada lenta o fallida es un error simple; el triage no cae a Claude.
-- Qué hacen los botones de la burbuja: ¿la tarjeta se expande, o Pip hace "mitosis" (un Pip nuevo baja a la derecha, piensa y abre su propia tarjeta)? Ahí se reusan `DecodeCard`, `CalmingCard` y `TaskCard`.
+- Tarjetas: falta "qué se espera sin decirse (con porqué)" del guion; ningún tipo de `expand` lo trae, así que pide cambiar `src/shared/` (PR revisado por los tres).
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).
 - Mi resumen: falta la generación real con Claude filtrada por destinatario en main (hoy la Casa usa el resumen de ejemplo, igual para todos) y exportar PDF.
-- Logros: la lista existe, pero el flujo todavía no registra pasos terminados, cambios atravesados ni "asked instead of guessing".

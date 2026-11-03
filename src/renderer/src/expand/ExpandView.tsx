@@ -1,0 +1,338 @@
+// What a bubble button opens after its one Claude call: the steps one at a time, the questions to
+// ask, or the plan for the change. Every suggestion shows its why, and Pip never sends anything:
+// drafted questions are only copied. The calming offer lives with the task in the overlay, so
+// tucking the card away doesn't offer it twice.
+import { useTranslation } from 'react-i18next'
+import { ArrowLeft, BookOpen, Check, HelpCircle, Minus, RotateCcw, X } from 'lucide-react'
+import type { ActionKind, CalmingStrategy, Expansion, Triage } from '@shared/schemas'
+import { api } from '@renderer/api'
+import { CalmingCard } from '@renderer/calm/CalmingCard'
+import { Button } from '@renderer/components/ui/button'
+import { Card } from '@renderer/components/ui/card'
+import { CopyQuestion, StepNumber } from '@renderer/decode/DecodeCard'
+import { planSteps } from '@renderer/decode/model'
+import { PeekingPip } from '@renderer/pip/PeekingPip'
+import { Pip, type Mood } from '@renderer/pip/Pip'
+import { TaskCard } from '@renderer/task/TaskCard'
+import { formatDue } from '@renderer/triage/model'
+
+type ProfileUsed = Expansion['profileUsed']
+
+// The bubble says "Due Fri, Nov 6"; the card puts it after the step count, in lower case.
+const DUE_KEY = { 'bubble.due': 'card.due', 'bubble.before': 'card.before' } as const
+
+/** Back to the bubble's other buttons; the card's call keeps going. */
+function BackButton({ onBack }: { onBack: () => void }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      className="-ml-2"
+      aria-label={t('expand.back')}
+      onClick={onBack}
+    >
+      <ArrowLeft aria-hidden />
+    </Button>
+  )
+}
+
+function Shell({
+  mood,
+  title,
+  onBack,
+  onMinimize,
+  onClose,
+  children
+}: {
+  mood: Mood
+  title: string
+  onBack?: () => void
+  onMinimize: () => void
+  onClose: () => void
+  children: React.ReactNode
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <PeekingPip pip={<Pip mood={mood} size={40} />}>
+      <Card className="min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-lg">
+        <header className="flex items-center gap-1">
+          {onBack && <BackButton onBack={onBack} />}
+          <h1 className="min-w-0 flex-1 leading-snug font-bold">{title}</h1>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('card.minimize')}
+            onClick={onMinimize}
+          >
+            <Minus aria-hidden />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="-mr-2"
+            aria-label={t('expand.close')}
+            onClick={onClose}
+          >
+            <X aria-hidden />
+          </Button>
+        </header>
+        {children}
+      </Card>
+    </PeekingPip>
+  )
+}
+
+/** Soft lines where the answer will be, so the card doesn't jump when it arrives. */
+function Placeholder(): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-3" aria-hidden>
+      {['w-11/12', 'w-3/4', 'w-5/6'].map((w, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="size-6 shrink-0 animate-pulse rounded-full bg-secondary" />
+          <span className={`h-3 animate-pulse rounded-full bg-secondary ${w}`} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function UsedManual({ used }: { used: ProfileUsed }): React.JSX.Element | null {
+  const { t } = useTranslation()
+  if (used.length === 0) return null
+  return (
+    <section className="flex flex-col gap-1 border-t pt-3 text-sm">
+      <h2 className="flex items-center gap-2 font-bold">
+        <BookOpen className="size-4 text-primary" aria-hidden />
+        {t('expand.usedManual')}
+      </h2>
+      <ul className="flex flex-col gap-1 text-body">
+        {used.map((p, i) => (
+          <li key={i}>{p.how}</li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function Questions({
+  questions,
+  onCopied
+}: {
+  questions: Extract<Expansion, { kind: 'questions' }>['questions']
+  onCopied: (what: string) => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div className="motion-stagger flex flex-col gap-3">
+      <p className="text-sm text-body">{t('expand.copyIntro')}</p>
+      {questions.map((q, i) => (
+        <section key={i} className="flex flex-col gap-2 rounded-lg bg-secondary/60 p-3">
+          <p className="flex gap-2 text-sm text-body">
+            <HelpCircle className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+            {q.what}
+          </p>
+          <blockquote className="rounded-md border bg-card p-2 text-sm">
+            {q.suggestedQuestion}
+          </blockquote>
+          <div>
+            <CopyQuestion text={q.suggestedQuestion} onCopied={() => onCopied(q.what)} />
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+function Plan({
+  plan,
+  questionsToAsk,
+  planned,
+  onCopied,
+  onPlanned
+}: Omit<Extract<Expansion, { kind: 'transition' }>, 'kind' | 'profileUsed'> & {
+  planned: boolean
+  onCopied: (what: string) => void
+  onPlanned: () => void
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-col gap-4">
+      <ol className="motion-stagger flex flex-col gap-3">
+        {plan.map((p, i) => (
+          <li key={i} className="flex gap-3">
+            <StepNumber n={i + 1} />
+            <p className="pt-0.5">{p}</p>
+          </li>
+        ))}
+      </ol>
+      {questionsToAsk.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-sm font-bold">{t('expand.questionsToAsk')}</h2>
+          {questionsToAsk.map((q, i) => (
+            <div key={i} className="flex flex-col gap-2 rounded-lg bg-secondary/60 p-3">
+              <p className="text-sm">{q}</p>
+              <div>
+                <CopyQuestion text={q} onCopied={() => onCopied(q)} />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+      {planned ? (
+        <p role="status" className="flex items-center gap-2 text-sm font-bold text-primary">
+          <Check className="size-4" aria-hidden />
+          {t('expand.planned')}
+        </p>
+      ) : (
+        <Button size="lg" onClick={onPlanned}>
+          {t('expand.gotPlan')}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+export function ExpandView({
+  kind,
+  expansion,
+  error,
+  spoons,
+  step,
+  deadline,
+  calm,
+  planned,
+  asked,
+  onCalm,
+  onStepDone,
+  onLater,
+  onAsk,
+  onCopied,
+  onPlanned,
+  onBack,
+  onRetry,
+  onMinimize,
+  onClose
+}: {
+  kind: ActionKind
+  /** null while Claude works on it. */
+  expansion: Expansion | null
+  error: boolean
+  /** Latest check-in today, or null. With few spoons only the first steps show. */
+  spoons: number | null
+  /** Index of the step in progress (steps only). */
+  step: number
+  /** The bubble's deadline, shown under the steps. */
+  deadline: Triage['deadline']
+  /** A calming strategy offered before going on (low spoons, a change, or "I'm stuck"). */
+  calm: CalmingStrategy | null
+  /** The person said they have a plan for the change (transition only). */
+  planned: boolean
+  /** A drafted question was copied: Pip says thanks. */
+  asked: boolean
+  /** Offer a strategy, or null when the person skipped it or is ready. */
+  onCalm: (strategy: CalmingStrategy | null) => void
+  onStepDone: () => void
+  /** "Not now" on the steps card: tuck it away, Pip brings it back once later. */
+  onLater: () => void
+  /** "I'm stuck" with no calming strategy in the manual: ask what's unclear instead. */
+  onAsk: () => void
+  /** A drafted question was copied: the person is asking instead of guessing. */
+  onCopied: (what: string) => void
+  onPlanned: () => void
+  /** Back to the bubble's other buttons, when there is a bubble. */
+  onBack?: () => void
+  /** Ask Claude again after an error. */
+  onRetry: () => void
+  /** Tuck the card away: Pip stays floating and reopens it on click. */
+  onMinimize: () => void
+  /** Finished with it: Pip hides until the hotkey. */
+  onClose: () => void
+}): React.JSX.Element {
+  const { t, i18n } = useTranslation()
+  const title = t(`bubble.actions.${kind}`)
+
+  if (error || !expansion) {
+    return (
+      <Shell
+        mood={error ? 'gentle' : 'thinking'}
+        title={title}
+        onBack={onBack}
+        onMinimize={onMinimize}
+        onClose={onClose}
+      >
+        <p role="status" className="text-body">
+          {t(error ? 'expand.error' : 'expand.working')}
+        </p>
+        {error ? (
+          <Button variant="outline" className="self-start" onClick={onRetry}>
+            <RotateCcw aria-hidden />
+            {t('expand.retry')}
+          </Button>
+        ) : (
+          <Placeholder />
+        )}
+      </Shell>
+    )
+  }
+
+  if (calm) {
+    const then =
+      expansion.kind === 'transition'
+        ? t('calm.thePlan')
+        : t(step === 0 ? 'calm.step1' : 'calm.thisStep')
+    return <CalmingCard strategy={calm} then={then} onDone={() => onCalm(null)} />
+  }
+
+  if (expansion.kind === 'steps') {
+    const { now, later } = planSteps(expansion.steps, spoons)
+    const when = deadline && formatDue(deadline, new Date(), i18n.language)
+    const stuck = (): void => {
+      api.getProfile().then((p) => {
+        const strategy = p.calmingStrategies[0]
+        if (strategy) onCalm(strategy)
+        else onAsk()
+      }, onAsk)
+    }
+    return (
+      <TaskCard
+        title={t('expand.stepsTitle')}
+        steps={now}
+        laterCount={later.length}
+        current={step}
+        due={when ? t(DUE_KEY[when.key], { date: when.date }) : null}
+        onDone={onStepDone}
+        onStuck={stuck}
+        onLater={onLater}
+        onBack={onBack}
+        // When every step is done the card's only button is Close.
+        onMinimize={step >= now.length ? onClose : onMinimize}
+      >
+        <UsedManual used={expansion.profileUsed} />
+      </TaskCard>
+    )
+  }
+
+  return (
+    <Shell
+      mood={planned ? 'happy' : asked ? 'thanks' : 'showing'}
+      title={title}
+      onBack={onBack}
+      onMinimize={onMinimize}
+      onClose={onClose}
+    >
+      {expansion.kind === 'questions' ? (
+        <Questions questions={expansion.questions} onCopied={onCopied} />
+      ) : (
+        <Plan
+          plan={expansion.plan}
+          questionsToAsk={expansion.questionsToAsk}
+          planned={planned}
+          onCopied={onCopied}
+          onPlanned={onPlanned}
+        />
+      )}
+      <UsedManual used={expansion.profileUsed} />
+    </Shell>
+  )
+}

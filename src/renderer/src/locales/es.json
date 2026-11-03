@@ -1,0 +1,430 @@
+{
+  "card": {
+    "now": "Ahora",
+    "stepOf": "Paso {{current}} de {{total}}",
+    "done": "Listo",
+    "stuck": "Me trabé",
+    "then": "Después: {{step}}",
+    "due": "para el {{date}}",
+    "before": "antes del {{date}}",
+    "later": "Ahora no, vuelve a mostrarlo en 15 minutos",
+    "canWait": "Lo demás puede esperar",
+    "minimize": "Guardar la tarjeta",
+    "allDone": "Todo listo por ahora",
+    "allDoneBody": "Terminaste todos los pasos. Buen trabajo, con calma.",
+    "restWaiting_one": "{{count}} paso más puede esperar a otro momento.",
+    "restWaiting_other": "{{count}} pasos más pueden esperar a otro momento.",
+    "close": "Cerrar"
+  },
+  "checkIn": {
+    "title": "¿Cuántas cucharas tienes ahora?",
+    "hint": "Las cucharas son tu energía. No hay respuesta incorrecta.",
+    "spoons_one": "{{count}} cuchara",
+    "spoons_other": "{{count}} cucharas",
+    "notNow": "Ahora no",
+    "low": "Gracias por decírmelo. Hoy haré planes cortos.",
+    "thanks": "Gracias. Es bueno saberlo.",
+    "continue": "Continuar"
+  },
+  "calm": {
+    "offer": "{{strategy}} te ayuda. ¿{{minutes}} min y luego {{then}}?",
+    "whySelf": "De tu manual: dijiste que esto te ayuda a calmarte.",
+    "whyCoach": "De tu manual: lo eligieron tú y tu coach.",
+    "start": "Empezar {{minutes}} min",
+    "skip": "Saltar",
+    "ready": "Ya estoy",
+    "left_one": "Queda {{count}} minuto",
+    "left_other": "Quedan {{count}} minutos",
+    "step1": "el paso 1",
+    "thisStep": "este paso",
+    "thePlan": "el plan"
+  },
+  "dock": {
+    "open": "Abrir Pip",
+    "stepDone": "Paso {{n}} listo",
+    "openMenu": "Mostrar los botones otra vez",
+    "openTask": "Volver a tu tarea"
+  },
+  "bubble": {
+    "due": "Para el {{date}}",
+    "before": "Antes del {{date}}",
+    "reading": "Pip está leyendo el mensaje",
+    "worthAsking": "vale la pena preguntar",
+    "urgency": { "today": "Hoy", "this_week": "Esta semana", "no_rush": "Sin prisa" },
+    "urgencyMaybe": {
+      "today": "Probablemente hoy",
+      "this_week": "Probablemente esta semana",
+      "no_rush": "Probablemente sin prisa"
+    },
+    "reply": {
+      "yes": "Necesita respuesta",
+      "confirm_only": "Solo confirma",
+      "no": "No necesita respuesta"
+    },
+    "replyMaybe": {
+      "yes": "Probablemente necesita respuesta",
+      "confirm_only": "Probablemente solo una confirmación",
+      "no": "Probablemente no necesita respuesta"
+    },
+    "tone": {
+      "friendly": "Amable",
+      "neutral": "Neutral",
+      "worried": "Preocupado",
+      "upset": "Molesto"
+    },
+    "addressee": { "group": "Es para todo el equipo", "nobody": "No va dirigido a nadie" },
+    "from": "De: {{role}}",
+    "quote": " · “{{quote}}”",
+    "actions": {
+      "transition": "Planear este cambio",
+      "steps": "Dividirlo en pasos",
+      "questions": "Ayúdame a preguntar lo que no está claro"
+    },
+    "eyebrow": {
+      "transition": "Cambio: {{type}}",
+      "transitionAny": "Cambio",
+      "questions": "Pregunta, no adivines"
+    },
+    "about": {
+      "deadline": "Sobre: para cuándo es",
+      "what_or_who": "Sobre: qué hacer o con quién",
+      "both": "Sobre: para cuándo es y qué hacer o con quién"
+    },
+    "error": "Pip no pudo leer este. Inténtalo de nuevo en un momento.",
+    "retry": "Intentar de nuevo"
+  },
+  "decode": {
+    "eyebrow": "Entendido. Esto es lo que necesitan",
+    "change": "Cambio: {{type}}",
+    "changeTypes": {
+      "none": "ninguno",
+      "project": "proyecto",
+      "leader": "nuevo líder",
+      "priorities": "prioridades",
+      "other": "otro"
+    },
+    "tone": "Tono: {{tone}}",
+    "toneUrgent": "Tono: {{tone}}, urgente",
+    "toneNotUrgent": "Tono: {{tone}}, no urgente",
+    "tones": {
+      "friendly": "amable",
+      "neutral": "neutral",
+      "urgent": "urgente",
+      "frustrated": "frustrado",
+      "unclear": "poco claro"
+    },
+    "inferred": "(deducido)",
+    "stepsTitle": "Tus pasos",
+    "canWait_one": "Lo demás puede esperar ({{count}} paso)",
+    "canWait_other": "Lo demás puede esperar ({{count}} pasos)",
+    "ask": {
+      "title": "Pregunta, no adivines",
+      "copy": "Copiar pregunta",
+      "copied": "Copiada"
+    },
+    "expected": "Qué se espera, y por qué",
+    "changePlan": "Cómo atravesar el cambio",
+    "questions": "Preguntas que podrías hacer",
+    "usedManual": "Usé tu manual",
+    "start": "Empezar el paso 1",
+    "later": "Guardar para después",
+    "fromCache": "Respuesta guardada, la conexión estaba lenta."
+  },
+  "pip": {
+    "moods": {
+      "calm": "Pip, en calma",
+      "thinking": "Pip, pensando",
+      "happy": "Pip, contento",
+      "gentle": "Pip, con cuidado",
+      "showing": "Pip, mostrándote algo",
+      "quiet": "Pip, en pausa",
+      "hello": "Pip, saludando",
+      "celebrate": "Pip, celebrando",
+      "sleepy": "Pip, descansando",
+      "reading": "Pip, leyendo lo que seleccionaste",
+      "listening": "Pip, escuchando",
+      "thanks": "Pip, dando las gracias"
+    }
+  },
+  "manual": {
+    "title": "Mi manual",
+    "subtitle": "{{name}}, {{role}}",
+    "intro": "Pip lee esto para explicarte los mensajes de la forma que te funciona. Cada entrada dice quién puede verla. Una entrada sin nadie marcado queda privada.",
+    "indexLabel": "Secciones",
+    "sections": {
+      "experience": "Experiencia",
+      "languages": "Idiomas",
+      "communication": "Comunicación",
+      "teamwork": "Trabajar con otros",
+      "feedback": "Retroalimentación",
+      "stress": "Estrés",
+      "relationships": "Relaciones",
+      "sensory": "Necesidades sensoriales",
+      "motivations": "Qué me motiva",
+      "strengths": "Fortalezas",
+      "learning": "Cómo aprendo",
+      "changes": "Cambios",
+      "adjustments": "Ajustes en el trabajo",
+      "managerTips": "Consejos para mi jefe",
+      "energy": "Energía"
+    },
+    "count_one": "{{count}} entrada",
+    "count_other": "{{count}} entradas",
+    "things_one": "{{count}} cosa",
+    "things_other": "{{count}} cosas",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} personas",
+    "origin": {
+      "self": "Escrito por ti",
+      "coach": "Elegido en el onboarding",
+      "pip": "Aprendido por Pip"
+    },
+    "sharedWith": "Compartido con",
+    "onlyYou": "Solo tú",
+    "recipients": {
+      "coach": "Coach",
+      "psychologist": "Psicólogo",
+      "therapist": "Terapeuta",
+      "manager": "Jefe"
+    },
+    "add": "Agregar una entrada",
+    "edit": "Editar {{what}}",
+    "delete": "Borrar {{what}}",
+    "entryLabel": "entrada {{n}} en {{section}}",
+    "save": "Guardar cambios",
+    "cancel": "Cancelar",
+    "saved": "Guardado",
+    "close": "Cerrar",
+    "editor": {
+      "entry": "Entrada",
+      "whoCanSee": "Quién puede ver esto",
+      "leaveUnticked": "Deja a todos sin marcar para que sea privado.",
+      "sharingNote": "Las personas que marques lo ven solo cuando Pip lo comparte.",
+      "hint": {
+        "entry": "¿Qué debería saber Pip sobre cómo trabajas?",
+        "strategy": "Algo pequeño que te ayude a calmarte, y por cuánto tiempo.",
+        "person": "Pip cambia este nombre por el rol antes de preguntarle a la IA.",
+        "owner": "Pip cambia estos nombres por [Me] antes de preguntarle a la IA."
+      }
+    },
+    "validation": "Escribe algo primero, o cancela.",
+    "validationMinutes": "Escribe un número de minutos, 1 o más.",
+    "validationName": "Llena los dos campos, o cancela.",
+    "dialog": {
+      "title": "¿Borrar esta entrada?",
+      "body": "Se quitará de tu manual. No se puede deshacer.",
+      "keep": "Conservar entrada",
+      "confirm": "Borrar entrada"
+    },
+    "calming": {
+      "title": "Estrategias para calmarte",
+      "note": "Pip puede sugerir una de estas cuando las cosas se sientan como demasiado. Siempre puedes saltarla.",
+      "label": "Qué ayuda",
+      "minutes": "Cuánto tiempo",
+      "unit": "minutos",
+      "minutesShort": "{{count}} minutos",
+      "placeholder": "Por ejemplo, estirarme en mi escritorio",
+      "add": "Agregar una estrategia",
+      "deleteTitle": "¿Borrar esta estrategia?",
+      "keep": "Conservar estrategia",
+      "confirm": "Borrar estrategia"
+    },
+    "people": {
+      "title": "Personas",
+      "note": "Solo tú ves esta lista. Antes de que Pip le pida ayuda a la IA, cada nombre se cambia por el rol, como [Manager]. Agrega también los otros nombres que usa la gente, como \"Ally\" o \"@alexr\". Cuando un mensaje dice \"Ally\", Pip sabe que se refiere a Alex y manda [Manager] en su lugar.",
+      "you": "{{name}} (tú)",
+      "alsoCalled": "También le dicen: {{aliases}}",
+      "name": "Nombre",
+      "role": "Rol",
+      "add": "Agregar una persona",
+      "deleteTitle": "¿Borrar a esta persona?",
+      "keep": "Conservar persona",
+      "confirm": "Borrar persona"
+    },
+    "aliases": {
+      "label": "También le dicen",
+      "remove": "Quitar {{alias}}",
+      "tooLong": "Los apodos pueden tener hasta 100 caracteres.",
+      "hint": {
+        "person": "Otros nombres que usa la gente para esta persona, como \"Ally\" o \"@alexr\". Pip también los oculta. Presiona Enter o escribe una coma después de cada uno.",
+        "owner": "Nombres con los que te llaman, como \"Sammy\". Pip los cambia por [Me]. Presiona Enter o escribe una coma después de cada uno."
+      }
+    },
+    "empty": "Todavía no hay nada aquí. Agrega lo que te ayuda, o pregúntale a tu coach.",
+    "emptyEnergy": "Pip llena esto con tus check-ins. También puedes escribir lo tuyo.",
+    "submitNew": {
+      "entry": "Agregar entrada",
+      "strategy": "Agregar estrategia",
+      "person": "Agregar persona"
+    },
+    "loading": "Abriendo tu manual",
+    "loadError": {
+      "title": "Tu manual no se abrió.",
+      "body": "No se pudo leer el archivo en esta computadora. No se cambió nada.",
+      "retry": "Intentar de nuevo"
+    },
+    "saveError": "No se pudo guardar, inténtalo de nuevo. Tu texto sigue aquí."
+  },
+  "house": {
+    "nav": "La casa de Pip",
+    "skip": "Saltar al contenido",
+    "tabs": {
+      "home": "Inicio",
+      "profile": "Mi perfil",
+      "achievements": "Logros",
+      "summary": "Resumen",
+      "connections": "Conexiones",
+      "settings": "Ajustes"
+    },
+    "tabsShort": {
+      "home": "Inicio",
+      "profile": "Perfil",
+      "achievements": "Logros",
+      "summary": "Resumen",
+      "connections": "Conectar",
+      "settings": "Ajustes"
+    },
+    "titles": {
+      "achievements": "Logros",
+      "summary": "Resumen",
+      "connections": "Conexiones",
+      "settings": "Ajustes"
+    },
+    "home": {
+      "today": "Hoy",
+      "energy": "Tu energía",
+      "spoonsOf": "{{count}} de 5 cucharas",
+      "slot": {
+        "morning": "Check-in de la mañana, {{time}}",
+        "midday": "Check-in del mediodía, {{time}}",
+        "afternoon": "Check-in de la tarde, {{time}}"
+      },
+      "noCheckIn": "Todavía no hay check-in",
+      "noCheckInHint": "Pip te pregunta en tu próxima hora de check-in.",
+      "latest": "Último logro",
+      "noAchievement": "Todavía no hay nada aquí",
+      "noAchievementHint": "Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí.",
+      "hello": "Hola, soy Pip. Esta es mi casa: aquí viven tu manual, tus logros y tus ajustes.",
+      "helloDone": "Entendido"
+    },
+    "achievements": {
+      "intro": "Cosas que hiciste, de la más reciente a la más antigua.",
+      "kinds": {
+        "step_done": "Paso terminado",
+        "change_navigated": "Cambio atravesado",
+        "asked_not_guessed": "Preguntaste, no adivinaste"
+      },
+      "emptyBody": "Todavía no hay nada aquí. Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí.",
+      "loading": "Cargando tus logros",
+      "errorTitle": "Los logros no se cargaron. Inténtalo de nuevo.",
+      "retry": "Intentar de nuevo"
+    },
+    "summary": {
+      "intro": "Una nota corta sobre tu semana para alguien que te apoya.",
+      "privacy": "No se envía nada. Tú eliges qué compartir.",
+      "who": "¿Para quién es?",
+      "generate": "Generar",
+      "copy": "Copiar",
+      "copied_one": "Se copió {{count}} punto",
+      "copied_other": "Se copiaron {{count}} puntos",
+      "exportPdf": "Exportar PDF",
+      "retry": "Intentar de nuevo",
+      "loading": "Escribiendo tu resumen…",
+      "errorTitle": "El resumen no se generó",
+      "errorBody": "No se envió nada. Revisa que tengas internet y vuelve a intentarlo.",
+      "selected": "{{picked}} de {{total}} puntos marcados. Solo estos se copian.",
+      "pointsLabel": "Puntos del resumen",
+      "empty": "Todavía no hay nada que resumir.",
+      "sources": {
+        "checkins": "De los check-ins",
+        "changes": "De los cambios",
+        "achievements": "De los logros",
+        "profile": "De tu perfil"
+      }
+    },
+    "connections": {
+      "intro": "Más adelante, Pip podría usar esto para sugerir tus cucharas. Ahora no hay nada conectado y no se guarda nada.",
+      "local": "Se queda en tu computadora. Nunca se envía.",
+      "soon": "Próximamente",
+      "now": "Primero en la lista",
+      "later": "Más adelante",
+      "appleWatch": {
+        "name": "Apple Watch",
+        "body": "Sueño y variabilidad del ritmo cardiaco, para sugerir cuántas cucharas podrías tener hoy."
+      },
+      "whoop": {
+        "name": "Whoop",
+        "body": "Sueño y recuperación, para sugerir cuántas cucharas podrías tener hoy."
+      },
+      "email": {
+        "name": "Correo",
+        "body": "Elige un mensaje para que Pip te lo explique."
+      },
+      "slack": {
+        "name": "Slack",
+        "body": "Elige un mensaje de Slack para que Pip te lo explique."
+      }
+    },
+    "settings": {
+      "intro": "Los cambios se guardan al hacerlos.",
+      "loading": "Cargando tus ajustes",
+      "saveFailed": "Los ajustes no se guardaron. Inténtalo de nuevo.",
+      "loadFailed": "Los ajustes no se cargaron.",
+      "retry": "Intentar de nuevo",
+      "checkIns": {
+        "title": "Horas de check-in",
+        "body": "Pip te pregunta cuántas cucharas tienes a estas horas. Cambia, agrega o apaga las que quieras.",
+        "morning": "Mañana",
+        "midday": "Mediodía",
+        "afternoon": "Tarde",
+        "evening": "Noche",
+        "timeLabel": "Hora de check-in, {{part}}, {{time}}",
+        "toggle": "Preguntar a las {{time}}",
+        "remove": "Quitar {{time}}",
+        "add": "Agregar una hora",
+        "max": "6 horas es el máximo. Quita una para agregar otra.",
+        "taken": "Ya tienes un check-in a las {{time}}. Elige otra hora.",
+        "fewNote": "Sugerimos al menos 3 al día. La energía suele cambiar entre la mañana y la noche, así que un solo check-in puede no mostrar cómo va tu día. Mañana, mediodía y tarde cubren el inicio, la mitad y el final de una jornada."
+      },
+      "shortcut": {
+        "title": "Atajo para capturar",
+        "body": "Selecciona texto en cualquier lugar y presiónalo. Pip lee solo lo que seleccionaste.",
+        "fixed": "Todavía no se puede cambiar aquí.",
+        "linux": "En Linux, asigna {{command}} a este atajo en los ajustes del sistema."
+      },
+      "language": {
+        "title": "Idioma",
+        "en": "English",
+        "es": "Español",
+        "note": "Pip responde en el idioma en que está escrito cada mensaje."
+      },
+      "calm": {
+        "title": "Movimiento más tranquilo",
+        "body": "Pip se queda quieto y las pantallas se desvanecen menos. El ajuste de movimiento reducido de tu computadora siempre aplica también."
+      },
+      "privacy": {
+        "title": "Privacidad",
+        "selected": "Solo el texto que seleccionas sale de tu computadora, y solo después de cambiar los nombres por roles como [Manager].",
+        "manual": "Los resúmenes nunca se envían solos. Tú los copias o los exportas."
+      }
+    }
+  },
+  "expand": {
+    "working": "Pip está en eso. Tarda unos segundos.",
+    "error": "Pip no pudo con este. Inténtalo de nuevo en un momento.",
+    "close": "Cerrar",
+    "stepsTitle": "Tus pasos",
+    "copyIntro": "Copia una y mándala tú si te sirve.",
+    "questionsToAsk": "Preguntas que podrías hacer",
+    "usedManual": "Usé tu manual",
+    "retry": "Intentar de nuevo",
+    "back": "Volver a las opciones de Pip",
+    "gotPlan": "Ya tengo un plan",
+    "planned": "Guardado en tus logros. Atravesaste este cambio."
+  },
+  "achievement": {
+    "asked": "Preguntaste en vez de adivinar: {{what}}",
+    "change": "Hiciste un plan para el cambio de {{type}}",
+    "changeAny": "Hiciste un plan para un cambio"
+  }
+}

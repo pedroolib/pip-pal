@@ -31,13 +31,13 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 
 **Nivel 0, entrega del 5 de noviembre**
 1. Shell del overlay: Pip acoplado, atajo, captura de la selección.
-2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess". **Flujo actual** (ver [DECISIONS.md §4](DECISIONS.md)): el atajo dispara un triage rápido de Jev y una burbuja junto al cursor con botones; cada botón pide a Claude una sola cosa (pasos, preguntas o plan de transición) y abre su propia tarjeta. Backend listo y burbuja hecha (PR #10); faltan las tarjetas de cada botón.
+2. Decodificar con el perfil: qué piden, para cuándo, qué se espera sin decirse (con porqué), pasos, tono, "Ask, don't guess". **Flujo actual** (ver [DECISIONS.md §4](DECISIONS.md)): el atajo dispara un triage rápido de Jev y una burbuja junto al cursor con botones; cada botón pide a Claude una sola cosa (pasos, preguntas o plan de transición) y abre su propia tarjeta. Backend, burbuja (PR #10) y tarjetas por botón hechos; falta "qué se espera sin decirse" (cambio de contrato).
 3. Detector de cambios con mini plan de transición y preguntas sugeridas (es el botón "Plan for this change" del flujo anterior).
 4. Check-in de cucharas (1–5, visual, se pospone y no insiste). Horarios editables en Settings: 9/13/17 h por defecto, hasta 6, cada uno se prende o apaga; con menos de 3 encendidos Pip sugiere 3 sin bloquear. Hecho (PR de la Casa de Pip). Con ≤2 cucharas: máximo 3 pasos, el resto "can wait".
 5. Estrategia de calma del perfil (con ≤2 cucharas, al detectar un cambio o con "I'm stuck"), temporizador opcional y regreso al paso 1. Siempre se puede saltar.
 6. Mi resumen: versión por destinatario, viñetas marcables, copiar solo las marcadas. Nunca se envía solo. Interfaz hecha; falta la generación real con Claude (B; hoy usa datos de ejemplo) y exportar PDF (botón "Coming soon").
 7. Mi manual: ver y editar el perfil de Sam, ya cargado. Hecho; vive en la pestaña My profile.
-8. Logros tranquilos: pasos terminados, cambios atravesados, "You asked instead of guessing". Sin rachas. Lista por día hecha; falta que el flujo registre los logros.
+8. Logros tranquilos: pasos terminados, cambios atravesados, "You asked instead of guessing". Sin rachas. Lista por día hecha; el flujo ya registra pasos, preguntas copiadas y planes de cambio.
 9. Personaje Pip (`<Pip mood=… />`, 12 estados de ánimo).
 10. Set de prueba de 30 mensajes con y sin perfil, con conteos reportados tal cual.
 11. Blindaje del demo: respaldo en caché, tecla de repetición, video de respaldo.

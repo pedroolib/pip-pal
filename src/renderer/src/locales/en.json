@@ -5,6 +5,9 @@
     "done": "Done",
     "stuck": "I'm stuck",
     "then": "Then {{step}}",
+    "due": "due {{date}}",
+    "before": "before {{date}}",
+    "later": "Not now, bring this back in 15 minutes",
     "canWait": "The rest can wait",
     "minimize": "Tuck the card away",
     "allDone": "All done for now",
@@ -33,11 +36,14 @@
     "left_one": "{{count}} minute left",
     "left_other": "{{count}} minutes left",
     "step1": "step 1",
-    "thisStep": "this step"
+    "thisStep": "this step",
+    "thePlan": "the plan"
   },
   "dock": {
     "open": "Open Pip",
-    "stepDone": "Step {{n}} done"
+    "stepDone": "Step {{n}} done",
+    "openMenu": "Show the buttons again",
+    "openTask": "Back to your task"
   },
   "bubble": {
     "due": "Due {{date}}",
@@ -80,7 +86,8 @@
       "what_or_who": "About: what to do or with whom",
       "both": "About: when it's due and what to do or with whom"
     },
-    "error": "Pip couldn't read this one. Try again in a moment."
+    "error": "Pip couldn't read this one. Try again in a moment.",
+    "retry": "Try again"
   },
   "decode": {
     "eyebrow": "Got it. Here's what they need",
@@ -303,7 +310,9 @@
       "learned_one": "Pip learned {{count}} thing about you",
       "learned_other": "Pip learned {{count}} things about you",
       "learnedHint": "Nothing is used or shared until you say yes.",
-      "learnedAction": "Review in My profile"
+      "learnedAction": "Review in My profile",
+      "hello": "Hi, I'm Pip. This is my house: your manual, your wins and your settings live here.",
+      "helloDone": "Got it"
     },
     "achievements": {
       "intro": "Things you did, newest first.",
@@ -431,7 +440,7 @@
         "title": "Language",
         "en": "English",
         "es": "Español",
-        "note": "Español is saved, but Pip stays in English until the translation is ready."
+        "note": "Pip answers each message in the language it is written in."
       },
       "calm": {
         "title": "Calmer motion",
@@ -443,5 +452,23 @@
         "manual": "Summaries never send themselves. You copy or export them."
       }
     }
+  },
+  "expand": {
+    "working": "Pip is working on it. This takes a few seconds.",
+    "error": "Pip couldn't do this one. Try again in a moment.",
+    "close": "Close",
+    "stepsTitle": "Your steps",
+    "copyIntro": "Copy one and send it yourself if it helps.",
+    "questionsToAsk": "Questions you could ask",
+    "usedManual": "Used your manual",
+    "retry": "Try again",
+    "back": "Back to Pip's options",
+    "gotPlan": "I have a plan",
+    "planned": "Saved to your achievements. You got through this change."
+  },
+  "achievement": {
+    "asked": "Asked instead of guessing: {{what}}",
+    "change": "Made a plan for the {{type}} change",
+    "changeAny": "Made a plan for a change"
   }
 }

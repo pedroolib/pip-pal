@@ -1,4 +1,25 @@
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Button } from '@renderer/components/ui/button'
 import { Pip } from '@renderer/pip/Pip'
+
+// Pip says hello once, the first time the House opens on this computer. A per-viewer nicety, so
+// browser storage is enough; without it Pip just doesn't greet.
+const GREETED = 'pip.house.greeted'
+function firstVisit(): boolean {
+  try {
+    return localStorage.getItem(GREETED) === null
+  } catch {
+    return false
+  }
+}
+function markGreeted(): void {
+  try {
+    localStorage.setItem(GREETED, '1')
+  } catch {
+    // Nothing to do: Pip greets again next time.
+  }
+}
 
 // Pip's room: flat inline SVG in Harbor tints (colors are the --room-* variables). Replace the
 // shapes in Back, Front and the floor arc to redraw it; Pip and the layout stay as they are.
@@ -132,13 +153,30 @@ function Front(): React.JSX.Element {
 
 /** The wall edge to edge; the floor colour continues below it. Pip (the real one) stands on the rug. */
 export function Room(): React.JSX.Element {
+  const { t } = useTranslation()
+  const [hello, setHello] = useState(firstVisit)
+  // Seen once is enough: the next visit is a calm room again.
+  useEffect(() => {
+    if (hello) markGreeted()
+  }, [hello])
   return (
     <div className="relative h-[clamp(16rem,50dvh,23.75rem)] flex-none overflow-hidden bg-room-wall">
       <Back />
       <Floor />
       <Front />
+      {hello && (
+        <div
+          role="status"
+          className="motion-swap absolute bottom-[12.75rem] left-1/2 flex w-[min(20rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-2xl border bg-card px-4 py-3 shadow-md"
+        >
+          <p className="min-w-0 flex-1 text-sm">{t('house.home.hello')}</p>
+          <Button size="sm" variant="ghost" onClick={() => setHello(false)}>
+            {t('house.home.helloDone')}
+          </Button>
+        </div>
+      )}
       <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2">
-        <Pip mood="calm" size={192} />
+        <Pip mood={hello ? 'hello' : 'calm'} size={192} />
       </div>
     </div>
   )

@@ -7,10 +7,9 @@ import {
   CircleHelp,
   Clock,
   Frown,
-  ListChecks,
   Meh,
   MessageSquare,
-  Route,
+  RotateCcw,
   Smile,
   Users,
   type LucideIcon
@@ -26,18 +25,14 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import { Pip } from '@renderer/pip/Pip'
-import { CARD_WIDTH, PIP_SIZE, triageLines } from './model'
+import { ACTION_ICON } from './icons'
+import { CARD_WIDTH, PIP_SIZE, triageLines, type Flip } from './model'
 
 const TONE_ICON: Record<TriageTone, LucideIcon> = {
   friendly: Smile,
   neutral: Meh,
   worried: Frown,
   upset: Frown
-}
-const ACTION_ICON: Record<ActionKind, LucideIcon> = {
-  transition: Route,
-  steps: ListChecks,
-  questions: CircleHelp
 }
 
 const FOCUS = 'rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
@@ -126,12 +121,14 @@ function ActionButton({
   kind,
   maybe,
   eyebrow,
-  about
+  about,
+  onClick
 }: {
   kind: ActionKind
   maybe: boolean
   eyebrow?: string
   about?: string | null
+  onClick?: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const Icon = ACTION_ICON[kind]
@@ -140,6 +137,7 @@ function ActionButton({
     <Button
       type="button"
       variant="outline"
+      onClick={onClick}
       className={cn(
         'h-auto min-h-11 w-full items-start justify-start gap-3 rounded-md border bg-white px-3 py-2 text-left whitespace-normal shadow-xs hover:bg-accent',
         single && 'items-center',
@@ -163,11 +161,20 @@ function ActionButton({
 
 export function TriageBubble({
   triage,
-  error
+  error,
+  flip = { x: false, y: false },
+  onAction,
+  onRetry
 }: {
   /** null while Jev reads: Pip alone. */
   triage: Triage | null
   error: boolean
+  /** Pip stays at the cursor's corner of the card: right of it when flipped on x, below when on y. */
+  flip?: Flip
+  /** A button was pressed: Pip makes the one Claude call for that kind. */
+  onAction?: (kind: ActionKind) => void
+  /** Read the same selection again after an error. */
+  onRetry?: () => void
 }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const lines = useMemo(
@@ -177,11 +184,29 @@ export function TriageBubble({
 
   return (
     <TooltipProvider disableHoverableContent>
-      <div className="flex max-w-full items-start gap-2">
-        <Pip mood={triage || error ? 'calm' : 'reading'} size={PIP_SIZE} className="mt-3" />
+      <div
+        className={cn(
+          'flex max-w-full gap-2',
+          flip.x && 'flex-row-reverse',
+          flip.y ? 'items-end' : 'items-start'
+        )}
+      >
+        <Pip
+          mood={triage || error ? 'calm' : 'reading'}
+          size={PIP_SIZE}
+          className={flip.y ? 'mb-3' : 'mt-3'}
+        />
         {error && (
-          <Card role="status" style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-lg">
-            <p className="text-base">{t('bubble.error')}</p>
+          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-3 p-5 shadow-lg">
+            <p role="status" className="text-base">
+              {t('bubble.error')}
+            </p>
+            {onRetry && (
+              <Button variant="outline" className="self-start" onClick={onRetry}>
+                <RotateCcw aria-hidden />
+                {t('bubble.retry')}
+              </Button>
+            )}
           </Card>
         )}
         {!triage && !error && (
@@ -225,7 +250,7 @@ export function TriageBubble({
             {lines.actions.length > 0 && (
               <>
                 <hr className="my-3.5 border-border" />
-                <div className="flex flex-col gap-2">
+                <div className="motion-stagger flex flex-col gap-2">
                   {lines.actions.map(({ kind, strength, eyebrow }) => (
                     <ActionButton
                       key={kind}
@@ -236,6 +261,7 @@ export function TriageBubble({
                         t(eyebrow.key, eyebrow.typeKey ? { type: t(eyebrow.typeKey) } : undefined)
                       }
                       about={kind === 'questions' && lines.about ? t(lines.about) : null}
+                      onClick={() => onAction?.(kind)}
                     />
                   ))}
                 </div>
