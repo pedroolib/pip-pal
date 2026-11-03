@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Info } from 'lucide-react'
-import { SECTIONS, type Profile, type Recipient, type Section } from '@shared/schemas'
+import {
+  SECTIONS,
+  type Profile,
+  type ProfileEntry,
+  type Recipient,
+  type Section
+} from '@shared/schemas'
 import { ensureIds } from '@shared/profile'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/api'
@@ -42,6 +48,8 @@ function Manual({
   const [del, setDel] = useState<Del | null>(null)
   const [delFailed, setDelFailed] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
+  // An answer kept word for word in onboarding that Pip is rewriting, or that failed to.
+  const [rewrite, setRewrite] = useState<{ id: string; failed: boolean } | null>(null)
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [current, setCurrent] = useState<string | null>(null)
   const lockUntil = useRef(0)
@@ -120,6 +128,25 @@ function Manual({
     onPendingChange?.(next.pending?.length ?? 0)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-pending-h]')?.focus())
     return true
+  }
+
+  /**
+   * Sends one kept onboarding answer to Pip; its version comes back as suggestions. The person's
+   * words stay, minus the marker, so the button goes away and nothing is lost if they reject.
+   */
+  async function rewriteAnswer(s: Section, e: ProfileEntry): Promise<void> {
+    if (!e.fromAnswer || !e.id) return
+    setRewrite({ id: e.id, failed: false })
+    try {
+      const p = await api.draftProfile({ [e.fromAnswer]: e.text })
+      const unmark = (x: ProfileEntry): ProfileEntry =>
+        x.id === e.id ? { ...x, fromAnswer: undefined } : x
+      if (!(await settle({ ...p, sections: { ...p.sections, [s]: p.sections[s].map(unmark) } })))
+        throw new Error('save')
+      setRewrite(null)
+    } catch {
+      setRewrite({ id: e.id, failed: true })
+    }
   }
 
   async function confirmDelete(): Promise<void> {
@@ -285,6 +312,26 @@ function Manual({
               }
             >
               {e.text}
+              {e.fromAnswer && (
+                <div className="mt-2 grid justify-items-start gap-1">
+                  <Button
+                    variant="outline"
+                    className="min-h-11 rounded-full px-5 font-bold"
+                    disabled={rewrite?.id === e.id && !rewrite?.failed}
+                    onClick={() => void rewriteAnswer(s, e)}
+                  >
+                    {rewrite?.id === e.id && !rewrite?.failed
+                      ? t('manual.rewrite.working')
+                      : t('manual.rewrite.button')}
+                  </Button>
+                  <p className="text-sm text-muted-foreground">{t('manual.rewrite.note')}</p>
+                  {rewrite?.id === e.id && rewrite?.failed && (
+                    <p role="alert" className="text-sm font-bold text-primary">
+                      {t('manual.rewrite.failed')}
+                    </p>
+                  )}
+                </div>
+              )}
             </Row>
           )
         })}

@@ -266,7 +266,13 @@
       "body": "The file on this computer could not be read. Nothing was changed.",
       "retry": "Try again"
     },
-    "saveError": "Could not save, try again. Your text is still here."
+    "saveError": "Could not save, try again. Your text is still here.",
+    "rewrite": {
+      "button": "Let Pip rewrite this",
+      "working": "Pip is rewriting this…",
+      "note": "Sends this, with names removed, to Claude (Anthropic's AI). Pip's version comes back as a suggestion; your words stay until you delete them.",
+      "failed": "Pip could not reach the model. Your words are safe; try again later."
+    }
   },
   "house": {
     "nav": "Pip's House",
@@ -307,8 +313,8 @@
       "latest": "Latest achievement",
       "noAchievement": "Nothing here yet",
       "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here.",
-      "learned_one": "Pip learned {{count}} thing about you",
-      "learned_other": "Pip learned {{count}} things about you",
+      "learned_one": "Pip has {{count}} suggestion for your profile",
+      "learned_other": "Pip has {{count}} suggestions for your profile",
       "learnedHint": "Nothing is used or shared until you say yes.",
       "learnedAction": "Review in My profile",
       "hello": "Hi, I'm Pip. This is my house: your manual, your wins and your settings live here.",
@@ -470,5 +476,174 @@
     "asked": "Asked instead of guessing: {{what}}",
     "change": "Made a plan for the {{type}} change",
     "changeAny": "Made a plan for a change"
+  },
+  "onboarding": {
+    "title": "Setting up Pip",
+    "progress": "Step {{n}} of {{total}}",
+    "back": "Back",
+    "next": "Continue",
+    "skipStep": "Skip this step",
+    "skipAll": "Skip setup",
+    "saveFailed": "Pip could not save that. Try again.",
+    "welcome": {
+      "title": "Hi, I'm Pip.",
+      "body": "I help you read work messages, especially when something changes. First, let's set me up for you. Here is what we will do:",
+      "list": [
+        "Pick your language and how much movement you want",
+        "See how I keep your messages private",
+        "Tell me who you work with",
+        "Answer 6 short questions about how you work best",
+        "Check your suggested profile",
+        "Learn about spoons and do your first check-in",
+        "Try me on a practice message"
+      ],
+      "time": "It takes about 5 minutes. You can skip any step, or stop and come back later.",
+      "start": "Let's start"
+    },
+    "comfort": {
+      "title": "Language and movement",
+      "body": "Choose these first, so the rest of setup feels right.",
+      "motion": "Calmer motion",
+      "motionNote": "Pip and the cards move less. Your system's reduce-motion setting already does this."
+    },
+    "privacy": {
+      "title": "What I see, and what I never see",
+      "rules": [
+        "I only read text you select and send me with the shortcut. I never read your email or chat by myself.",
+        "Before anything leaves your computer, I swap names for roles and remove emails, phone numbers and links.",
+        "I never send anything for you. You copy what you want."
+      ],
+      "tryLabel": "Try it: type a name, like your manager's",
+      "tryPlaceholder": "Alex Rivera",
+      "tryMessage": "Hi, {{name}} wants the report by Friday.",
+      "trySent": "What leaves your computer:"
+    },
+    "people": {
+      "title": "Who is who",
+      "body": "I swap these names for their role before anything leaves your computer. This list stays on your computer.",
+      "you": "You",
+      "yourName": "Your name",
+      "yourRole": "Your job title",
+      "others": "People you work with",
+      "name": "Name",
+      "role": "Their role",
+      "aliases": "Other names they go by (optional)",
+      "aliasesHint": "Nicknames or usernames, separated by commas. For example: Alex, @arivera",
+      "roles": ["Manager", "Buddy", "Teammate"],
+      "add": "Add a person",
+      "remove": "Remove {{name}}",
+      "unnamed": "this person",
+      "needRole": "Add a role for each person, or remove the row."
+    },
+    "consent": {
+      "title": "Before the questions",
+      "body": "Next I'll ask 6 short questions. To turn your answers into suggestions for your profile, Pip sends them, with names removed, to Claude (Anthropic's AI). Nothing is saved until you accept it.",
+      "send": "Continue",
+      "keep": "Keep my words, don't send",
+      "keepNote": "If you keep your words, I save your answers as you wrote them. Nothing is sent."
+    },
+    "about": {
+      "title": "About you",
+      "counter": "Question {{n}} of {{total}}",
+      "examples": "Tap an example to add it, or write your own:",
+      "placeholder": "Write as much or as little as you like.",
+      "previous": "Previous question",
+      "finish": "Finish questions",
+      "questions": {
+        "instructions": "How do you like to get instructions?",
+        "changesHelp": "When something changes at work, like a new project, a new manager or new priorities, what helps you most?",
+        "changesNotice": "When plans change at work, how far ahead do you like to know?",
+        "calming": "What helps you calm down?",
+        "sensory": "Anything about noise, light or interruptions?",
+        "strengths": "What are you good at, and what do you enjoy?"
+      },
+      "chips": {
+        "instructions": [
+          "In writing",
+          "With an example",
+          "Broken into small steps",
+          "With a clear deadline"
+        ],
+        "changesHelp": [
+          "Knowing why",
+          "Getting it in writing",
+          "A clear first step",
+          "Time to think before I reply"
+        ],
+        "changesNotice": ["Same day is fine", "One day", "A few days", "A week or more"],
+        "calming": ["Calm music", "A short walk", "Colouring", "Breathing slowly"],
+        "sensory": [
+          "Noise is hard for me",
+          "Bright light is hard for me",
+          "Interruptions break my focus",
+          "Headphones help"
+        ],
+        "strengths": [
+          "Spotting details",
+          "Following a process",
+          "Working with data",
+          "Learning new tools"
+        ]
+      },
+      "labels": {
+        "instructions": "How I like instructions",
+        "changesHelp": "What helps me with changes",
+        "changesNotice": "Notice I like before a change",
+        "calming": "Helps me calm down",
+        "sensory": "Noise, light and interruptions",
+        "strengths": "Good at and enjoy"
+      }
+    },
+    "writing": "Pip is writing suggestions for your profile…",
+    "writingNote": "This can take up to 30 seconds.",
+    "review": {
+      "title": "Your suggested profile",
+      "body": "Accept, edit or reject each one. What you don't review now waits in My profile.",
+      "none": "There is nothing to review right now.",
+      "kept": "Pip could not reach the model, so I saved your answers as you wrote them. You can change them in My profile.",
+      "keptByChoice": "I saved your answers as you wrote them. You can change them in My profile."
+    },
+    "spoons": {
+      "title": "Spoons",
+      "body": "Spoons are a way to count your energy: 1 is almost empty, 5 is full. When you have few spoons, I show fewer steps and say what can wait.",
+      "times": "I'll ask at {{times}}. You can change the times in Settings.",
+      "noTimes": "Check-ins are off. You can turn them on in Settings.",
+      "first": "Let's do your first one now.",
+      "done": "Saved. Thank you."
+    },
+    "permission": {
+      "title": "Let me copy what you select",
+      "mac": "On a Mac, I need Accessibility permission to copy the text you select when you press the shortcut. Without it, I use the last thing you copied.",
+      "open": "Open the permission",
+      "granted": "Done. I can copy your selection.",
+      "waiting": "In the window that opens, turn on Pip. Then come back here.",
+      "none": "Nothing to set up on this computer.",
+      "linux": "On Linux, bind {{command}} to the shortcut in your system settings."
+    },
+    "practice": {
+      "title": "Try it",
+      "steps": [
+        "Select the whole message below with your mouse.",
+        "Press {{keys}}.",
+        "In the bubble, choose \"Break it into steps\".",
+        "Look for \"Used your manual\": that is me using your profile."
+      ],
+      "message": "Hi! Heads up, we're moving you to the Q1 forecasting project starting Monday. Can you wrap up the dashboard stuff and sync with the team when you get a chance? Thx",
+      "messageLabel": "Practice message",
+      "noBubble": "Nothing happened?",
+      "example": "Practice run: Pip couldn't reach the model, so this is a saved example of what you would see.",
+      "exampleTitle": "Steps from the saved example"
+    },
+    "home": {
+      "title": "Where I live",
+      "body": "When you press the shortcut, I appear next to your cursor. Pip's House, this window, keeps your profile, achievements, summary and settings.",
+      "again": "You can run this setup again from Settings.",
+      "done": "Go to my house"
+    },
+    "rerun": {
+      "title": "Setup",
+      "body": "Go through setup again. Pip only adds suggestions; nothing in your profile changes until you accept it.",
+      "button": "Run setup again"
+    }
   }
 }
