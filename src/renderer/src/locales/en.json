@@ -163,6 +163,17 @@
     "things_other": "{{count}} things",
     "people_one": "{{count}} person",
     "people_other": "{{count}} people",
+    "pending": {
+      "title_one": "Pip learned {{count}} thing about you",
+      "title_other": "Pip learned {{count}} things about you",
+      "note": "Pip noticed these from your check-ins and use of the app. Nothing is used or shared until you approve it. Approved entries stay private.",
+      "badge": "Pip learned",
+      "why": "Why: {{why}}",
+      "approve": "Approve",
+      "saveApprove": "Save and approve",
+      "edit": "Edit",
+      "dismiss": "Dismiss"
+    },
     "origin": {
       "self": "Written by you",
       "coach": "Selected in onboarding",
@@ -288,7 +299,11 @@
       "noCheckInHint": "Pip asks at your next check-in time.",
       "latest": "Latest achievement",
       "noAchievement": "Nothing here yet",
-      "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here."
+      "noAchievementHint": "When you finish a step, ask a question or get through a change, it shows up here.",
+      "learned_one": "Pip learned {{count}} thing about you",
+      "learned_other": "Pip learned {{count}} things about you",
+      "learnedHint": "Nothing is used or shared until you say yes.",
+      "learnedAction": "Review in My profile"
     },
     "achievements": {
       "intro": "Things you did, newest first.",
@@ -306,6 +321,14 @@
       "intro": "A short note about your week for someone who supports you.",
       "privacy": "Nothing is sent. You choose what to share.",
       "who": "Who is it for?",
+      "period": "Which days?",
+      "periods": {
+        "today": "Today",
+        "7d": "Last 7 days",
+        "14d": "Last 14 days",
+        "30d": "Last 30 days"
+      },
+      "why": "Why: {{why}}",
       "generate": "Generate",
       "copy": "Copy",
       "copied_one": "Copied {{count}} point",
@@ -354,6 +377,35 @@
       "saveFailed": "Settings did not save. Try again.",
       "loadFailed": "Settings did not load.",
       "retry": "Try again",
+      "remembers": {
+        "title": "What Pip remembers",
+        "body": "A short list of what you did in Pip, kept only on this computer. Pip uses it to notice patterns and to write your summary.",
+        "retention": "Events older than 90 days are removed automatically.",
+        "empty": "Nothing saved yet.",
+        "loadFailed": "The list did not load.",
+        "deleteFailed": "That did not delete. Try again.",
+        "deleteAll": "Delete all",
+        "deleteOne": "Delete: {{what}}, {{when}}",
+        "decoded": "You decoded a message: {{text}}",
+        "asked": "You copied a question: {{text}}",
+        "action": {
+          "steps": "You opened the steps",
+          "questions": "You opened the questions",
+          "transition": "You opened the transition help"
+        },
+        "step": {
+          "done": "You finished a step: {{text}}",
+          "can_wait": "You left a step for later: {{text}}"
+        },
+        "calm": {
+          "used": "You tried a calming strategy",
+          "skipped": "You skipped a calming strategy"
+        },
+        "confirmTitle": "Delete everything Pip remembers?",
+        "confirmBody": "This clears the whole list on this computer. It cannot be undone. Your profile and check-ins stay.",
+        "keep": "Keep it",
+        "confirmDelete": "Delete all"
+      },
       "checkIns": {
         "title": "Check-in times",
         "body": "Pip asks how many spoons you have at these times. Change, add or turn off any you like.",

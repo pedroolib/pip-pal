@@ -27,6 +27,14 @@ export function House(): React.JSX.Element {
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
   }, [])
+  // Detection runs once when the House opens; null until it answers (or if it fails).
+  const [learned, setLearned] = useState<number | null>(null)
+  useEffect(() => {
+    api.refreshLearned().then(
+      (p) => setLearned(p.pending?.length ?? 0),
+      () => {}
+    )
+  }, [])
   useEffect(() => {
     api.getSettings().then(applySettings, () => {})
     // Hides the page scroll bar (main.css), so the tab bar never shifts between tabs.
@@ -57,8 +65,9 @@ export function House(): React.JSX.Element {
       </a>
       {/* Each view brings its own <main> landmark (Manual does too). */}
       <div className="flex min-h-0 flex-1 flex-col">
-        {tab === 'home' && <HomeView />}
-        {tab === 'profile' && <Manual />}
+        {tab === 'home' && <HomeView learned={learned ?? 0} />}
+        {/* Remounts once when detection answers, so a fast visit never shows a stale manual. */}
+        {tab === 'profile' && <Manual key={learned} />}
         {tab === 'achievements' && <AchievementsView />}
         {tab === 'summary' && <SummaryView />}
         {tab === 'connections' && <ConnectionsView />}

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Info, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
-import { Recipient, type Origin } from '@shared/schemas'
+import { Recipient, type Origin, type PendingEntry } from '@shared/schemas'
 import { Badge } from '@renderer/components/ui/badge'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -353,6 +353,108 @@ export function ConfirmDelete(props: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** What Pip noticed, waiting for a yes. Nothing here is used or shared until it is approved. */
+export function PendingCard(props: {
+  entries: PendingEntry[]
+  onApprove: (id: string, text?: string) => Promise<boolean>
+  onDismiss: (id: string) => Promise<boolean>
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const uid = useId()
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState('')
+  const [failed, setFailed] = useState<string | null>(null)
+  const run = async (id: string, go: () => Promise<boolean>): Promise<void> => {
+    const ok = await go()
+    setFailed(ok ? null : id)
+    if (ok) setEditing(null)
+  }
+  const pill = 'min-h-11 rounded-full px-5 font-bold'
+  return (
+    <Card
+      id="pending"
+      aria-labelledby={`${uid}-h`}
+      className="gap-0 overflow-hidden py-0 shadow-none"
+    >
+      <div className="px-5 pt-4 pb-2">
+        <h2 id={`${uid}-h`} data-pending-h tabIndex={-1} className="text-lg font-bold outline-none">
+          {t('manual.pending.title', { count: props.entries.length })}
+        </h2>
+        <p className="mt-1 max-w-[62ch] text-sm text-body">{t('manual.pending.note')}</p>
+      </div>
+      <ul>
+        {props.entries.map((p) => (
+          <li key={p.id} className="border-t px-5 py-4">
+            <Badge variant="outline" className="min-h-6 text-sm">
+              <span aria-hidden className="size-2 rounded-full bg-pip" />
+              {t('manual.pending.badge')}
+            </Badge>
+            {editing === p.id ? (
+              <div className="mt-3 grid gap-2">
+                <Label htmlFor={`${uid}-${p.id}`}>{t('manual.editor.entry')}</Label>
+                <Textarea
+                  id={`${uid}-${p.id}`}
+                  autoFocus
+                  className="min-h-24 bg-background text-[17px] leading-[1.6]"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+              </div>
+            ) : (
+              <p className="mt-2 max-w-[62ch] text-[17px] leading-[1.6]">{p.text}</p>
+            )}
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('manual.pending.why', { why: p.why })}
+            </p>
+            {failed === p.id && (
+              <FieldError id={`${uid}-${p.id}-e`}>{t('manual.saveError')}</FieldError>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {editing === p.id ? (
+                <>
+                  <Button
+                    className={pill}
+                    disabled={!draft.trim()}
+                    onClick={() => run(p.id, () => props.onApprove(p.id, draft))}
+                  >
+                    <Check aria-hidden /> {t('manual.pending.saveApprove')}
+                  </Button>
+                  <Button variant="outline" className={pill} onClick={() => setEditing(null)}>
+                    {t('manual.cancel')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button className={pill} onClick={() => run(p.id, () => props.onApprove(p.id))}>
+                    <Check aria-hidden /> {t('manual.pending.approve')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className={pill}
+                    onClick={() => {
+                      setDraft(p.text)
+                      setEditing(p.id)
+                    }}
+                  >
+                    <Pencil aria-hidden /> {t('manual.pending.edit')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className={pill}
+                    onClick={() => run(p.id, () => props.onDismiss(p.id))}
+                  >
+                    {t('manual.pending.dismiss')}
+                  </Button>
+                </>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </Card>
   )
 }
 
