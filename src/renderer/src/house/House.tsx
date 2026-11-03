@@ -29,6 +29,9 @@ export function House(): React.JSX.Element {
   }, [])
   useEffect(() => {
     api.getSettings().then(applySettings, () => {})
+    // Hides the page scroll bar (main.css), so the tab bar never shifts between tabs.
+    document.documentElement.classList.add('house-page')
+    return () => document.documentElement.classList.remove('house-page')
   }, [])
   useEffect(() => {
     document.title = `${t(`house.tabs.${tab}`)} - ${t('house.nav')}`

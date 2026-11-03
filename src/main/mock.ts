@@ -9,13 +9,10 @@ import { createTriager } from './ai/triage'
 import { createAiHandlers } from './ai/index'
 import type { Storage } from './storage'
 
-export function registerMockHandlers({
-  profiles,
-  settings,
-  checkIns,
-  changes,
-  achievements
-}: Storage): void {
+export function registerMockHandlers(
+  { profiles, settings, checkIns, changes, achievements }: Storage,
+  onSettingsSaved: () => void
+): void {
   const api = createMockApi()
 
   if (!app.isPackaged) {
@@ -50,7 +47,10 @@ export function registerMockHandlers({
   ipcMain.handle(IPC.profileGet, () => profiles.load())
   ipcMain.handle(IPC.profileSave, (_, p) => profiles.save(p))
   ipcMain.handle(IPC.settingsGet, () => settings.load())
-  ipcMain.handle(IPC.settingsSave, (_, s) => settings.save(s))
+  ipcMain.handle(IPC.settingsSave, (_, s) => {
+    settings.save(s) // validates; an invalid save throws before the schedule re-arms
+    onSettingsSaved()
+  })
   ipcMain.handle(IPC.checkInList, () => checkIns.list())
   ipcMain.handle(IPC.checkInSave, (_, c) => checkIns.add(c))
   ipcMain.handle(IPC.changeList, () => changes.list())

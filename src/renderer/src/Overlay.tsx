@@ -1,6 +1,12 @@
 // The overlay: check-in → triage bubble next to the cursor (Esc closes it) → Pip docked.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { CheckIn, Triage } from '@shared/schemas'
+import {
+  DEFAULT_SETTINGS,
+  dueCheckIn,
+  enabledTimes,
+  type CheckIn,
+  type Triage
+} from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { SNOOZE_MS, slotFor } from '@renderer/checkin/model'
@@ -8,7 +14,7 @@ import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
 import { useFitFont } from '@renderer/overlay/useFitFont'
 import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
 import { cn } from '@renderer/lib/utils'
-import { applySettings, slotOn } from '@renderer/house/settings'
+import { applySettings } from '@renderer/house/settings'
 import { DockedPip } from '@renderer/pip/DockedPip'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
 import { BUBBLE_WIDTH } from '@renderer/triage/model'
@@ -84,13 +90,15 @@ function Overlay(): React.JSX.Element {
   const afterCheckIn = (): void => (inBrowser ? capture('') : setView('docked'))
 
   useEffect(() => {
-    // A failed settings read means "ask as usual".
+    // A failed settings read means "ask at the default times".
     const settings = api.getSettings().catch(() => null)
     settings.then((s) => s && applySettings(s))
     Promise.all([api.listCheckIns(), settings]).then(([checkIns, s]) => {
       checkedIn.current = spoonsOverride() !== null || todaysSpoons(checkIns) !== null
-      // No launch-time ask when settings turned this slot off; the docked Pip still opens it on click.
-      if (checkedIn.current || (s && !slotOn(s, new Date()))) afterCheckIn()
+      // Ask at launch only if the latest enabled time that passed today is unanswered (main's rule);
+      // the docked Pip still opens the check-in on click.
+      const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
+      if (spoonsOverride() !== null || !due) afterCheckIn()
       else setView('checkIn')
     })
     const offCaptured = api.onCaptured(capture)

@@ -4,6 +4,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC, OVERLAY_MIN, type Bounds } from '@shared/ipc'
+import { enabledTimes } from '@shared/schemas'
 import { captureSelection } from './capture'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers } from './mock'
@@ -227,7 +228,8 @@ app.whenReady().then(() => {
   })
 
   const storage = openStorage()
-  registerMockHandlers(storage)
+  // A saved change to the check-in times re-arms the schedule (created below) without a restart.
+  registerMockHandlers(storage, () => checkIns.reschedule())
 
   ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -255,7 +257,9 @@ app.whenReady().then(() => {
   })
 
   createOverlay()
-  // Spoons check-ins at 9, 13 and 17 h. Shown without taking focus, like a captured message.
+  // Spoons check-ins at the enabled times from Settings. Shown without taking focus, like a
+  // captured message. The dev override wins over Settings.
+  const devTimes = is.dev ? parseCheckInTimes(process.env['PIP_CHECK_IN_TIMES']) : undefined
   const checkIns = startCheckInSchedule({
     listCheckIns: () => storage.checkIns.list(),
     onDue: (slot) => {
@@ -265,8 +269,7 @@ app.whenReady().then(() => {
       win.showInactive()
       win.webContents.send(IPC.checkInDue, slot)
     },
-    enabled: (slot) => storage.settings.load().checkIns[slot],
-    times: is.dev ? parseCheckInTimes(process.env['PIP_CHECK_IN_TIMES']) : undefined
+    times: () => devTimes ?? enabledTimes(storage.settings.load())
   })
   powerMonitor.on('resume', checkIns.resume)
   app.on('will-quit', checkIns.stop)

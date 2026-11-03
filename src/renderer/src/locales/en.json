@@ -358,13 +358,16 @@
       "retry": "Try again",
       "checkIns": {
         "title": "Check-in times",
-        "body": "Pip asks how many spoons you have at these times. Turn off any you do not want.",
+        "body": "Pip asks how many spoons you have at these times. Change, add or turn off any you like.",
         "morning": "Morning",
         "midday": "Midday",
         "afternoon": "Afternoon",
-        "morningTime": "9:00",
-        "middayTime": "13:00",
-        "afternoonTime": "17:00"
+        "toggle": "Ask at {{time}}",
+        "remove": "Remove {{time}}",
+        "add": "Add a time",
+        "max": "6 times is the most. Remove one to add another.",
+        "taken": "You already have a check-in at {{time}}. Pick another time.",
+        "fewNote": "We suggest at least 3 a day. Energy often shifts between morning and evening, so one check-in can miss how your day is going. Morning, midday and afternoon cover the start, middle and end of a workday."
       },
       "shortcut": {
         "title": "Capture shortcut",

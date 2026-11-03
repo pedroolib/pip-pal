@@ -296,20 +296,66 @@ export type Summary = z.infer<typeof Summary>
 
 // ---------- Settings (stored locally) ----------
 
+/** A time of day Pip asks for spoons, "HH:MM" in 24 h. */
+export const CheckInTime = z.object({
+  id: z.string(),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  enabled: z.boolean()
+})
+export type CheckInTime = z.infer<typeof CheckInTime>
+
+/** Pip asks at most this many times a day. */
+export const MAX_CHECK_INS = 6
+
 export const Settings = z.object({
-  // `satisfies` ties the keys to Slot: a new slot breaks the build until it gets a toggle.
-  checkIns: z.object({
-    morning: z.boolean(),
-    midday: z.boolean(),
-    afternoon: z.boolean()
-  }) satisfies z.ZodType<Record<Slot, boolean>>,
+  checkIns: z
+    .array(CheckInTime)
+    .max(MAX_CHECK_INS)
+    .refine(
+      (ts) => new Set(ts.map((t) => t.time)).size === ts.length,
+      'Check-in times must differ'
+    ),
   language: z.enum(['en', 'es']),
   calmMotion: z.boolean()
 })
 export type Settings = z.infer<typeof Settings>
 
 export const DEFAULT_SETTINGS: Settings = {
-  checkIns: { morning: true, midday: true, afternoon: true },
+  checkIns: [
+    { id: 'morning', time: '09:00', enabled: true },
+    { id: 'midday', time: '13:00', enabled: true },
+    { id: 'afternoon', time: '17:00', enabled: true }
+  ],
   language: 'en',
   calmMotion: false
+}
+
+/** The slot an hour falls in: a check-in time, or one taken in between, counts for the slot it follows. */
+export const slotForHour = (h: number): Slot =>
+  h < 13 ? 'morning' : h < 17 ? 'midday' : 'afternoon'
+
+/** The enabled check-in times, sorted. */
+export const enabledTimes = (s: Settings): string[] =>
+  s.checkIns
+    .filter((c) => c.enabled)
+    .map((c) => c.time)
+    .sort()
+
+const onDay = (day: Date, time: string): Date =>
+  new Date(day.getFullYear(), day.getMonth(), day.getDate(), +time.slice(0, 2), +time.slice(3, 5))
+
+/**
+ * The latest of `times` (sorted "HH:MM") that has passed today, if it is still unanswered, else null.
+ * A time is answered by any check-in today at or after the enabled time before it (or midnight).
+ */
+export function dueCheckIn(times: string[], checkIns: CheckIn[], now: Date): string | null {
+  const passed = times.filter((t) => onDay(now, t) <= now)
+  const due = passed.at(-1)
+  if (!due) return null
+  const since = passed.length > 1 ? onDay(now, passed.at(-2)!) : onDay(now, '00:00')
+  const answered = checkIns.some((c) => {
+    const at = new Date(c.at)
+    return at >= since && at.toDateString() === now.toDateString()
+  })
+  return answered ? null : due
 }

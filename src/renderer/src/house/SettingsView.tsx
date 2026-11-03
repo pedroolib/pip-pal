@@ -1,9 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Keyboard, Languages, ShieldCheck, Sun, Sunrise, Sunset, Wind } from 'lucide-react'
-import type { Settings, Slot } from '@shared/schemas'
+import { Keyboard, Languages, Plus, ShieldCheck, Sun, Sunrise, Sunset, Wind, X } from 'lucide-react'
+import {
+  MAX_CHECK_INS,
+  slotForHour,
+  type CheckInTime,
+  type Settings,
+  type Slot
+} from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import {
   Select,
@@ -14,14 +21,16 @@ import {
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
 import { HouseCard, Page } from './parts'
-import { applySettings, isMac, shortcutKeys } from './settings'
+import { applySettings, isMac, nextFreeTime, shortcutKeys } from './settings'
 import { useLoad } from './useLoad'
 
-const SLOTS = [
-  { slot: 'morning', Icon: Sunrise },
-  { slot: 'midday', Icon: Sun },
-  { slot: 'afternoon', Icon: Sunset }
-] as const satisfies readonly { slot: Slot; Icon: unknown }[]
+const SLOT_ICONS = { morning: Sunrise, midday: Sun, afternoon: Sunset } satisfies Record<
+  Slot,
+  unknown
+>
+
+/** Fewer enabled check-ins than this shows a gentle suggestion; it never blocks. */
+const SUGGESTED_CHECK_INS = 3
 
 const iconChip = 'grid size-10 shrink-0 place-items-center rounded-full bg-secondary'
 
@@ -93,42 +102,7 @@ export function SettingsView(): React.JSX.Element {
         </p>
       )}
 
-      <HouseCard>
-        <div>
-          <h2 className="text-[1.0625rem] leading-snug font-bold">
-            {t('house.settings.checkIns.title')}
-          </h2>
-          <p className="mt-1">{t('house.settings.checkIns.body')}</p>
-        </div>
-        <div>
-          {SLOTS.map(({ slot, Icon }) => (
-            <div
-              key={slot}
-              className="flex flex-wrap items-center gap-x-3.5 gap-y-1 border-border py-3 not-first:border-t"
-            >
-              <span className={iconChip}>
-                <Icon className="size-6" aria-hidden />
-              </span>
-              <Label htmlFor={`slot-${slot}`} className="min-w-0 flex-1 flex-col items-start gap-0">
-                <strong>{t(`house.settings.checkIns.${slot}`)}</strong>
-                <span className="text-sm font-normal text-muted-foreground">
-                  {t(`house.settings.checkIns.${slot}Time`)}
-                </span>
-              </Label>
-              <Switch
-                id={`slot-${slot}`}
-                disabled={off}
-                checked={settings?.checkIns[slot] ?? false}
-                onCheckedChange={(on) =>
-                  settings &&
-                  change(slot, { ...settings, checkIns: { ...settings.checkIns, [slot]: on } })
-                }
-              />
-              <div className="basis-full pl-[54px] empty:hidden">{fail(slot)}</div>
-            </div>
-          ))}
-        </div>
-      </HouseCard>
+      <CheckInTimes settings={settings} change={change} fail={fail} />
 
       <HouseCard>
         <Heading Icon={Keyboard}>{t('house.settings.shortcut.title')}</Heading>
@@ -207,5 +181,162 @@ export function SettingsView(): React.JSX.Element {
         <p>{t('house.settings.privacy.manual')}</p>
       </HouseCard>
     </Page>
+  )
+}
+
+/**
+ * Editable check-in times: each row has a time, an on/off switch and a remove button. A time that is
+ * already in the list, or not filled in yet, stays in the input without saving.
+ */
+function CheckInTimes({
+  settings,
+  change,
+  fail
+}: {
+  settings: Settings | null | undefined
+  change(key: string, next: Settings): void
+  fail(key: string): React.JSX.Element | null
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const [taken, setTaken] = useState<string | null>(null)
+  const addButton = useRef<HTMLButtonElement>(null)
+  // After add or remove, focus moves to the new time or to "Add a time" once the list has rendered.
+  const focusNext = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focusNext.current) return
+    const el =
+      focusNext.current === 'add' ? addButton.current : document.getElementById(focusNext.current)
+    el?.focus()
+    focusNext.current = null
+  })
+
+  const list = settings?.checkIns ?? []
+  const off = !settings
+  const full = list.length >= MAX_CHECK_INS
+  const save = (key: string, checkIns: CheckInTime[]): void => {
+    if (settings) change(key, { ...settings, checkIns })
+  }
+  const dropDraft = (id: string): void =>
+    setDraft((d) => {
+      const rest = { ...d }
+      delete rest[id]
+      return rest
+    })
+
+  const edit = (id: string, time: string): void => {
+    const clash = list.some((c) => c.id !== id && c.time === time)
+    setTaken(clash ? id : null)
+    if (!time || clash) return void setDraft((d) => ({ ...d, [id]: time }))
+    dropDraft(id)
+    save(
+      id,
+      list.map((c) => (c.id === id ? { ...c, time } : c))
+    )
+  }
+  const add = (): void => {
+    const id = crypto.randomUUID()
+    focusNext.current = `time-${id}`
+    save('add', [...list, { id, time: nextFreeTime(list.map((c) => c.time)), enabled: true }])
+  }
+  const remove = (id: string): void => {
+    dropDraft(id)
+    if (taken === id) setTaken(null)
+    focusNext.current = 'add'
+    save(
+      id,
+      list.filter((c) => c.id !== id)
+    )
+  }
+
+  return (
+    <HouseCard>
+      <div>
+        <h2 className="text-[1.0625rem] leading-snug font-bold">
+          {t('house.settings.checkIns.title')}
+        </h2>
+        <p className="mt-1">{t('house.settings.checkIns.body')}</p>
+      </div>
+      <div>
+        {list.map((c) => {
+          const slot = slotForHour(+c.time.slice(0, 2))
+          const Icon = SLOT_ICONS[slot]
+          return (
+            <div
+              key={c.id}
+              className="flex flex-wrap items-center gap-x-3.5 gap-y-1 border-border py-3 not-first:border-t"
+            >
+              <span className={iconChip}>
+                <Icon className="size-6" aria-hidden />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                <Label htmlFor={`time-${c.id}`} className="font-bold">
+                  {t(`house.settings.checkIns.${slot}`)}
+                </Label>
+                <Input
+                  id={`time-${c.id}`}
+                  type="time"
+                  required
+                  disabled={off}
+                  value={draft[c.id] ?? c.time}
+                  onChange={(e) => edit(c.id, e.target.value)}
+                  onBlur={() => draft[c.id] === '' && dropDraft(c.id)}
+                  aria-describedby={taken === c.id ? `taken-${c.id}` : undefined}
+                  className="min-h-11 w-fit rounded-md border-[1.5px] bg-surface text-base focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid"
+                />
+              </div>
+              <Switch
+                aria-label={t('house.settings.checkIns.toggle', { time: c.time })}
+                disabled={off}
+                checked={c.enabled}
+                onCheckedChange={(enabled) =>
+                  save(
+                    c.id,
+                    list.map((x) => (x.id === c.id ? { ...x, enabled } : x))
+                  )
+                }
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={off}
+                aria-label={t('house.settings.checkIns.remove', { time: c.time })}
+                onClick={() => remove(c.id)}
+                className="size-11 rounded-full"
+              >
+                <X className="size-5" aria-hidden />
+              </Button>
+              <div className="basis-full pl-[54px] empty:hidden">
+                {taken === c.id && (
+                  <p id={`taken-${c.id}`} role="status" className="text-sm text-body">
+                    {t('house.settings.checkIns.taken', { time: draft[c.id] })}
+                  </p>
+                )}
+                {fail(c.id)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button
+          ref={addButton}
+          onClick={add}
+          disabled={off || full}
+          variant="outline"
+          className="min-h-11 w-fit rounded-full border-2 px-5 font-bold"
+        >
+          <Plus className="size-5" aria-hidden />
+          {t('house.settings.checkIns.add')}
+        </Button>
+        {full && (
+          <p className="text-sm text-muted-foreground">{t('house.settings.checkIns.max')}</p>
+        )}
+      </div>
+      {fail('add')}
+      {settings && list.filter((c) => c.enabled).length < SUGGESTED_CHECK_INS && (
+        <p className="text-sm text-muted-foreground">{t('house.settings.checkIns.fewNote')}</p>
+      )}
+    </HouseCard>
   )
 }
