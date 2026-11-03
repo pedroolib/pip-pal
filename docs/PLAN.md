@@ -17,7 +17,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 | Ventanas | **Overlay**: transparente, siempre encima, deja pasar los clics salvo sobre Pip; crece de acoplado a tarjeta. **Casa de Pip**: ventana normal estilo cuarto (Pip en su cuarto arriba, menú abajo) con Home, My profile (Mi manual), Achievements, Summary, Connections y Settings. |
 | UI | Tailwind v4 + shadcn, tematizado con Harbor mediante variables CSS. shadcn para lo interactivo (Button, Checkbox, Dialog, Tooltip); Tailwind puro para lo visual. Atkinson Hyperlegible incluida localmente. Las animaciones respetan `prefers-reduced-motion`. |
 | Idioma | Todo en inglés; textos en `src/renderer/src/locales/en.json` con i18next. Se agrega `es.json` para las pruebas con usuarios. Pip responde en el idioma del mensaje. |
-| Entrada | Solo lo que la persona selecciona. Atajo `Control+Shift+Space` (explícito, no `CommandOrControl`), configurable. Voz y "Hey Pip" en el nivel 3. |
+| Entrada | Lo que la persona selecciona, con `Control+Shift+Space` (explícito, no `CommandOrControl`), o lo que graba y revisa, con `Control+Shift+Enter` (ver [DECISIONS.md §14](DECISIONS.md)). "Hey Pip" en el nivel 3. |
 | Captura | **Mac:** simular ⌘C con osascript (requiere permiso de Accesibilidad), leer el portapapeles y restaurarlo; sin permiso, usa lo último que se copió. **Linux/Hyprland:** un bind de Hyprland ejecuta `pip-pal --capture`; la app lo recibe por `second-instance` y lee la selección primaria. **Windows:** simular Ctrl+C con PowerShell. |
 | Modelos | **Claude Haiku 5.5** genera todo el texto (pasos, expectativas, porqués, plan de transición, preguntas, resumen) con salida estructurada validada con Zod. **Jev (TypeSafe)** clasifica: `is_change`, tipo de cambio, tono, urgencia, `is_ambiguous`, con probabilidades calibradas. Jev clasifica primero (triage); Claude escribe solo al pulsar un botón, sin reintentos. Si Jev falla, el triage da error (no cae a Claude). Sin voto de mayoría. Modelo de Claude por `PIP_MODEL=sonnet|haiku` (por defecto Haiku; Sonnet es la alternativa opcional). |
 | Incertidumbre | Si `P(ambiguo)` supera el umbral, Pip no adivina: muestra "Ask, don't guess" con la pregunta ya redactada. |
@@ -43,7 +43,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 11. Blindaje del demo: respaldo en caché, tecla de repetición, video de respaldo.
 12. Pruebas con usuarios (ya hay una persona en contacto); `es.json` para ellas.
 13. **Onboarding** (subió del nivel 2 el 3 de noviembre; ver [DECISIONS.md §13](DECISIONS.md)): la primera vez sin `PIP_DEMO=1`, Pip hace preguntas, una llamada a Claude convierte las respuestas en sugerencias para el perfil, y la persona practica el atajo con un mensaje de ejemplo. Fuera del demo en vivo; en el pitch va un clip grabado.
-14. **Captura de voz** (subió del nivel 3 el 3 de noviembre; ver [DECISIONS.md §14](DECISIONS.md)): ⌃⇧Enter graba el micrófono, el audio de la computadora o ambos (hasta 10 min), Pip transcribe en la máquina, la persona revisa y elige el texto, y sigue el triage de siempre. En el demo en vivo, solo micrófono.
+14. **Captura de voz** (subió del nivel 3 el 3 de noviembre; ver [DECISIONS.md §14](DECISIONS.md)): ⌃⇧Enter graba el micrófono, el audio de la computadora o ambos (hasta 10 min), Pip transcribe en la máquina, la persona revisa y elige el texto, y sigue el triage de siempre. En el demo en vivo, solo micrófono. En `main` con las correcciones de la ronda 1; falta probarla en Electron real y empaquetada (sección 8).
 
 **Nivel 1, si sobra antes de la entrega:** responder con el porqué; versión corta del manual para el jefe ("how I work best").
 
@@ -104,3 +104,29 @@ El esquema exacto está en `src/shared/schemas.ts`.
 | Jue 5 | Solo bugs; ensayos del demo en la Mac; video de respaldo; prueba sin wifi. **Entrega a las 23:59.** | ← | ← | ← |
 | Vie 6 | Pitch con cronómetro ×5 | | | |
 | Sáb 7 | Launchpad | | | |
+
+## 8. Pendientes
+
+Revisado contra el código el 3 de noviembre. Las preguntas sin decidir siguen en [DECISIONS.md §12](DECISIONS.md).
+
+**Antes de la entrega**
+
+| Quién | Qué | Por qué |
+|---|---|---|
+| A | Voz en la Mac del demo: ⌃⇧Enter abre y detiene, aviso del micrófono, permiso "System Audio Recording", tarjeta "can't hear" | Solo se probó en un navegador con dispositivos falsos. |
+| A | Mac: ⌃⇧Space con la tarjeta de revisión abierta lee la app de atrás, no la caja de Pip | En Mac, `blur()` podría no devolverle el foco a la otra app. Si falla, probar `app.hide()`. |
+| A | Windows, Electron real: audio de la computadora (loopback), Esc mientras escribe, ⌃⇧Space con la tarjeta de revisión abierta | El Esc de main y el foco no existen en la vista de navegador. |
+| A | App empaquetada: `npm run fetch:whisper`, construir y transcribir de verdad | Solo se comprobó que los binarios y el modelo quedan en `app.asar.unpacked`; nunca se transcribió empaquetado. |
+| C | Conectar `api.logEvent` en las tarjetas (`asked`, `step`, `calm`) | Sin esto, `ask:` y `calm:` no se detectan en uso real (DECISIONS §6). |
+| B | Respaldo en caché y tecla de repetición del demo (nivel 0, punto 11) | No existen en el código; hoy una llamada lenta o fallida da un error simple. |
+| B + D | Set de 30 mensajes con y sin perfil (nivel 0, punto 10) | La rúbrica pide evidencia; falta reportar los conteos finales. |
+| B | Cifrar el perfil con `safeStorage` | DECISIONS §6 lo pide antes de que una persona real meta su perfil, y el onboarding y las pruebas con usuarios ya lo permiten. |
+| C | Exportar PDF en Mi resumen | El botón sigue en "Coming soon". |
+| C + D | Traducir a `es.json` las 174 llaves que faltan (onboarding, Casa, pendientes y "Let Pip rewrite this") | Las pruebas con usuarios en México verían esas partes en inglés. La captura de voz ya está traducida. |
+| Tres devs | "Qué se espera sin decirse" en las tarjetas | Está en el guion, pero pide cambiar `src/shared/`. |
+
+**Después de la entrega**
+
+- `src/main/json-file.ts`: atrapar el error de `unlinkSync` si el antivirus de Windows bloquea un `.bak` (DECISIONS §6, límite 2).
+- Pasar la clave de CUDA de `.npmrc` a otro mecanismo antes de la siguiente versión mayor de npm.
+- Detectar el idioma al transcribir cuando transformers.js pueda; cambiar `ScriptProcessorNode` por `AudioWorklet` si Chromium lo quita.

@@ -15,8 +15,25 @@ A desktop companion that keeps a person's professional profile alive and uses it
 
 ```bash
 npm install
+npm run fetch:whisper
 npm run dev
 ```
+
+`fetch:whisper` downloads the speech model once (about 80 MB, not in git). Only voice capture needs it, and packaging needs it first. Copy `.env.example` to `.env` for the API keys; set `PIP_DEMO=1` to start with Sam's demo data instead of onboarding.
+
+Gates: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
+
+## What Pip does
+
+| Feature | How |
+|---|---|
+| Read a message | Select text and press `Ctrl+Shift+Space`: the triage bubble appears next to the cursor; each button opens its own card (steps, questions, change plan) |
+| Voice capture | `Ctrl+Shift+Enter` records the microphone, computer audio or both (up to 10 min). Pip transcribes on this machine, you review the text, then the same triage runs |
+| Check-ins | Spoons (1–5) at the times set in Settings; few spoons means fewer steps and a calming suggestion |
+| Pip's House | Home, My profile, Achievements, Summary, Connections (coming soon) and Settings |
+| Onboarding | First run without `PIP_DEMO=1`: Pip's questions become suggestions you accept, edit or reject |
+
+Open work is in [docs/PLAN.md §8](docs/PLAN.md).
 
 ## Where things live
 

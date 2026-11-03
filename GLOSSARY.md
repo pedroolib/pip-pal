@@ -27,3 +27,15 @@ _Avoid_: Literal entry, raw answer
 **Real profile**:
 A profile built by an actual person through onboarding, as opposed to Sam's demo profile.
 _Avoid_: User profile
+
+**Voice capture**:
+Recording spoken words with their own hotkey, writing them down on this machine and reading the reviewed text with Pip.
+_Avoid_: Meeting notes, dictation
+
+**Source**:
+What voice capture listens to: Microphone, Computer audio or Both.
+_Avoid_: Input, device
+
+**Transcript**:
+The text Pip wrote down from a recording. Only the part the person reviews and sends leaves the machine, like any selection.
+_Avoid_: Notes, recording (for the text)
