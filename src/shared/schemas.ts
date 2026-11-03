@@ -14,12 +14,26 @@ export type Recipient = z.infer<typeof Recipient>
 export const Origin = z.enum(['self', 'onboarding', 'learned'])
 export type Origin = z.infer<typeof Origin>
 
+/** Onboarding's "about you" questions, in the order they are asked. */
+export const ONBOARDING_QUESTIONS = [
+  'instructions',
+  'changesHelp',
+  'changesNotice',
+  'calming',
+  'sensory',
+  'strengths'
+] as const
+export const OnboardingQuestion = z.enum(ONBOARDING_QUESTIONS)
+export type OnboardingQuestion = z.infer<typeof OnboardingQuestion>
+
 export const ProfileEntry = z.object({
   /** Stable id (crypto.randomUUID); filled by ensureIds for older files. */
   id: z.string().optional(),
   text: z.string().min(1),
   origin: Origin,
-  visibleTo: z.array(Recipient)
+  visibleTo: z.array(Recipient),
+  /** An onboarding answer kept word for word (no model call); Pip can still be asked to rewrite it. */
+  fromAnswer: OnboardingQuestion.optional()
 })
 export type ProfileEntry = z.infer<typeof ProfileEntry>
 
@@ -405,14 +419,7 @@ export const OnboardingStep = z.enum(ONBOARDING_STEPS)
 export type OnboardingStep = z.infer<typeof OnboardingStep>
 
 /** What the person typed for onboarding's "about you" questions; missing or empty means skipped. */
-export const OnboardingAnswers = z.object({
-  instructions: z.string().max(1000).optional(),
-  changesHelp: z.string().max(1000).optional(),
-  changesNotice: z.string().max(1000).optional(),
-  calming: z.string().max(1000).optional(),
-  sensory: z.string().max(1000).optional(),
-  strengths: z.string().max(1000).optional()
-})
+export const OnboardingAnswers = z.partialRecord(OnboardingQuestion, z.string().max(1000))
 export type OnboardingAnswers = z.infer<typeof OnboardingAnswers>
 
 /** Where onboarding is, so a person who quits resumes there. Answers stay on this machine unless sent. */
