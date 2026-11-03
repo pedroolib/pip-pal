@@ -3,7 +3,7 @@
 // drafted questions are only copied. The calming offer lives with the task in the overlay, so
 // tucking the card away doesn't offer it twice.
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, BookOpen, Check, HelpCircle, Minus, X } from 'lucide-react'
+import { ArrowLeft, BookOpen, Check, HelpCircle, Minus, RotateCcw, X } from 'lucide-react'
 import type { ActionKind, CalmingStrategy, Expansion, Triage } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { CalmingCard } from '@renderer/calm/CalmingCard'
@@ -80,6 +80,20 @@ function Shell({
         {children}
       </Card>
     </PeekingPip>
+  )
+}
+
+/** Soft lines where the answer will be, so the card doesn't jump when it arrives. */
+function Placeholder(): React.JSX.Element {
+  return (
+    <div className="flex flex-col gap-3" aria-hidden>
+      {['w-11/12', 'w-3/4', 'w-5/6'].map((w, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="size-6 shrink-0 animate-pulse rounded-full bg-secondary" />
+          <span className={`h-3 animate-pulse rounded-full bg-secondary ${w}`} />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -196,6 +210,7 @@ export function ExpandView({
   onCopied,
   onPlanned,
   onBack,
+  onRetry,
   onMinimize,
   onClose
 }: {
@@ -227,6 +242,8 @@ export function ExpandView({
   onPlanned: () => void
   /** Back to the bubble's other buttons, when there is a bubble. */
   onBack?: () => void
+  /** Ask Claude again after an error. */
+  onRetry: () => void
   /** Tuck the card away: Pip stays floating and reopens it on click. */
   onMinimize: () => void
   /** Finished with it: Pip hides until the hotkey. */
@@ -247,6 +264,14 @@ export function ExpandView({
         <p role="status" className="text-body">
           {t(error ? 'expand.error' : 'expand.working')}
         </p>
+        {error ? (
+          <Button variant="outline" className="self-start" onClick={onRetry}>
+            <RotateCcw aria-hidden />
+            {t('expand.retry')}
+          </Button>
+        ) : (
+          <Placeholder />
+        )}
       </Shell>
     )
   }

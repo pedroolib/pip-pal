@@ -188,6 +188,16 @@ function Overlay(): React.JSX.Element {
       () => {}
     )
   }
+  // After an error, read the same selection again; the bubble stays where it is.
+  const retryTriage = (): void => {
+    const id = ++request.current
+    setError(false)
+    setTriage(null)
+    api
+      .triage(text.current)
+      .then((result) => id === request.current && setTriage(result))
+      .catch(() => id === request.current && setError(true))
+  }
   // One Claude call per button, only once it's pressed (spoons from today's check-in). Pressing it
   // again reopens its card; after an error it tries again.
   const act = (kind: ActionKind): void => {
@@ -421,7 +431,13 @@ function Overlay(): React.JSX.Element {
         {view === 'checkIn' && <ResizeEdges />}
         {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
         {view === 'triage' && (
-          <TriageBubble triage={triage} error={error} flip={flip} onAction={act} />
+          <TriageBubble
+            triage={triage}
+            error={error}
+            flip={flip}
+            onAction={act}
+            onRetry={retryTriage}
+          />
         )}
         {view === 'task' && active && task && (
           <div style={{ width: BUBBLE_WIDTH }}>
@@ -442,6 +458,7 @@ function Overlay(): React.JSX.Element {
               onCopied={(what) => copied(active, what)}
               onPlanned={() => planned(active)}
               onBack={triage ? () => setView('triage') : undefined}
+              onRetry={() => act(active)}
               onMinimize={() => setView('hidden')}
               onClose={closeTask}
             />
