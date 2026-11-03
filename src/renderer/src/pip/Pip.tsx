@@ -17,6 +17,9 @@ export type Mood =
   | 'listening'
   | 'thanks'
 
+// Moods worth a small squash-and-settle when Pip changes into them.
+const REACTS: Mood[] = ['happy', 'celebrate', 'thanks', 'hello']
+
 const INK = 'var(--foreground)'
 const ACCENT = 'var(--primary)'
 
@@ -140,7 +143,10 @@ function Face({ mood }: { mood: Mood }): React.JSX.Element {
   }
 }
 
-/** One shape, the eyes do the talking. Bobs and blinks; still when reduced motion is on. */
+/**
+ * One shape, the eyes do the talking. Bobs and blinks, reacts to a happy mood and breathes while
+ * quiet; still when reduced motion is on.
+ */
 export function Pip({
   mood,
   size = 48,
@@ -162,17 +168,25 @@ export function Pip({
       data-overlay-hit
       className={cn('pip-bob shrink-0', className)}
     >
-      <rect
-        x={6}
-        y={10}
-        width={52}
-        height={44}
-        rx={18}
-        fill="var(--pip)"
-        opacity={mood === 'quiet' ? 0.6 : 1}
-      />
-      {mood !== 'quiet' && <ellipse cx={18} cy={17} rx={5} ry={2.5} fill="white" opacity={0.45} />}
-      <Face mood={mood} />
+      {/* Keyed by mood: a new mood remounts the group, so its reaction plays once. */}
+      <g
+        key={mood}
+        className={cn(REACTS.includes(mood) && 'pip-react', mood === 'quiet' && 'pip-breathe')}
+      >
+        <rect
+          x={6}
+          y={10}
+          width={52}
+          height={44}
+          rx={18}
+          fill="var(--pip)"
+          opacity={mood === 'quiet' ? 0.6 : 1}
+        />
+        {mood !== 'quiet' && (
+          <ellipse cx={18} cy={17} rx={5} ry={2.5} fill="white" opacity={0.45} />
+        )}
+        <Face mood={mood} />
+      </g>
     </svg>
   )
 }

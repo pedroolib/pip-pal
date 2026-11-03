@@ -7,10 +7,8 @@ import {
   CircleHelp,
   Clock,
   Frown,
-  ListChecks,
   Meh,
   MessageSquare,
-  Route,
   Smile,
   Users,
   type LucideIcon
@@ -26,6 +24,7 @@ import {
 } from '@renderer/components/ui/tooltip'
 import { cn } from '@renderer/lib/utils'
 import { Pip } from '@renderer/pip/Pip'
+import { ACTION_ICON } from './icons'
 import { CARD_WIDTH, PIP_SIZE, triageLines, type Flip } from './model'
 
 const TONE_ICON: Record<TriageTone, LucideIcon> = {
@@ -33,11 +32,6 @@ const TONE_ICON: Record<TriageTone, LucideIcon> = {
   neutral: Meh,
   worried: Frown,
   upset: Frown
-}
-const ACTION_ICON: Record<ActionKind, LucideIcon> = {
-  transition: Route,
-  steps: ListChecks,
-  questions: CircleHelp
 }
 
 const FOCUS = 'rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
@@ -244,7 +238,7 @@ export function TriageBubble({
             {lines.actions.length > 0 && (
               <>
                 <hr className="my-3.5 border-border" />
-                <div className="flex flex-col gap-2">
+                <div className="motion-stagger flex flex-col gap-2">
                   {lines.actions.map(({ kind, strength, eyebrow }) => (
                     <ActionButton
                       key={kind}

@@ -44,6 +44,7 @@ export function CalmingCard({
   return (
     <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
       <div className="flex items-start gap-3">
+        {/* While the timer runs Pip breathes at 4 s in, 4 s out, a pace to follow if it helps. */}
         <Pip mood={running ? 'quiet' : 'gentle'} size={44} />
         <div className="flex flex-col gap-1">
           <h1 className="font-bold">

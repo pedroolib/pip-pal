@@ -1,13 +1,20 @@
 // The overlay: check-in → triage bubble next to the cursor (Esc closes it) → hidden until the hotkey.
-// A bubble button opens its task card at the cursor and a Pip in the screen's corner keeps the
-// buttons; clicking that Pip swaps the two, and tucking the card away (or Esc) leaves it there.
+// A bubble button opens its task card; tucked away (or Esc), Pip floats there until it's closed.
+// Each button has its own card and Claude call, so the calls run side by side; one card shows at a
+// time. While a card is open a Pip in the screen's corner keeps the bubble's buttons (or the card,
+// when the buttons are at the cursor): clicking it swaps the two. Back on a card does the same, and
+// tucking the card away (or Esc) leaves it in that corner Pip.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { OVERLAY_MIN, type Bounds } from '@shared/ipc'
 import {
   DEFAULT_SETTINGS,
+  LOW_SPOONS,
   dueCheckIn,
   enabledTimes,
+  type Achievement,
   type ActionKind,
+  type CalmingStrategy,
   type Expansion,
   type Triage
 } from '@shared/schemas'
@@ -33,17 +40,46 @@ function spoonsOverride(): number | null {
 }
 
 // 'hidden' draws nothing; the click-through window then lets every click reach the app below.
-// 'task' is what a bubble button opened; while it's open, the corner Pip holds the other one.
+// 'task' is what a bubble button opened; while cards are open, the corner Pip holds the other one.
 type View = 'checkIn' | 'triage' | 'task' | 'hidden'
 
-/** A bubble button's task: its one Claude call and the spoons it was made with. */
-type Task = { kind: ActionKind; spoons: number | null; result: Expansion | null; error: boolean }
+/** A bubble button's task: its one Claude call, the spoons it was made with and where the person is. */
+type Task = {
+  spoons: number | null
+  result: Expansion | null
+  error: boolean
+  /** Index of the step in progress (steps only); kept here so tucking the card away keeps it. */
+  step: number
+  calm: CalmingStrategy | null
+  /** "I have a plan" was pressed (transition only). */
+  planned: boolean
+  /** A drafted question was copied; logged as an achievement once per card. */
+  asked: boolean
+}
+type Tasks = Partial<Record<ActionKind, Task>>
+
+const NEW_TASK: Task = {
+  spoons: null,
+  result: null,
+  error: false,
+  step: 0,
+  calm: null,
+  planned: false,
+  asked: false
+}
+
+// A failed write only loses the log entry; the flow goes on.
+function logAchievement(kind: Achievement['kind'], label: string): void {
+  api.addAchievement({ at: new Date().toISOString(), kind, label }).catch(() => {})
+}
 
 // The window's transparent padding around the bubble (p-[32px] below). The window is sized to
 // BUBBLE_WIDTH, not measured, so a window that starts too narrow can't keep the card squeezed.
 const PAD = 32
 // How far the bubble opens from the cursor; keep in step with capture() in src/main/index.ts.
 const CURSOR_GAP = 12
+// "Not now" on the steps card brings it back once, this much later, if it's still tucked away.
+const LATER_MS = 15 * 60 * 1000
 // The check-in's window; keep in step with OVERLAY in src/main/index.ts.
 const CHECKIN_SIZE = { width: 448, height: 400 }
 
@@ -63,16 +99,19 @@ function placeAt(
 }
 
 function Overlay(): React.JSX.Element {
+  const { t } = useTranslation()
   const drag = useWindowDrag()
   const [view, setView] = useState<View | null>(null)
   const [triage, setTriage] = useState<Triage | null>(null)
   const [error, setError] = useState(false)
-  // Once a bubble has opened at the cursor, the window stays there instead of in the screen corner.
+  // Once a bubble has opened at the cursor, Pip docks where it was instead of in the screen corner.
   const [atCursor, setAtCursor] = useState(false)
   const [flip, setFlip] = useState<Flip>({ x: false, y: false })
-  const [task, setTask] = useState<Task | null>(null)
-  // Index of the step in progress; kept here so tucking the card away doesn't lose it.
-  const [step, setStep] = useState(0)
+  const [tasks, setTasks] = useState<Tasks>({})
+  // The card on screen (or that the corner Pip reopens).
+  const [active, setActive] = useState<ActionKind | null>(null)
+  // A calming strategy is offered at most once per message, so Pip doesn't insist.
+  const calmOffered = useRef(false)
   // The selected text, for the button's Claude call. Stays in this window.
   const text = useRef('')
   // The window edges next to the cursor (left/top, or right/bottom when flipped), kept still while
@@ -80,6 +119,7 @@ function Overlay(): React.JSX.Element {
   const anchor = useRef<{ x: number; y: number } | null>(null)
   const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const later = useRef<ReturnType<typeof setTimeout> | null>(null)
   const frame = useRef<HTMLDivElement>(null)
   const resized = useRef(false)
   // The check-in card fills the window and its text is sized to fit it.
@@ -104,7 +144,9 @@ function Overlay(): React.JSX.Element {
     refreshSettings()
     const id = ++request.current
     text.current = selected
-    setTask(null)
+    setTasks({})
+    setActive(null)
+    calmOffered.current = false
     // Main put the window's top-left next to the cursor, so the cursor can be read back from it.
     // The bubble opens left and/or up when the card wouldn't fit right of or below the cursor.
     const cursor = { x: screenX + PAD - CURSOR_GAP, y: screenY + PAD - CURSOR_GAP }
@@ -128,25 +170,50 @@ function Overlay(): React.JSX.Element {
       .then((result) => id === request.current && setTriage(result))
       .catch(() => id === request.current && setError(true))
   }
-  // One Claude call, only now that the person pressed the button (spoons from today's check-in).
+  const patch = (kind: ActionKind, change: (task: Task) => Partial<Task>): void =>
+    setTasks((all) => {
+      const task = all[kind]
+      return task ? { ...all, [kind]: { ...task, ...change(task) } } : all
+    })
+  // With few spoons, or before a plan for a change, Pip offers the manual's first calming strategy.
+  const offerCalm = (kind: ActionKind, spoons: number | null, live: () => boolean): void => {
+    const low = spoons !== null && spoons <= LOW_SPOONS
+    if (calmOffered.current || kind === 'questions' || !(low || kind === 'transition')) return
+    calmOffered.current = true
+    api.getProfile().then(
+      (p) => {
+        const strategy = p.calmingStrategies[0]
+        if (strategy && live()) patch(kind, () => ({ calm: strategy }))
+      },
+      () => {}
+    )
+  }
+  // One Claude call per button, only once it's pressed (spoons from today's check-in). Pressing it
+  // again reopens its card; after an error it tries again.
   const act = (kind: ActionKind): void => {
-    const id = ++request.current
-    const unclear = kind === 'questions' && triage ? unclearParts(triage) : undefined
-    setTask({ kind, spoons: null, result: null, error: false })
-    setStep(0)
+    setActive(kind)
     setView('task')
+    if (tasks[kind] && !tasks[kind].error) return
+    const id = request.current
+    const live = (): boolean => id === request.current
+    const unclear = kind === 'questions' && triage ? unclearParts(triage) : undefined
+    setTasks((all) => ({ ...all, [kind]: NEW_TASK }))
     api
       .listCheckIns()
       .catch(() => [])
       .then((checkIns) => {
         const spoons = spoonsOverride() ?? spoonsToday(checkIns, new Date())
-        if (id === request.current) setTask((t) => t && { ...t, spoons })
-        return api.expand(text.current, kind, spoons, unclear)
+        if (live()) patch(kind, () => ({ spoons }))
+        return api.expand(text.current, kind, spoons, unclear).then((result) => {
+          if (!live()) return
+          patch(kind, () => ({ result }))
+          offerCalm(kind, spoons, live)
+        })
       })
-      .then((result) => id === request.current && setTask((t) => t && { ...t, result }))
-      .catch(() => id === request.current && setTask((t) => t && { ...t, error: true }))
+      .catch(() => live() && patch(kind, () => ({ error: true })))
   }
-  // The corner Pip trades places with what's at the cursor: the task card and the bubble's buttons.
+  // The corner Pip trades places with what's at the cursor: the open card and the bubble's buttons.
+  // From a tucked-away card (hidden), it brings the card back.
   const swap = (): void => setView((v) => (v === 'checkIn' ? v : v === 'task' ? 'triage' : 'task'))
   // Nothing opens by itself in the app: after the check-in Pip hides and waits for the hotkey.
   const afterCheckIn = (): void => (inBrowser ? capture('') : setView('hidden'))
@@ -176,15 +243,16 @@ function Overlay(): React.JSX.Element {
       offDue()
       window.removeEventListener('focus', refreshSettings)
       if (snooze.current) clearTimeout(snooze.current)
+      if (later.current) clearTimeout(later.current)
     }
     // Subscribe once: the handlers only use state setters and refs, which never go stale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // While the bubble or a task card is open Esc closes it. With a task open nothing is lost: it
-  // waits in the corner Pip. The overlay is never focused, so main sends a dismiss when it catches
-  // Escape (or a second launch with --dismiss); the keydown is for a plain browser.
-  const hasTask = task !== null
+  // While the bubble or a card is open Esc closes it. With cards open nothing is lost: they wait in
+  // the corner Pip and their calls keep going. The overlay is never focused, so main sends a dismiss
+  // when it catches Escape (or a second launch with --dismiss); the keydown is for a plain browser.
+  const hasTask = Object.keys(tasks).length > 0
   useEffect(() => {
     if (view !== 'triage' && view !== 'task') return
     api.setBubbleOpen(true)
@@ -204,28 +272,13 @@ function Overlay(): React.JSX.Element {
     }
   }, [view, hasTask])
 
-  // While a task is open the corner Pip holds whichever of it and the buttons isn't at the cursor.
-  const steps =
-    task?.result?.kind === 'steps' ? planSteps(task.result.steps, task.spoons).now : null
-  const progress = steps?.length ? Math.min(step / steps.length, 1) : null
-  const holds = !task ? null : view === 'task' ? 'menu' : 'task'
-  const cornerProgress = holds === 'task' ? progress : null
-  useEffect(() => {
-    if (!inBrowser) api.setCorner(holds && { holds, progress: cornerProgress })
-  }, [holds, cornerProgress])
-  // A plain browser has no corner window, so the page draws that Pip in its own corner.
-  const cornerInPage = inBrowser && holds && (
-    <div className="fixed right-7 bottom-7">
-      <CornerButton holding={{ holds, progress: cornerProgress }} onOpen={swap} />
-    </div>
-  )
-
   // The window is fitted to the bubble, keeping its edges at the cursor; hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
   // snooze re-open would move it, or undo a size the person dragged).
   // While Jev reads, the window already makes room for the card: main keeps the window on screen, so
   // growing it only when the answer arrives would push Pip up or left near a screen edge.
   // The same goes for a task card while Claude works on it.
+  const task = active ? tasks[active] : undefined
   const reading =
     (view === 'triage' && !triage && !error) ||
     (view === 'task' && !!task && !task.result && !task.error)
@@ -251,6 +304,28 @@ function Overlay(): React.JSX.Element {
     return () => observer.disconnect()
   }, [view, atCursor, reading, flip])
 
+  // While cards are open the corner Pip holds whichever of the open card and the buttons isn't at
+  // the cursor, with the steps' progress ring when it holds the steps card.
+  const stepsTask = tasks.steps
+  const steps =
+    stepsTask?.result?.kind === 'steps'
+      ? planSteps(stepsTask.result.steps, stepsTask.spoons).now
+      : null
+  const holds = !hasTask ? null : view === 'task' ? 'menu' : 'task'
+  const cornerProgress =
+    holds === 'task' && active === 'steps' && stepsTask && steps?.length
+      ? Math.min(stepsTask.step / steps.length, 1)
+      : null
+  useEffect(() => {
+    if (!inBrowser) api.setCorner(holds && { holds, progress: cornerProgress })
+  }, [holds, cornerProgress])
+  // A plain browser has no corner window, so the page draws that Pip in its own corner.
+  const cornerInPage = inBrowser && holds && (
+    <div className="fixed right-7 bottom-7">
+      <CornerButton holding={{ holds, progress: cornerProgress }} onOpen={swap} />
+    </div>
+  )
+
   if (!view || view === 'hidden') return <>{cornerInPage}</>
 
   const answer = (n: number): void => {
@@ -267,14 +342,61 @@ function Overlay(): React.JSX.Element {
 
   const corner = view === 'checkIn'
   const bubble = !corner
+  // Closing a card drops it; with other cards still open the bubble comes back and the corner Pip
+  // holds the next one.
   const closeTask = (): void => {
-    setTask(null)
+    if (!active) return
+    const rest = (Object.keys(tasks) as ActionKind[]).filter((k) => k !== active)
+    if (active === 'steps' && later.current) {
+      clearTimeout(later.current)
+      later.current = null
+    }
+    setTasks((all) => {
+      const next = { ...all }
+      delete next[active]
+      return next
+    })
+    setActive(rest[0] ?? null)
+    setView(rest.length > 0 && triage ? 'triage' : 'hidden')
+  }
+  const remindLater = (): void => {
     setView('hidden')
+    if (later.current) clearTimeout(later.current)
+    const id = request.current
+    later.current = setTimeout(() => {
+      later.current = null
+      // A new message, or a card closed meanwhile, wins: Pip never insists.
+      if (id !== request.current) return
+      setActive('steps')
+      setView((v) => (v === 'hidden' ? 'task' : v))
+    }, LATER_MS)
+  }
+  const stepDone = (): void => {
+    const done = stepsTask && steps?.[stepsTask.step]
+    if (done) logAchievement('step_done', done.text)
+    patch('steps', (x) => ({ step: x.step + 1 }))
+  }
+  const copied = (kind: ActionKind, what: string): void => {
+    if (tasks[kind]?.asked) return
+    logAchievement('asked_not_guessed', t('achievement.asked', { what }))
+    patch(kind, () => ({ asked: true }))
+  }
+  const planned = (kind: ActionKind): void => {
+    const type = triage?.changeType ?? 'other'
+    const label =
+      type === 'none' || type === 'other'
+        ? t('achievement.changeAny')
+        : t('achievement.change', { type: t(`decode.changeTypes.${type}`) })
+    const at = new Date().toISOString()
+    logAchievement('change_navigated', label)
+    api.saveChange({ at, type, summary: label }).catch(() => {})
+    patch(kind, () => ({ planned: true }))
   }
 
   return (
     <div
       data-overlay-root
+      data-flip-y={(bubble && flip.y) || undefined}
       className={cn(
         'flex h-screen p-[32px]',
         corner || (bubble && flip.y) ? 'items-end' : 'items-start',
@@ -301,17 +423,25 @@ function Overlay(): React.JSX.Element {
         {view === 'triage' && (
           <TriageBubble triage={triage} error={error} flip={flip} onAction={act} />
         )}
-        {view === 'task' && task && (
+        {view === 'task' && active && task && (
           <div style={{ width: BUBBLE_WIDTH }}>
             <ExpandView
-              kind={task.kind}
+              kind={active}
               expansion={task.result}
               error={task.error}
               spoons={task.spoons}
-              step={step}
+              step={task.step}
               deadline={triage?.deadline ?? null}
-              onStepDone={() => setStep((s) => s + 1)}
+              calm={task.calm}
+              planned={task.planned}
+              asked={task.asked}
+              onCalm={(calm) => patch(active, () => ({ calm }))}
+              onStepDone={stepDone}
+              onLater={remindLater}
               onAsk={() => act('questions')}
+              onCopied={(what) => copied(active, what)}
+              onPlanned={() => planned(active)}
+              onBack={triage ? () => setView('triage') : undefined}
               onMinimize={() => setView('hidden')}
               onClose={closeTask}
             />

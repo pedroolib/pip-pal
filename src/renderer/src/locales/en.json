@@ -5,6 +5,9 @@
     "done": "Done",
     "stuck": "I'm stuck",
     "then": "Then {{step}}",
+    "due": "due {{date}}",
+    "before": "before {{date}}",
+    "later": "Not now, bring this back in 15 minutes",
     "canWait": "The rest can wait",
     "minimize": "Tuck the card away",
     "allDone": "All done for now",
@@ -33,7 +36,8 @@
     "left_one": "{{count}} minute left",
     "left_other": "{{count}} minutes left",
     "step1": "step 1",
-    "thisStep": "this step"
+    "thisStep": "this step",
+    "thePlan": "the plan"
   },
   "dock": {
     "open": "Open Pip",
@@ -381,7 +385,7 @@
         "title": "Language",
         "en": "English",
         "es": "Español",
-        "note": "Español is saved, but Pip stays in English until the translation is ready."
+        "note": "Pip answers each message in the language it is written in."
       },
       "calm": {
         "title": "Calmer motion",
@@ -401,6 +405,14 @@
     "stepsTitle": "Your steps",
     "copyIntro": "Copy one and send it yourself if it helps.",
     "questionsToAsk": "Questions you could ask",
-    "usedManual": "Used your manual"
+    "usedManual": "Used your manual",
+    "back": "Back to Pip's options",
+    "gotPlan": "I have a plan",
+    "planned": "Saved to your achievements. You got through this change."
+  },
+  "achievement": {
+    "asked": "Asked instead of guessing: {{what}}",
+    "change": "Made a plan for the {{type}} change",
+    "changeAny": "Made a plan for a change"
   }
 }

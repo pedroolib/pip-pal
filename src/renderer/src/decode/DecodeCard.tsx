@@ -47,7 +47,13 @@ export function StepNumber({ n }: { n: number }): React.JSX.Element {
   )
 }
 
-export function CopyQuestion({ text }: { text: string }): React.JSX.Element {
+export function CopyQuestion({
+  text,
+  onCopied
+}: {
+  text: string
+  onCopied?: () => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   useEffect(() => {
@@ -59,7 +65,12 @@ export function CopyQuestion({ text }: { text: string }): React.JSX.Element {
     <Button
       variant="outline"
       size="sm"
-      onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true))}
+      onClick={() =>
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true)
+          onCopied?.()
+        })
+      }
     >
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
       <span aria-live="polite">{copied ? t('decode.ask.copied') : t('decode.ask.copy')}</span>
