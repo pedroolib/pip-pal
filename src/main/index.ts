@@ -3,7 +3,7 @@ import { execFile } from 'child_process'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { IPC, OVERLAY_MIN, type Bounds } from '@shared/ipc'
+import { IPC, OVERLAY_MIN, type Bounds, type CornerPip } from '@shared/ipc'
 import { enabledTimes } from '@shared/schemas'
 import { captureSelection } from './capture'
 import { isSafeExternalUrl } from './external-links'
@@ -30,6 +30,16 @@ const OVERLAY_PAD = 32
 const CLICK_THROUGH = process.platform !== 'linux'
 
 let overlay: BrowserWindow | null = null
+
+// The overlay's renderer is untrusted input like any IPC sender: check the shape before using it.
+function isCornerPip(v: unknown): v is CornerPip {
+  if (typeof v !== 'object' || v === null) return false
+  const { holds, progress } = v as Record<string, unknown>
+  return (
+    (holds === 'menu' || holds === 'task') &&
+    (progress === null || (typeof progress === 'number' && progress >= 0 && progress <= 1))
+  )
+}
 
 // Keeps the window on the display's work area; only the transparent padding may go past the edge.
 function clampBounds({ x, y, width, height }: Bounds): Bounds {
@@ -113,11 +123,14 @@ function createOverlay(): void {
   mainWindow.on('closed', () => {
     overlay = null
     setEscape(false)
+    setCorner(null)
   })
   // A reload or crash skips React's cleanup, so the bubble could never release the shortcut.
   mainWindow.webContents.on('render-process-gone', () => setEscape(false))
   mainWindow.webContents.on('did-start-navigation', (_e, _url, _inPlace, isMainFrame) => {
-    if (isMainFrame) setEscape(false)
+    if (!isMainFrame) return
+    setEscape(false)
+    setCorner(null) // the reloaded overlay has no task open
   })
 
   // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
@@ -143,6 +156,71 @@ function createOverlay(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+}
+
+// The corner Pip: a window just big enough for Pip and its progress ring, bottom-right of the
+// screen the overlay is on. It holds whatever of the task isn't at the cursor (CornerPip).
+const CORNER = { size: 80, margin: 16 }
+let corner: BrowserWindow | null = null
+let cornerState: CornerPip | null = null
+
+function createCorner(): void {
+  const win = new BrowserWindow({
+    width: CORNER.size,
+    height: CORNER.size,
+    show: false,
+    transparent: true,
+    frame: false,
+    hasShadow: false,
+    resizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    autoHideMenuBar: true,
+    // Same as the overlay: clicking Pip must not take focus from the app the person works in.
+    focusable: false,
+    ...(process.platform === 'darwin' ? { type: 'panel' } : {}),
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      sandbox: false,
+      contextIsolation: true
+    }
+  })
+  win.setAlwaysOnTop(true, 'screen-saver')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  corner = win
+  win.on('closed', () => (corner = null))
+  win.webContents.on('dom-ready', () => {
+    win.webContents.insertCSS('body { background: transparent !important; }')
+  })
+  // A reload starts empty: hand it what it held.
+  win.webContents.on('did-finish-load', () => win.webContents.send(IPC.corner, cornerState))
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}#/corner`)
+  } else {
+    win.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/corner' })
+  }
+}
+
+function setCorner(state: CornerPip | null): void {
+  cornerState = state
+  const win = corner
+  if (!win) return
+  win.webContents.send(IPC.corner, state)
+  if (!state) {
+    win.hide()
+    return
+  }
+  const near = overlay?.getBounds() ?? screen.getCursorScreenPoint()
+  const { workArea: wa } = screen.getDisplayNearestPoint({ x: near.x, y: near.y })
+  win.setBounds({
+    x: wa.x + wa.width - CORNER.size - CORNER.margin,
+    y: wa.y + wa.height - CORNER.size - CORNER.margin,
+    width: CORNER.size,
+    height: CORNER.size
+  })
+  win.showInactive()
 }
 
 // Hotkey pressed: read the selection and hand it to the overlay. Ignores presses while one is running.
@@ -257,7 +335,20 @@ app.whenReady().then(() => {
     setEscape(open)
   })
 
+  // Only the overlay sets the corner Pip; its click goes back to the overlay to swap.
+  ipcMain.on(IPC.cornerSet, (event, state: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay) return
+    setCorner(isCornerPip(state) ? state : null)
+  })
+  ipcMain.on(IPC.cornerClick, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== corner) return
+    overlay?.webContents.send(IPC.cornerOpen)
+  })
+
   createOverlay()
+  createCorner()
   // Spoons check-ins at the enabled times from Settings. Shown without taking focus, like a
   // captured message. The dev override wins over Settings.
   const devTimes = is.dev ? parseCheckInTimes(process.env['PIP_CHECK_IN_TIMES']) : undefined
@@ -290,6 +381,7 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
       createOverlay()
+      createCorner()
       openHome()
     }
   })

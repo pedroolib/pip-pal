@@ -30,7 +30,11 @@ const api: PipApi = {
   setOverlayInteractive: (interactive) => ipcRenderer.send(IPC.overlayInteractive, interactive),
   setOverlayBounds: (bounds) => ipcRenderer.send(IPC.overlayBounds, bounds),
   onDismiss: (cb) => on<void>(IPC.dismiss, cb),
-  setBubbleOpen: (open) => ipcRenderer.send(IPC.bubbleOpen, open)
+  setBubbleOpen: (open) => ipcRenderer.send(IPC.bubbleOpen, open),
+  setCorner: (corner) => ipcRenderer.send(IPC.cornerSet, corner),
+  onCorner: (cb) => on(IPC.corner, cb),
+  clickCorner: () => ipcRenderer.send(IPC.cornerClick),
+  onCornerOpen: (cb) => on<void>(IPC.cornerOpen, cb)
 }
 
 contextBridge.exposeInMainWorld('api', api)

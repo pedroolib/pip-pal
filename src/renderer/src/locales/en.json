@@ -42,7 +42,8 @@
   "dock": {
     "open": "Open Pip",
     "stepDone": "Step {{n}} done",
-    "openCard": "Open {{action}}"
+    "openMenu": "Show the buttons again",
+    "openTask": "Back to your task"
   },
   "bubble": {
     "due": "Due {{date}}",

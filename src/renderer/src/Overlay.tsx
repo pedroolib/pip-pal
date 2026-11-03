@@ -1,7 +1,9 @@
 // The overlay: check-in → triage bubble next to the cursor (Esc closes it) → hidden until the hotkey.
 // A bubble button opens its task card; tucked away (or Esc), Pip floats there until it's closed.
-// Each button has its own card and Claude call, so the calls run side by side and Back returns to
-// the bubble's other buttons; one card shows at a time.
+// Each button has its own card and Claude call, so the calls run side by side; one card shows at a
+// time. While a card is open a Pip in the screen's corner keeps the bubble's buttons (or the card,
+// when the buttons are at the cursor): clicking it swaps the two. Back on a card does the same, and
+// tucking the card away (or Esc) leaves it in that corner Pip.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { OVERLAY_MIN, type Bounds } from '@shared/ipc'
@@ -18,6 +20,7 @@ import {
 } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
+import { CornerButton } from '@renderer/corner/CornerPip'
 import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
 import { planSteps } from '@renderer/decode/model'
 import { ExpandView } from '@renderer/expand/ExpandView'
@@ -26,15 +29,8 @@ import { useFitFont } from '@renderer/overlay/useFitFont'
 import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
 import { cn } from '@renderer/lib/utils'
 import { applySettings } from '@renderer/house/settings'
-import { DockedPip } from '@renderer/pip/DockedPip'
 import { TriageBubble } from '@renderer/triage/TriageBubble'
-import {
-  BUBBLE_WIDTH,
-  CARD_RESERVE,
-  PIP_SIZE,
-  unclearParts,
-  type Flip
-} from '@renderer/triage/model'
+import { BUBBLE_WIDTH, CARD_RESERVE, unclearParts, type Flip } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
@@ -44,8 +40,8 @@ function spoonsOverride(): number | null {
 }
 
 // 'hidden' draws nothing; the click-through window then lets every click reach the app below.
-// 'task' is what a bubble button opened; 'docked' is Pip floating while that task stays open.
-type View = 'checkIn' | 'triage' | 'task' | 'docked' | 'hidden'
+// 'task' is what a bubble button opened; while cards are open, the corner Pip holds the other one.
+type View = 'checkIn' | 'triage' | 'task' | 'hidden'
 
 /** A bubble button's task: its one Claude call, the spoons it was made with and where the person is. */
 type Task = {
@@ -84,9 +80,6 @@ const PAD = 32
 const CURSOR_GAP = 12
 // "Not now" on the steps card brings it back once, this much later, if it's still tucked away.
 const LATER_MS = 15 * 60 * 1000
-// Docked Pips in a column: each is PIP_SIZE tall, its progress ring reaches 10 px past it.
-const DOCK_GAP = 24
-const RING_OVERFLOW = 10
 // The check-in's window; keep in step with OVERLAY in src/main/index.ts.
 const CHECKIN_SIZE = { width: 448, height: 400 }
 
@@ -115,7 +108,7 @@ function Overlay(): React.JSX.Element {
   const [atCursor, setAtCursor] = useState(false)
   const [flip, setFlip] = useState<Flip>({ x: false, y: false })
   const [tasks, setTasks] = useState<Tasks>({})
-  // The card on screen (or that the docked Pip reopens).
+  // The card on screen (or that the corner Pip reopens).
   const [active, setActive] = useState<ActionKind | null>(null)
   // A calming strategy is offered at most once per message, so Pip doesn't insist.
   const calmOffered = useRef(false)
@@ -124,8 +117,6 @@ function Overlay(): React.JSX.Element {
   // The window edges next to the cursor (left/top, or right/bottom when flipped), kept still while
   // the bubble resizes so Pip doesn't move; null once the person drags the bubble elsewhere.
   const anchor = useRef<{ x: number; y: number } | null>(null)
-  // True while the latest check-in time is unanswered (dueCheckIn's rule): the docked Pip then reopens it on click.
-  const unanswered = useRef(false)
   const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
   const later = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -221,6 +212,9 @@ function Overlay(): React.JSX.Element {
       })
       .catch(() => live() && patch(kind, () => ({ error: true })))
   }
+  // The corner Pip trades places with what's at the cursor: the open card and the bubble's buttons.
+  // From a tucked-away card (hidden), it brings the card back.
+  const swap = (): void => setView((v) => (v === 'checkIn' ? v : v === 'task' ? 'triage' : 'task'))
   // Nothing opens by itself in the app: after the check-in Pip hides and waits for the hotkey.
   const afterCheckIn = (): void => (inBrowser ? capture('') : setView('hidden'))
 
@@ -232,20 +226,20 @@ function Overlay(): React.JSX.Element {
       // Ask at launch only if the latest enabled time that passed today is unanswered (main's rule);
       // after "Not now" it asks once more later.
       const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
-      unanswered.current = spoonsOverride() === null && !!due
       if (spoonsOverride() !== null || !due) afterCheckIn()
       else setView('checkIn')
     })
     const offCaptured = api.onCaptured(capture)
+    const offCorner = api.onCornerOpen(swap)
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
-      unanswered.current = true // "Not now" then leaves the docked Pip able to reopen it
       refreshSettings()
       setAtCursor(false)
       setView('checkIn')
     })
     return () => {
       offCaptured()
+      offCorner()
       offDue()
       window.removeEventListener('focus', refreshSettings)
       if (snooze.current) clearTimeout(snooze.current)
@@ -255,20 +249,15 @@ function Overlay(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // While the bubble is open Esc closes it, and Pip hides; Esc on a task card only tucks it away, so
-  // Pip floats there to bring the person back. The overlay is never focused, so main sends a dismiss
+  // While the bubble or a card is open Esc closes it. With cards open nothing is lost: they wait in
+  // the corner Pip and their calls keep going. The overlay is never focused, so main sends a dismiss
   // when it catches Escape (or a second launch with --dismiss); the keydown is for a plain browser.
+  const hasTask = Object.keys(tasks).length > 0
   useEffect(() => {
     if (view !== 'triage' && view !== 'task') return
     api.setBubbleOpen(true)
     const close = (): void => {
-      // A card is open, or the bubble was reached with Back: the calls keep going and the docked
-      // Pip brings the card back.
-      if (view === 'task' || active) {
-        setView('docked')
-        return
-      }
-      request.current++ // a late answer must not reopen what was closed
+      if (!hasTask) request.current++ // a late answer must not reopen what was closed
       setView('hidden')
     }
     const onKey = (e: KeyboardEvent): void => {
@@ -281,22 +270,15 @@ function Overlay(): React.JSX.Element {
       offDismiss()
       window.removeEventListener('keydown', onKey)
     }
-  }, [view, active])
+  }, [view, hasTask])
 
-  // The window is fitted to the bubble, keeping its edges at the cursor; docked or hidden, it shrinks back;
+  // The window is fitted to the bubble, keeping its edges at the cursor; hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
   // snooze re-open would move it, or undo a size the person dragged).
   // While Jev reads, the window already makes room for the card: main keeps the window on screen, so
   // growing it only when the answer arrives would push Pip up or left near a screen edge.
   // The same goes for a task card while Claude works on it.
   const task = active ? tasks[active] : undefined
-  // One docked Pip per open card, in the bubble's button order.
-  const order = triage?.actions.map((a) => a.kind) ?? []
-  const docked = (Object.entries(tasks) as [ActionKind, Task][]).sort(
-    ([a], [b]) => order.indexOf(a) - order.indexOf(b)
-  )
-  const dockHeight =
-    docked.length * PIP_SIZE + Math.max(docked.length - 1, 0) * DOCK_GAP + 2 * RING_OVERFLOW
   const reading =
     (view === 'triage' && !triage && !error) ||
     (view === 'task' && !!task && !task.result && !task.error)
@@ -306,10 +288,9 @@ function Overlay(): React.JSX.Element {
       resized.current = false
       api.setOverlayBounds({ x: screenX, y: screenY, ...CHECKIN_SIZE })
     }
-    if ((view === 'docked' || view === 'hidden') && atCursor) {
+    if (view === 'hidden' && atCursor) {
       resized.current = true
-      const height = Math.max(OVERLAY_MIN.height, dockHeight + 2 * PAD)
-      api.setOverlayBounds(placeAt(anchor.current, flip, OVERLAY_MIN.width, height))
+      api.setOverlayBounds(placeAt(anchor.current, flip, OVERLAY_MIN.width, OVERLAY_MIN.height))
     }
     if ((view !== 'triage' && view !== 'task') || !el) return
     const fit = (): void => {
@@ -321,14 +302,35 @@ function Overlay(): React.JSX.Element {
     const observer = new ResizeObserver(fit)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [view, atCursor, reading, flip, dockHeight])
+  }, [view, atCursor, reading, flip])
 
-  if (!view || view === 'hidden') return <></>
+  // While cards are open the corner Pip holds whichever of the open card and the buttons isn't at
+  // the cursor, with the steps' progress ring when it holds the steps card.
+  const stepsTask = tasks.steps
+  const steps =
+    stepsTask?.result?.kind === 'steps'
+      ? planSteps(stepsTask.result.steps, stepsTask.spoons).now
+      : null
+  const holds = !hasTask ? null : view === 'task' ? 'menu' : 'task'
+  const cornerProgress =
+    holds === 'task' && active === 'steps' && stepsTask && steps?.length
+      ? Math.min(stepsTask.step / steps.length, 1)
+      : null
+  useEffect(() => {
+    if (!inBrowser) api.setCorner(holds && { holds, progress: cornerProgress })
+  }, [holds, cornerProgress])
+  // A plain browser has no corner window, so the page draws that Pip in its own corner.
+  const cornerInPage = inBrowser && holds && (
+    <div className="fixed right-7 bottom-7">
+      <CornerButton holding={{ holds, progress: cornerProgress }} onOpen={swap} />
+    </div>
+  )
+
+  if (!view || view === 'hidden') return <>{cornerInPage}</>
 
   const answer = (n: number): void => {
     const at = new Date()
     api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons: n })
-    unanswered.current = false
     afterCheckIn()
   }
   // Asks once more later, then leaves it: Pip never insists.
@@ -338,27 +340,27 @@ function Overlay(): React.JSX.Element {
     snooze.current = setTimeout(() => setView((v) => (v === 'hidden' ? 'checkIn' : v)), SNOOZE_MS)
   }
 
-  const corner = view === 'checkIn' || (view === 'docked' && !atCursor)
+  const corner = view === 'checkIn'
   const bubble = !corner
-  const stepsTask = tasks.steps
-  const steps =
-    stepsTask?.result?.kind === 'steps'
-      ? planSteps(stepsTask.result.steps, stepsTask.spoons).now
-      : null
-  // Closing a card drops it; the bubble comes back while other cards are still open.
+  // Closing a card drops it; with other cards still open the bubble comes back and the corner Pip
+  // holds the next one.
   const closeTask = (): void => {
     if (!active) return
-    const rest = Object.keys(tasks).filter((k) => k !== active)
+    const rest = (Object.keys(tasks) as ActionKind[]).filter((k) => k !== active)
+    if (active === 'steps' && later.current) {
+      clearTimeout(later.current)
+      later.current = null
+    }
     setTasks((all) => {
       const next = { ...all }
       delete next[active]
       return next
     })
-    setActive(null)
+    setActive(rest[0] ?? null)
     setView(rest.length > 0 && triage ? 'triage' : 'hidden')
   }
   const remindLater = (): void => {
-    setView('docked')
+    setView('hidden')
     if (later.current) clearTimeout(later.current)
     const id = request.current
     later.current = setTimeout(() => {
@@ -366,7 +368,7 @@ function Overlay(): React.JSX.Element {
       // A new message, or a card closed meanwhile, wins: Pip never insists.
       if (id !== request.current) return
       setActive('steps')
-      setView((v) => (v === 'docked' ? 'task' : v))
+      setView((v) => (v === 'hidden' ? 'task' : v))
     }, LATER_MS)
   }
   const stepDone = (): void => {
@@ -440,63 +442,13 @@ function Overlay(): React.JSX.Element {
               onCopied={(what) => copied(active, what)}
               onPlanned={() => planned(active)}
               onBack={triage ? () => setView('triage') : undefined}
-              onMinimize={() => setView('docked')}
+              onMinimize={() => setView('hidden')}
               onClose={closeTask}
             />
           </div>
         )}
-        {view === 'docked' && docked.length === 0 && (
-          <DockedPip
-            mood="calm"
-            progress={null}
-            doneStep={null}
-            onOpen={() => {
-              if (triage || error) setView('triage')
-              else if (unanswered.current) setView('checkIn')
-            }}
-          />
-        )}
-        {view === 'docked' && docked.length > 0 && (
-          <div
-            className={cn(
-              'flex gap-6',
-              flip.y ? 'flex-col-reverse' : 'flex-col',
-              flip.x ? 'items-end' : 'items-start'
-            )}
-            style={{ padding: RING_OVERFLOW - 2 }}
-          >
-            {docked.map(([kind, x]) => {
-              const total = kind === 'steps' ? (steps?.length ?? 0) : 0
-              const finished = x.planned || (total > 0 && x.step >= total)
-              return (
-                <DockedPip
-                  key={kind}
-                  kind={kind}
-                  label={t('dock.openCard', { action: t(`bubble.actions.${kind}`) })}
-                  active={kind === active && docked.length > 1}
-                  mood={
-                    x.error
-                      ? 'gentle'
-                      : !x.result
-                        ? 'thinking'
-                        : finished
-                          ? 'happy'
-                          : x.asked
-                            ? 'thanks'
-                            : 'calm'
-                  }
-                  progress={total > 0 ? Math.min(x.step / total, 1) : null}
-                  doneStep={total > 0 && x.step > 0 ? Math.min(x.step, total) : null}
-                  onOpen={() => {
-                    setActive(kind)
-                    setView('task')
-                  }}
-                />
-              )
-            })}
-          </div>
-        )}
       </div>
+      {cornerInPage}
     </div>
   )
 }
