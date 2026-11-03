@@ -61,7 +61,14 @@ function Overlay(): React.JSX.Element {
     }
   }, [view])
 
+  // House and overlay are separate windows: re-read settings whenever Pip appears or the window
+  // gains focus, so a change made in the House shows up here. A failed read keeps the current state.
+  const refreshSettings = (): void => {
+    api.getSettings().then(applySettings, () => {})
+  }
+
   const capture = (text: string): void => {
+    refreshSettings()
     const id = ++request.current
     setAtCursor(true)
     setTriage(null)
@@ -87,13 +94,16 @@ function Overlay(): React.JSX.Element {
       else setView('checkIn')
     })
     const offCaptured = api.onCaptured(capture)
+    window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
+      refreshSettings()
       setAtCursor(false)
       setView('checkIn')
     })
     return () => {
       offCaptured()
       offDue()
+      window.removeEventListener('focus', refreshSettings)
       if (snooze.current) clearTimeout(snooze.current)
     }
     // Subscribe once: the handlers only use state setters and refs, which never go stale.

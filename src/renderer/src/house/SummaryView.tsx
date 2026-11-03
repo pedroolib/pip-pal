@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, FileDown, Info, LoaderCircle } from 'lucide-react'
+import { Copy, FileDown, Info, LoaderCircle } from 'lucide-react'
 import { Recipient, type SummaryPoint } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Checkbox } from '@renderer/components/ui/checkbox'
+import { Label } from '@renderer/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
 import { bullets } from './bullets'
 import { HouseCard, Page } from './parts'
@@ -16,15 +17,16 @@ export function SummaryView(): React.JSX.Element {
   const [recipient, setRecipient] = useState<Recipient>('coach')
   const [state, setState] = useState<State>('idle')
   const [points, setPoints] = useState<SummaryPoint[]>([])
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState(0)
   const [saved, setSaved] = useState<string | null>(null)
   const [exportFailed, setExportFailed] = useState(false)
+  const picked = points.filter((p) => p.include).length
   const run = useRef(0) // only the latest Generate may set state
 
   async function generate(): Promise<void> {
     const mine = ++run.current
     setState('loading')
-    setCopied(false)
+    setCopied(0)
     setSaved(null)
     setExportFailed(false)
     try {
@@ -40,8 +42,8 @@ export function SummaryView(): React.JSX.Element {
   async function copy(): Promise<void> {
     try {
       await navigator.clipboard.writeText(bullets(points))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setCopied(picked)
+      setTimeout(() => setCopied(0), 2000)
     } catch {
       // Clipboard blocked: the label simply stays "Copy".
     }
@@ -56,7 +58,6 @@ export function SummaryView(): React.JSX.Element {
     }
   }
 
-  const picked = points.filter((p) => p.include).length
   const loading = state === 'loading'
 
   return (
@@ -67,10 +68,10 @@ export function SummaryView(): React.JSX.Element {
       </p>
 
       <HouseCard>
-        <fieldset className="grid gap-2.5">
-          <legend id="summary-who" className="mb-2.5 font-bold">
+        <div className="grid gap-2.5">
+          <p id="summary-who" className="font-bold">
             {t('house.summary.who')}
-          </legend>
+          </p>
           <RadioGroup
             aria-labelledby="summary-who"
             value={recipient}
@@ -78,22 +79,24 @@ export function SummaryView(): React.JSX.Element {
             className="flex flex-wrap gap-2.5"
           >
             {Recipient.options.map((r) => (
-              <RadioGroupItem
+              <Label
                 key={r}
-                value={r}
-                className="inline-flex aspect-auto h-11 w-auto items-center gap-2 rounded-full border-[1.5px] bg-surface px-[18px] font-bold text-foreground shadow-none data-[state=checked]:border-foreground data-[state=checked]:bg-secondary"
+                className="h-11 cursor-pointer text-base rounded-full border-[1.5px] bg-surface px-[18px] font-bold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-solid has-[:focus-visible]:outline-ring has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-secondary"
               >
+                <RadioGroupItem value={r} />
                 {t(`manual.recipients.${r}`)}
-              </RadioGroupItem>
+              </Label>
             ))}
           </RadioGroup>
-        </fieldset>
+        </div>
         <Button
           className="min-h-11 w-fit rounded-full px-5 font-bold"
           disabled={loading}
+          aria-busy={loading}
           onClick={generate}
         >
-          {t('house.summary.generate')}
+          {loading && <LoaderCircle className="animate-spin" aria-hidden />}
+          {loading ? t('house.summary.loading') : t('house.summary.generate')}
         </Button>
       </HouseCard>
 
@@ -160,10 +163,8 @@ export function SummaryView(): React.JSX.Element {
               disabled={picked === 0}
               onClick={copy}
             >
-              {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-              <span aria-live="polite">
-                {copied ? t('house.summary.copied') : t('house.summary.copy')}
-              </span>
+              <Copy aria-hidden />
+              {t('house.summary.copy')}
             </Button>
             <Button
               variant="outline"
@@ -175,6 +176,9 @@ export function SummaryView(): React.JSX.Element {
               {t('house.summary.exportPdf')}
             </Button>
           </div>
+          <p role="status" className="text-sm text-body empty:hidden">
+            {copied > 0 && t('house.summary.copied', { count: copied })}
+          </p>
           {saved && (
             <p role="status" className="text-sm break-all text-body">
               {t('house.summary.savedTo', { path: saved })}

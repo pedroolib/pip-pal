@@ -35,8 +35,6 @@
 
   /* Pip's House: white cards on cream, and the room's tints (never sky blue, that is Pip's). */
   --surface: #ffffff;
-  --radius-card: 1.5rem;
-  --shadow-card: 0 1px 2px rgb(30 42 54 / 0.06), 0 10px 24px -14px rgb(30 42 54 / 0.22);
   --room-wall: #d9e9e5;
   --room-floor: #e6e1d4;
   --room-glass: #dce7f1;

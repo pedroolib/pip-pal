@@ -19,10 +19,7 @@ export function AchievementRow({
 }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const Icon = ICONS[a.kind]
-  const time =
-    when === 'time'
-      ? timeLabel(a.at, i18n.language)
-      : `${dayLabel(a.at, i18n.language)}, ${timeLabel(a.at, i18n.language)}`
+  const day = when === 'time' ? '' : `${dayLabel(a.at, i18n.language)}, `
   return (
     <div className="flex items-center gap-3.5">
       <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-foreground">
@@ -31,7 +28,8 @@ export function AchievementRow({
       <div className="min-w-0 flex-1">
         <p className="font-bold">{a.label}</p>
         <p className="text-sm text-muted-foreground">
-          {t(`house.achievements.kinds.${a.kind}`)} · {time}
+          {t(`house.achievements.kinds.${a.kind}`)} · {day}
+          <span className="whitespace-nowrap">{timeLabel(a.at, i18n.language)}</span>
         </p>
       </div>
     </div>

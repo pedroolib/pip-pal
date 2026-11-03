@@ -24,8 +24,8 @@ function Spoons({ count }: { count: number }): React.JSX.Element {
 /** The room, with today's calm summary on the floor. Failed reads just show the empty text. */
 export function HomeView(): React.JSX.Element {
   const { t, i18n } = useTranslation()
-  const checkIns = useLoad(api.listCheckIns).data
-  const achievements = useLoad(api.listAchievements).data
+  const checkIns = useLoad(() => api.listCheckIns()).data
+  const achievements = useLoad(() => api.listAchievements()).data
   const today = latest((checkIns ?? []).filter((c) => isToday(c.at)))
   const win = latest(achievements ?? [])
 

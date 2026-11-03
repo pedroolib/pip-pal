@@ -252,6 +252,7 @@
   },
   "house": {
     "nav": "Pip's House",
+    "skip": "Skip to content",
     "tabs": {
       "home": "Home",
       "profile": "My profile",
@@ -307,10 +308,11 @@
       "who": "Who is it for?",
       "generate": "Generate",
       "copy": "Copy",
-      "copied": "Copied",
+      "copied_one": "Copied {{count}} point",
+      "copied_other": "Copied {{count}} points",
       "exportPdf": "Export PDF",
       "retry": "Try again",
-      "loading": "Pip is writing your summary",
+      "loading": "Writing your summary…",
       "errorTitle": "The summary did not generate",
       "errorBody": "Nothing was sent. Check that you are online, then try again.",
       "selected": "{{picked}} of {{total}} points selected. Only these are copied or exported.",
@@ -329,6 +331,7 @@
       "intro": "Later, Pip could use these to suggest your spoons. Nothing is connected now, and nothing is stored.",
       "local": "Stays on your computer. Never sent anywhere.",
       "soon": "Coming soon",
+      "now": "Planned first",
       "later": "Later",
       "appleWatch": {
         "name": "Apple Watch",

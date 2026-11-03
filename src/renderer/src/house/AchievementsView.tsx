@@ -9,7 +9,7 @@ import { useLoad } from './useLoad'
 
 export function AchievementsView(): React.JSX.Element {
   const { t, i18n } = useTranslation()
-  const { data, failed, reload } = useLoad(api.listAchievements)
+  const { data, failed, reload } = useLoad(() => api.listAchievements())
   const groups = groupByDay(data ?? [])
 
   return (
@@ -17,7 +17,7 @@ export function AchievementsView(): React.JSX.Element {
       {failed ? (
         <HouseCard role="alert">
           <p className="font-bold">{t('house.achievements.errorTitle')}</p>
-          <Button className="w-fit" onClick={reload}>
+          <Button className="min-h-11 w-fit rounded-full px-5 font-bold" onClick={reload}>
             {t('house.achievements.retry')}
           </Button>
         </HouseCard>

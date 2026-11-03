@@ -31,7 +31,7 @@ export function TabBar({ current }: { current: Tab }): React.JSX.Element {
                 aria-label={t(`house.tabs.${tab}`)}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex min-h-[60px] flex-col items-center justify-center gap-0.5 rounded-[22px] text-center text-xs leading-tight font-bold outline-none focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[0.8125rem] min-[900px]:min-h-[52px] min-[900px]:flex-row min-[900px]:gap-2 min-[900px]:text-[0.9375rem]',
+                  'flex min-h-[60px] flex-col items-center justify-center gap-0.5 rounded-[22px] text-center text-xs leading-tight font-bold outline-none focus-visible:outline-3 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-[0.8125rem] min-[900px]:min-h-[52px] min-[900px]:flex-row min-[900px]:gap-2 min-[900px]:text-[0.9375rem]',
                   active
                     ? 'bg-secondary text-foreground'
                     : 'text-muted-foreground hover:text-foreground'

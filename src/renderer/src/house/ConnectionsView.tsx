@@ -30,6 +30,7 @@ export function ConnectionsView(): React.JSX.Element {
   const { t } = useTranslation()
   return (
     <Page title={t('house.titles.connections')} intro={t('house.connections.intro')}>
+      <h2 className="px-1 text-xl font-bold">{t('house.connections.now')}</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {NOW.map(({ key, Icon }) => (
           <HouseCard key={key}>
@@ -37,7 +38,7 @@ export function ConnectionsView(): React.JSX.Element {
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary">
                 <Icon className="size-6" aria-hidden />
               </span>
-              <h2 className="text-[1.0625rem] font-bold">{t(`house.connections.${key}.name`)}</h2>
+              <h3 className="text-[1.0625rem] font-bold">{t(`house.connections.${key}.name`)}</h3>
             </div>
             <p>{t(`house.connections.${key}.body`)}</p>
             <p className="text-sm text-muted-foreground">{t('house.connections.local')}</p>

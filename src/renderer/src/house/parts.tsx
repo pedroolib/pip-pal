@@ -22,7 +22,7 @@ export function Page({
     <main className="mx-auto flex w-full max-w-[880px] min-w-0 flex-col gap-5 p-4 pb-8">
       <header className="flex flex-col gap-1.5 px-1 pt-2">
         <h1 className="text-[1.75rem] leading-tight font-bold">{title}</h1>
-        {intro && <p className="max-w-[60ch] text-body">{intro}</p>}
+        {intro && <p className="text-body">{intro}</p>}
       </header>
       {children}
     </main>

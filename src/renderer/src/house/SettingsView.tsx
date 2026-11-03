@@ -70,8 +70,8 @@ export function SettingsView(): React.JSX.Element {
     ) : null
 
   const off = !settings
-  const keys = shortcutKeys(isMac(navigator.platform || navigator.userAgent))
-  const mac = keys[0] === '⌃'
+  const mac = isMac(navigator.platform || navigator.userAgent)
+  const keys = shortcutKeys(mac)
 
   return (
     <Page title={t('house.titles.settings')} intro={t('house.settings.intro')}>
@@ -150,7 +150,7 @@ export function SettingsView(): React.JSX.Element {
       </HouseCard>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <HouseCard>
+        <HouseCard className="h-full">
           <Heading Icon={Languages}>
             <Label htmlFor="language" className="text-[1.0625rem] leading-snug font-bold">
               {t('house.settings.language.title')}
@@ -179,7 +179,7 @@ export function SettingsView(): React.JSX.Element {
           {fail('language')}
         </HouseCard>
 
-        <HouseCard>
+        <HouseCard className="h-full">
           <div className="flex items-center gap-3">
             <span className={iconChip}>
               <Wind className="size-6" aria-hidden />
