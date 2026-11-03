@@ -10,6 +10,7 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
+  # Includes resources/models: run `npm run fetch:whisper` before packaging.
   - resources/**
 win:
   executableName: pip-pal
@@ -18,8 +19,8 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
-# Unsigned, for the demo Mac (Apple Silicon). Pip uses no camera, microphone or folders, so the
-# template's prompts for them are gone (docs/DECISIONS.md, notes for A).
+# Unsigned, for the demo Mac (Apple Silicon). Pip uses the microphone and computer audio for voice
+# capture, but no camera or folders, so the template's prompts for those are gone (docs/DECISIONS.md, notes for A).
 mac:
   target:
     - target: dmg
@@ -33,6 +34,8 @@ mac:
   extendInfo:
     # The hotkey presses ⌘C through System Events (src/main/capture.ts); macOS asks once.
     NSAppleEventsUsageDescription: Pip copies the text you selected when you press Control+Shift+Space.
+    NSMicrophoneUsageDescription: Pip listens only after you press Start, to write down spoken instructions on this computer.
+    NSAudioCaptureUsageDescription: Pip can listen to your computer's audio, only after you choose it and press Start. Nothing leaves this computer.
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}

@@ -1,4 +1,15 @@
-import { app, shell, BrowserWindow, globalShortcut, ipcMain, powerMonitor, screen } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  desktopCapturer,
+  globalShortcut,
+  ipcMain,
+  powerMonitor,
+  screen,
+  session,
+  systemPreferences
+} from 'electron'
 import { execFile } from 'child_process'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -8,12 +19,14 @@ import { enabledTimes, hotkeyReady } from '@shared/schemas'
 import { captureSelection } from './capture'
 import { isSafeExternalUrl } from './external-links'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
-import { registerMockHandlers } from './mock'
+import { registerMockHandlers, warmUpTranscriber } from './mock'
 import { openStorage } from './storage'
 
 // Explicit Control: `CommandOrControl` would become ⌘ on Mac (docs/DECISIONS.md, notes for A).
 // shortcut: fixed until there is a settings screen to change it.
 const HOTKEY = 'Control+Shift+Space'
+// Starts and stops voice capture in the overlay (the renderer decides which).
+const RECORD_HOTKEY = 'Control+Shift+Enter'
 
 // One Pip at a time. Global shortcuts don't work on Wayland, so a compositor bind runs
 // `pip-pal --capture`; that second launch only hands the request to this one and exits.
@@ -251,6 +264,59 @@ async function capture(): Promise<void> {
   }
 }
 
+// Record hotkey pressed: open the overlay at the cursor (unless it is already showing, so a second
+// press that stops the recording doesn't move it) and tell it. Pip never starts recording by itself.
+async function record(): Promise<void> {
+  const win = overlay
+  if (!win) return
+  if (!win.isVisible()) {
+    const cursor = await cursorPoint()
+    const { width, height } = win.getBounds()
+    win.setBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
+    win.showInactive()
+  }
+  win.webContents.send(IPC.recordHotkey)
+}
+
+// Audio only, and only for the overlay: the mic through getUserMedia, computer audio through
+// getDisplayMedia. Other permissions keep Electron's default (allowed); any other media is denied.
+function setMediaPermissions(): void {
+  const ses = session.defaultSession
+  const fromOverlay = (wc: Electron.WebContents | null): boolean =>
+    !!overlay && wc === overlay.webContents
+  ses.setPermissionCheckHandler((wc, permission, _origin, details) => {
+    if (permission !== 'media') return true
+    return fromOverlay(wc) && (details as { mediaType?: string }).mediaType === 'audio'
+  })
+  ses.setPermissionRequestHandler(async (wc, permission, callback, details) => {
+    if (permission !== 'media') return callback(true)
+    const types = (details as { mediaTypes?: string[] }).mediaTypes ?? []
+    if (!fromOverlay(wc) || types.length === 0 || types.some((t) => t !== 'audio')) {
+      return callback(false)
+    }
+    // macOS asks for the microphone once, the first time the person starts recording.
+    if (
+      process.platform === 'darwin' &&
+      systemPreferences.getMediaAccessStatus('microphone') !== 'granted'
+    ) {
+      return callback(await systemPreferences.askForMediaAccess('microphone').catch(() => false))
+    }
+    callback(true)
+  })
+  // Computer audio is loopback on a screen source; the renderer drops the video track.
+  ses.setDisplayMediaRequestHandler(async (request, callback) => {
+    try {
+      if (!overlay || request.frame?.processId !== overlay.webContents.mainFrame.processId) {
+        return callback(null)
+      }
+      const [source] = await desktopCapturer.getSources({ types: ['screen'] })
+      callback(source ? { video: source, audio: 'loopback' } : null)
+    } catch {
+      callback(null)
+    }
+  })
+}
+
 // Pip's House: a normal opaque window (My Manual, later summaries and settings).
 let home: BrowserWindow | null = null
 function openHome(): void {
@@ -382,8 +448,19 @@ app.whenReady().then(() => {
   ) {
     console.warn(`[capture] ${HOTKEY} is taken by another app; use \`pip-pal --capture\` instead.`)
   }
+  if (
+    !globalShortcut.register(RECORD_HOTKEY, () => {
+      if (ready()) void record()
+    })
+  ) {
+    console.warn(`[record] ${RECORD_HOTKEY} is taken by another app; use \`pip-pal --record\` instead.`)
+  }
+  setMediaPermissions()
+  // Load the speech model before the first recording needs it.
+  setTimeout(() => void warmUpTranscriber(), 3000)
   app.on('second-instance', (_, argv) => {
     if (argv.includes('--capture') && ready()) void capture()
+    if (argv.includes('--record') && ready()) void record()
     if (argv.includes('--dismiss')) overlay?.webContents.send(IPC.dismiss)
   })
   ipcMain.on(IPC.homeOpen, openHome)
