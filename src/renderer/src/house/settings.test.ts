@@ -24,11 +24,19 @@ describe('dueCheckIn (the overlay launch ask)', () => {
   it('asks the latest passed time when it is unanswered', () => {
     expect(dueCheckIn(times, [], at(14))).toBe('13:00')
   })
-  it('counts a check-in since the time before it, not one from earlier or yesterday', () => {
-    expect(dueCheckIn(times, [took(at(10))], at(14))).toBeNull()
-    expect(dueCheckIn(times, [took(at(8))], at(14))).toBe('13:00')
+  it('counts a check-in within 30 minutes before the time, not an older one or yesterday', () => {
+    const t4 = ['09:00', '13:00', '17:00', '21:40']
+    expect(dueCheckIn(t4, [took(at(21, 36))], at(21, 40))).toBeNull() // the launch ask at 21:36
+    expect(dueCheckIn(t4, [took(at(21, 5))], at(21, 40))).toBe('21:40')
+    expect(dueCheckIn(t4, [took(at(21, 41))], at(21, 45))).toBeNull()
+    expect(dueCheckIn(times, [took(at(10))], at(14))).toBe('13:00') // answered 09:00 only
     expect(dueCheckIn(times, [took(at(10, 0, 29))], at(10))).toBe('09:00')
-    expect(dueCheckIn(times, [took(at(7))], at(10))).toBeNull() // midnight to 9:00 counts for 9:00
+    expect(dueCheckIn(['00:10', ...times], [took(at(23, 50, 29))], at(0, 10))).toBe('00:10')
+  })
+  it('asks two times in the same bucket both', () => {
+    const t2 = ['09:00', '10:00']
+    expect(dueCheckIn(t2, [took(at(8, 50))], at(9))).toBeNull()
+    expect(dueCheckIn(t2, [took(at(8, 50))], at(10))).toBe('10:00')
   })
   it('asks nothing when every time is off', () => {
     expect(dueCheckIn([], [], at(14))).toBeNull()

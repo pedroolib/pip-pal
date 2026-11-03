@@ -342,18 +342,20 @@ export const enabledTimes = (s: Settings): string[] =>
 export const onDay = (day: Date, time: string): Date =>
   new Date(day.getFullYear(), day.getMonth(), day.getDate(), +time.slice(0, 2), +time.slice(3, 5))
 
+/** A check-in this close before (or any time after) a check-in time answers it. */
+export const RECENT_MS = 30 * 60 * 1000
+
 /**
  * The latest of `times` (sorted "HH:MM") that has passed today, if it is still unanswered, else null.
- * A time is answered by any check-in today at or after the enabled time before it (or midnight).
+ * It is answered only by a check-in the same day at or after RECENT_MS before that time.
  */
 export function dueCheckIn(times: string[], checkIns: CheckIn[], now: Date): string | null {
-  const passed = times.filter((t) => onDay(now, t) <= now)
-  const due = passed.at(-1)
+  const due = times.filter((t) => onDay(now, t) <= now).at(-1)
   if (!due) return null
-  const since = passed.length > 1 ? onDay(now, passed.at(-2)!) : onDay(now, '00:00')
+  const since = onDay(now, due).getTime() - RECENT_MS
   const answered = checkIns.some((c) => {
     const at = new Date(c.at)
-    return at >= since && at.toDateString() === now.toDateString()
+    return at.getTime() >= since && at.toDateString() === now.toDateString()
   })
   return answered ? null : due
 }

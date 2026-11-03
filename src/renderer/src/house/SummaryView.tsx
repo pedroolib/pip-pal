@@ -18,8 +18,6 @@ export function SummaryView(): React.JSX.Element {
   const [state, setState] = useState<State>('idle')
   const [points, setPoints] = useState<SummaryPoint[]>([])
   const [copied, setCopied] = useState(0)
-  const [saved, setSaved] = useState<string | null>(null)
-  const [exportFailed, setExportFailed] = useState(false)
   const picked = points.filter((p) => p.include).length
   const run = useRef(0) // only the latest Generate may set state
 
@@ -27,8 +25,6 @@ export function SummaryView(): React.JSX.Element {
     const mine = ++run.current
     setState('loading')
     setCopied(0)
-    setSaved(null)
-    setExportFailed(false)
     try {
       const s = await api.generateSummary(recipient)
       if (mine !== run.current) return
@@ -46,15 +42,6 @@ export function SummaryView(): React.JSX.Element {
       setTimeout(() => setCopied(0), 2000)
     } catch {
       // Clipboard blocked: the label simply stays "Copy".
-    }
-  }
-
-  async function exportPdf(): Promise<void> {
-    setExportFailed(false)
-    try {
-      setSaved(await api.exportSummaryPdf()) // null when the person cancels
-    } catch {
-      setExportFailed(true)
     }
   }
 
@@ -166,29 +153,18 @@ export function SummaryView(): React.JSX.Element {
               <Copy aria-hidden />
               {t('house.summary.copy')}
             </Button>
+            {/* Not built yet: same disabled look as the Connections "Coming soon" buttons. */}
             <Button
-              variant="outline"
-              className="min-h-11 rounded-full bg-surface px-5 font-bold"
-              disabled={picked === 0}
-              onClick={exportPdf}
+              disabled
+              className="min-h-11 rounded-full border bg-muted px-5 font-bold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-100 disabled:pointer-events-auto"
             >
               <FileDown aria-hidden />
-              {t('house.summary.exportPdf')}
+              {t('house.summary.exportPdf')} · {t('house.connections.soon')}
             </Button>
           </div>
           <p role="status" className="text-sm text-body empty:hidden">
             {copied > 0 && t('house.summary.copied', { count: copied })}
           </p>
-          {saved && (
-            <p role="status" className="text-sm break-all text-body">
-              {t('house.summary.savedTo', { path: saved })}
-            </p>
-          )}
-          {exportFailed && (
-            <p role="alert" className="text-sm text-body">
-              {t('house.summary.exportFailed')}
-            </p>
-          )}
         </HouseCard>
       )}
     </Page>

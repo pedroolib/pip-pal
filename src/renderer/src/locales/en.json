@@ -317,8 +317,6 @@
       "errorBody": "Nothing was sent. Check that you are online, then try again.",
       "selected": "{{picked}} of {{total}} points selected. Only these are copied or exported.",
       "pointsLabel": "Summary points",
-      "savedTo": "Saved to {{path}}",
-      "exportFailed": "The PDF did not export. Try again.",
       "empty": "There is nothing to summarise yet.",
       "sources": {
         "checkins": "From check-ins",

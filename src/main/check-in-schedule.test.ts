@@ -53,9 +53,9 @@ describe('startCheckInSchedule', () => {
     expect(due).toEqual(['morning', 'midday', 'afternoon', 'morning'])
   })
 
-  it('skips a time already answered since the time before it', () => {
-    vi.setSystemTime(at(12))
-    checkIns = [{ at: at(10).toISOString(), slot: 'morning', spoons: 3 }]
+  it('skips a time already answered within 30 minutes before it', () => {
+    vi.setSystemTime(at(12, 40))
+    checkIns = [{ at: at(12, 45).toISOString(), slot: 'morning', spoons: 3 }]
     start()
     vi.advanceTimersByTime(2 * HOUR)
     expect(due).toEqual([])

@@ -90,6 +90,7 @@ function Overlay(): React.JSX.Element {
     const offCaptured = api.onCaptured(capture)
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
+      unanswered.current = true // "Not now" then leaves the docked Pip able to reopen it
       refreshSettings()
       setAtCursor(false)
       setView('checkIn')
