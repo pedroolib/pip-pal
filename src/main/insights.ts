@@ -214,7 +214,7 @@ export function mergeLearned(profile: Profile, candidates: Candidate[], now: Dat
   const added = fresh.map((c) => ({
     id: crypto.randomUUID(),
     ...c,
-    origin: 'pip' as const,
+    origin: 'learned' as const,
     visibleTo: []
   }))
   return { ...profile, pending: [...(profile.pending ?? []), ...added] }

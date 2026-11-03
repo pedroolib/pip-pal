@@ -1,6 +1,6 @@
 // Pure list edits for the manual. New items get an id here, never in the UI.
 import { ALIAS_MAX, aliasKey } from '@shared/profile'
-import type { Profile } from '@shared/schemas'
+import type { Origin, Profile } from '@shared/schemas'
 
 type WithId = { id?: string }
 
@@ -69,16 +69,29 @@ export function aliasesToSave(list: string[], pending: string): string[] | null 
   return hasTooLongAlias(pending) ? null : addAlias(list, pending)
 }
 
-/** Moves a pending entry into its section as a private `pip` entry; `text` is the person's edit, if any. */
+/** Who wrote the text after an edit: the same origin if only the sharing changed, else the person. */
+export const writer = (before: string, after: string, origin: Origin): Origin =>
+  after.trim() === before ? origin : 'self'
+
+/**
+ * Moves a suggestion into its section (or the calming strategies) as a private entry. `text` is the
+ * person's edit, if any; an edited text is theirs, so its origin becomes `self`.
+ */
 export function approvePending(profile: Profile, id: string, text?: string): Profile {
   const p = profile.pending?.find((x) => x.id === id)
   const final = (text ?? p?.text)?.trim()
   if (!p || !final) return profile
-  const entry = { id: p.id, text: final, origin: 'pip' as const, visibleTo: [] }
+  const base = { id: p.id, origin: writer(p.text, final, p.origin), visibleTo: [] }
+  const pending = removeById(profile.pending ?? [], id)
+  if (p.section === 'calming') {
+    const strategy = { ...base, label: final, minutes: p.minutes ?? 10 }
+    return { ...profile, calmingStrategies: [...profile.calmingStrategies, strategy], pending }
+  }
+  const entry = { ...base, text: final }
   return {
     ...profile,
     sections: { ...profile.sections, [p.section]: [...profile.sections[p.section], entry] },
-    pending: removeById(profile.pending ?? [], id)
+    pending
   }
 }
 

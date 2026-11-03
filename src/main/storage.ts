@@ -1,7 +1,8 @@
 // Everything Pip keeps, as JSON files in userData (docs/DECISIONS.md §6).
 import { app } from 'electron'
 import { join } from 'path'
-import { Achievement, ChangeEvent, CheckIn } from '@shared/schemas'
+import { Achievement, ChangeEvent, CheckIn, SECTIONS, type Profile } from '@shared/schemas'
+import samJson from '@shared/fixtures/sam.profile.json'
 import checkInsJson from '@shared/fixtures/week.checkins.json'
 import changesJson from '@shared/fixtures/week.changes.json'
 import achievementsJson from '@shared/fixtures/achievements.json'
@@ -11,7 +12,18 @@ import { createLogStore } from './log-store'
 import { createProfileStore } from './profile-store'
 import { createSettingsStore } from './settings-store'
 
+/** A real person's first profile: nothing in it until onboarding or My profile fills it. */
+const EMPTY_PROFILE: Profile = {
+  name: '',
+  role: '',
+  people: [],
+  sections: Object.fromEntries(SECTIONS.map((s) => [s, []])) as unknown as Profile['sections'],
+  calmingStrategies: []
+}
+
 export function openStorage(): {
+  /** `PIP_DEMO=1`: first run loads Sam and his week, and onboarding counts as done. */
+  demo: boolean
   profiles: ReturnType<typeof createProfileStore>
   settings: ReturnType<typeof createSettingsStore>
   checkIns: ReturnType<typeof createLogStore<CheckIn>>
@@ -20,14 +32,17 @@ export function openStorage(): {
   events: ReturnType<typeof createEventStore>
 } {
   const data = (name: string): string => join(app.getPath('userData'), name)
+  const demo = process.env.PIP_DEMO === '1'
+  // Seeds apply only when a file is missing: a real person starts empty, the demo with Sam's week.
+  const seed = (week: unknown[]): unknown[] => (demo ? week : [])
   return {
-    profiles: createProfileStore(data('profile.json')),
+    demo,
+    profiles: createProfileStore(data('profile.json'), demo ? samJson : EMPTY_PROFILE),
     settings: createSettingsStore(data('settings.json')),
-    // Seeded with Sam's demo week so Mi resumen has something to summarize on first run.
-    checkIns: createLogStore(data('checkins.json'), CheckIn, checkInsJson),
-    changes: createLogStore(data('changes.json'), ChangeEvent, changesJson),
-    achievements: createLogStore(data('achievements.json'), Achievement, achievementsJson),
-    events: createEventStore(data('events.json'), eventsJson)
+    checkIns: createLogStore(data('checkins.json'), CheckIn, seed(checkInsJson)),
+    changes: createLogStore(data('changes.json'), ChangeEvent, seed(changesJson)),
+    achievements: createLogStore(data('achievements.json'), Achievement, seed(achievementsJson)),
+    events: createEventStore(data('events.json'), seed(eventsJson))
   }
 }
 

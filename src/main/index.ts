@@ -4,7 +4,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IPC, OVERLAY_MIN, type Bounds, type CornerPip } from '@shared/ipc'
-import { enabledTimes } from '@shared/schemas'
+import { enabledTimes, hotkeyReady } from '@shared/schemas'
 import { captureSelection } from './capture'
 import { isSafeExternalUrl } from './external-links'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
@@ -306,7 +306,16 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  if (!app.isPackaged) {
+    try {
+      process.loadEnvFile() // dev: keys and PIP_DEMO from .env (gitignored); existing env vars win
+    } catch {
+      // no .env: keys, if any, come from the environment
+    }
+  }
   const storage = openStorage()
+  // Until onboarding reaches its practice step, the hotkey and check-ins stay quiet (demo: always on).
+  const ready = (): boolean => storage.demo || hotkeyReady(storage.settings.load().onboarding)
   // A saved change to the check-in times re-arms the schedule (created below) without a restart.
   registerMockHandlers(storage, () => checkIns.reschedule())
 
@@ -355,6 +364,7 @@ app.whenReady().then(() => {
   const checkIns = startCheckInSchedule({
     listCheckIns: () => storage.checkIns.list(),
     onDue: (slot) => {
+      if (!ready()) return
       if (is.dev) console.log(`[check-in] ${slot} is due`)
       const win = overlay
       if (!win) return
@@ -365,11 +375,15 @@ app.whenReady().then(() => {
   })
   powerMonitor.on('resume', checkIns.resume)
   app.on('will-quit', checkIns.stop)
-  if (!globalShortcut.register(HOTKEY, () => void capture())) {
+  if (
+    !globalShortcut.register(HOTKEY, () => {
+      if (ready()) void capture()
+    })
+  ) {
     console.warn(`[capture] ${HOTKEY} is taken by another app; use \`pip-pal --capture\` instead.`)
   }
   app.on('second-instance', (_, argv) => {
-    if (argv.includes('--capture')) void capture()
+    if (argv.includes('--capture') && ready()) void capture()
     if (argv.includes('--dismiss')) overlay?.webContents.send(IPC.dismiss)
   })
   ipcMain.on(IPC.homeOpen, openHome)

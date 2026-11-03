@@ -1,11 +1,12 @@
 // shortcut: serves the fixture-backed mock over IPC. Replace one handler at a time with the real implementation.
-import { app, ipcMain } from 'electron'
+import { ipcMain, systemPreferences } from 'electron'
 import { IPC } from '@shared/ipc'
 import { createMockApi } from '@shared/mock-api'
 import { LEARN_WINDOW_DAYS, type Profile } from '@shared/schemas'
 import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
 import { createExpander } from './ai/expand'
+import { createProfileDrafter } from './ai/onboarding'
 import { createSummarizer } from './ai/summary'
 import { createTriager } from './ai/triage'
 import { createAiHandlers } from './ai/index'
@@ -13,18 +14,10 @@ import { detectPatterns, mergeLearned } from './insights'
 import type { Storage } from './storage'
 
 export function registerMockHandlers(
-  { profiles, settings, checkIns, changes, achievements, events }: Storage,
+  { demo, profiles, settings, checkIns, changes, achievements, events }: Storage,
   onSettingsSaved: () => void
 ): void {
   const api = createMockApi()
-
-  if (!app.isPackaged) {
-    try {
-      process.loadEnvFile() // dev: keys from .env (gitignored); existing env vars win
-    } catch {
-      // no .env: keys, if any, come from the environment
-    }
-  }
   const decoder = process.env.ANTHROPIC_API_KEY
     ? createDecoder({
         claude: createClaudeClient(),
@@ -51,9 +44,11 @@ export function registerMockHandlers(
     env: process.env,
     api,
     load: () => profiles.load(),
+    save: (p) => profiles.save(p),
     makeTriager: () => createTriager({ jev: createTriageJevClient() }),
     makeExpander: () => createExpander({ claude: createClaudeClient() }),
     makeSummarizer: () => createSummarizer({ claude: createClaudeClient() }),
+    makeDrafter: () => createProfileDrafter({ claude: createClaudeClient() }),
     summaryData: () => ({
       checkIns: checkIns.list(),
       events: events.list(),
@@ -67,7 +62,13 @@ export function registerMockHandlers(
   )
   ipcMain.handle(IPC.profileGet, () => profiles.load())
   ipcMain.handle(IPC.profileSave, (_, p) => profiles.save(p))
-  ipcMain.handle(IPC.settingsGet, () => settings.load())
+  // The demo never shows onboarding: it reads as done, and the next save keeps it that way.
+  ipcMain.handle(IPC.settingsGet, () => {
+    const s = settings.load()
+    return demo && !s.onboarding?.done
+      ? { ...s, onboarding: { step: 'home', done: true, answers: {} } }
+      : s
+  })
   ipcMain.handle(IPC.settingsSave, (_, s) => {
     settings.save(s) // validates; an invalid save throws before the schedule re-arms
     onSettingsSaved()
@@ -91,5 +92,12 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.eventClear, () => events.clear())
   ipcMain.handle(IPC.learnedRefresh, () => learn())
   ipcMain.handle(IPC.summaryGenerate, (_, r, p) => ai.generateSummary(r, p))
+  ipcMain.handle(IPC.onboardingDraft, (_, a) => ai.draftProfile(a))
+  // Only the Mac simulates ⌘C through System Events; elsewhere capture needs no permission.
+  ipcMain.handle(IPC.accessibility, (_, prompt) =>
+    process.platform === 'darwin'
+      ? systemPreferences.isTrustedAccessibilityClient(prompt === true)
+      : null
+  )
   ipcMain.handle(IPC.summaryExportPdf, () => api.exportSummaryPdf())
 }

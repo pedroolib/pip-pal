@@ -29,6 +29,8 @@ const api: PipApi = {
   deleteEvent: (id) => ipcRenderer.invoke(IPC.eventDelete, id),
   clearEvents: () => ipcRenderer.invoke(IPC.eventClear),
   refreshLearned: () => ipcRenderer.invoke(IPC.learnedRefresh),
+  draftProfile: (answers) => ipcRenderer.invoke(IPC.onboardingDraft, answers),
+  checkAccessibility: (prompt) => ipcRenderer.invoke(IPC.accessibility, prompt),
   generateSummary: (recipient, period) =>
     ipcRenderer.invoke(IPC.summaryGenerate, recipient, period),
   exportSummaryPdf: () => ipcRenderer.invoke(IPC.summaryExportPdf),

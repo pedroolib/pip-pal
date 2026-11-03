@@ -29,7 +29,8 @@
   "calm": {
     "offer": "{{strategy}} helps you. {{minutes}} min, then {{then}}?",
     "whySelf": "From your manual: you said this helps you settle.",
-    "whyCoach": "From your manual: you and your coach picked this.",
+    "whyOnboarding": "From your profile: you told Pip this helps you settle.",
+    "whyLearned": "From your profile: Pip noticed this helps you, and you accepted it.",
     "start": "Start {{minutes}} min",
     "skip": "Skip",
     "ready": "I'm ready",
@@ -171,20 +172,19 @@
     "people_one": "{{count}} person",
     "people_other": "{{count}} people",
     "pending": {
-      "title_one": "Pip learned {{count}} thing about you",
-      "title_other": "Pip learned {{count}} things about you",
-      "note": "Pip noticed these from your check-ins and use of the app. Nothing is used or shared until you approve it. Approved entries stay private.",
-      "badge": "Pip learned",
+      "title_one": "Pip has {{count}} suggestion for your profile",
+      "title_other": "Pip has {{count}} suggestions for your profile",
+      "note": "Pip wrote these from your setup answers, or noticed them from your check-ins and use of the app. Nothing is used or shared until you accept it. Accepted entries stay private.",
       "why": "Why: {{why}}",
-      "approve": "Approve",
-      "saveApprove": "Save and approve",
+      "approve": "Accept",
+      "saveApprove": "Save and accept",
       "edit": "Edit",
-      "dismiss": "Dismiss"
+      "dismiss": "Reject"
     },
     "origin": {
       "self": "Written by you",
-      "coach": "Selected in onboarding",
-      "pip": "Learned by Pip"
+      "onboarding": "Pip (onboarding)",
+      "learned": "Pip (learned)"
     },
     "sharedWith": "Shared with",
     "onlyYou": "Only you",

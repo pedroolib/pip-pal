@@ -4,13 +4,43 @@ import { ensureIds } from '@shared/profile'
 import { Profile } from '@shared/schemas'
 import { backupFile, writeJsonAtomic } from './json-file'
 
-export function createProfileStore(file: string): {
+// Before onboarding, entries came from the coach (`coach`) or from patterns (`pip`).
+const ORIGINS: Record<string, string> = { coach: 'onboarding', pip: 'learned' }
+
+/** Renames the old origins in entries, strategies and suggestions; anything else is untouched. */
+function migrate(data: unknown): unknown {
+  if (typeof data !== 'object' || data === null) return data
+  const fix = (list: unknown): unknown =>
+    Array.isArray(list)
+      ? list.map((x) =>
+          x && typeof x === 'object' && ORIGINS[(x as { origin?: string }).origin ?? '']
+            ? { ...x, origin: ORIGINS[(x as { origin: string }).origin] }
+            : x
+        )
+      : list
+  const p = data as Record<string, unknown>
+  const sections = p.sections
+  return {
+    ...p,
+    ...(sections && typeof sections === 'object'
+      ? { sections: Object.fromEntries(Object.entries(sections).map(([k, v]) => [k, fix(v)])) }
+      : {}),
+    calmingStrategies: fix(p.calmingStrategies),
+    ...(p.pending ? { pending: fix(p.pending) } : {})
+  }
+}
+
+/** `seed` fills a missing or corrupt file: Sam in demo mode and tests, an empty profile for a real person. */
+export function createProfileStore(
+  file: string,
+  seedJson: unknown = samJson
+): {
   load(): Profile
   save(profile: Profile): void
 } {
   const write = (p: Profile): void => writeJsonAtomic(file, p)
   const seed = (): Profile => {
-    const p = ensureIds(Profile.parse(samJson))
+    const p = ensureIds(Profile.parse(seedJson))
     write(p)
     return p
   }
@@ -26,7 +56,7 @@ export function createProfileStore(file: string): {
       }
       let p: Profile
       try {
-        p = ensureIds(Profile.parse(JSON.parse(raw)))
+        p = ensureIds(Profile.parse(migrate(JSON.parse(raw))))
       } catch {
         backupFile(file)
         return seed()

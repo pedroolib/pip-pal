@@ -19,13 +19,18 @@ function setup(env: Record<string, string | undefined>) {
   const logEvent = vi.fn()
   const log = vi.fn()
   const load = vi.fn(() => profile)
+  const save = vi.fn()
+  const realDraft = vi.fn(async () => [{ id: 'd1' }] as never)
+  const makeDrafter = vi.fn(() => realDraft)
   const ai = createAiHandlers({
     env,
     api,
     load,
+    save,
     makeTriager,
     makeExpander,
     makeSummarizer,
+    makeDrafter,
     summaryData,
     logEvent,
     log
@@ -41,7 +46,9 @@ function setup(env: Record<string, string | undefined>) {
     makeSummarizer,
     logEvent,
     log,
-    load
+    load,
+    save,
+    realDraft
   }
 }
 
@@ -81,6 +88,31 @@ describe('usage logging', () => {
     })
     expect((await s.ai.triage('hello')).source).toBe('jev')
     expect((await s.ai.expand('hello', 'steps', 3)).kind).toBe('steps')
+  })
+})
+
+describe('draftProfile', () => {
+  it('adds the drafted suggestions to the re-read profile and saves it', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    const before = { pending: [{ id: 'old' }] } as never
+    s.load.mockReturnValueOnce(profile).mockReturnValueOnce(before)
+    const out = await s.ai.draftProfile({ calming: 'music' })
+    expect(s.realDraft).toHaveBeenCalledWith({ calming: 'music' }, profile)
+    expect(out).toEqual({ pending: [{ id: 'old' }, { id: 'd1' }] })
+    expect(s.save).toHaveBeenCalledWith(out)
+  })
+
+  it('without a key, rejects and never falls back to the fixture', async () => {
+    const s = setup({})
+    await expect(s.ai.draftProfile({ calming: 'music' })).rejects.toThrow(/cannot reach/)
+    expect(s.save).not.toHaveBeenCalled()
+  })
+
+  it('saves nothing when the call fails', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    s.realDraft.mockRejectedValueOnce(new Error('boom'))
+    await expect(s.ai.draftProfile({ calming: 'music' })).rejects.toThrow('boom')
+    expect(s.save).not.toHaveBeenCalled()
   })
 })
 
@@ -133,7 +165,7 @@ describe('key switch', () => {
     expect(s.makeExpander).not.toHaveBeenCalled()
     expect(await s.ai.triage('hello')).toEqual(await s.api.triage('hello'))
     expect((await s.ai.expand('hello', 'questions', null)).kind).toBe('questions')
-    expect(s.log).toHaveBeenCalledTimes(3)
+    expect(s.log).toHaveBeenCalledTimes(4)
   })
 
   it('switches each path on its own key', async () => {

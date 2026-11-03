@@ -7,8 +7,11 @@ import { z } from 'zod'
 export const Recipient = z.enum(['coach', 'psychologist', 'therapist', 'manager'])
 export type Recipient = z.infer<typeof Recipient>
 
-/** Who wrote an entry. Pip-learned entries are saved only after the person approves them. */
-export const Origin = z.enum(['coach', 'self', 'pip'])
+/**
+ * Who wrote an entry's current text: the person, Pip from onboarding answers, or Pip from usage patterns.
+ * Pip's entries are saved only after the person accepts them; editing an entry's text makes it `self`.
+ */
+export const Origin = z.enum(['self', 'onboarding', 'learned'])
 export type Origin = z.infer<typeof Origin>
 
 export const ProfileEntry = z.object({
@@ -51,17 +54,25 @@ export const CalmingStrategy = z.object({
 export type CalmingStrategy = z.infer<typeof CalmingStrategy>
 
 /** An entry Pip suggests, waiting for the person's approval. Never used or shared until approved. */
-export const PendingEntry = z.object({
-  id: z.string(),
-  /** Stable per pattern (e.g. `energy:morning`), so the same pattern is not suggested twice. */
-  key: z.string().min(1),
-  /** The numbers behind the suggestion (anti-masking). */
-  why: z.string().min(1),
-  section: Section,
-  text: z.string().min(1),
-  origin: z.literal('pip'),
-  visibleTo: z.array(Recipient)
-})
+export const PendingEntry = z
+  .object({
+    id: z.string(),
+    /** Stable per suggestion (e.g. `energy:morning`), so the same pattern is not suggested twice. */
+    key: z.string().min(1),
+    /** What it rests on: the numbers, or what the person said in onboarding (anti-masking). */
+    why: z.string().min(1),
+    /** A profile section, or `calming` for a calming strategy (then `text` is its label). */
+    section: z.union([Section, z.literal('calming')]),
+    text: z.string().min(1),
+    /** Only, and always, for a calming strategy. */
+    minutes: z.number().int().positive().optional(),
+    origin: Origin.exclude(['self']),
+    visibleTo: z.array(Recipient)
+  })
+  .refine((p) => (p.section === 'calming') === (p.minutes !== undefined), {
+    message: 'A calming suggestion has minutes; a section suggestion has none.',
+    path: ['minutes']
+  })
 export type PendingEntry = z.infer<typeof PendingEntry>
 
 /** Nicknames, @handles and usernames; swapped like the name they belong to. */
@@ -376,6 +387,46 @@ export type CheckInTime = z.infer<typeof CheckInTime>
 /** Pip asks at most this many times a day. */
 export const MAX_CHECK_INS = 6
 
+/** Onboarding's screens, in order. The hotkey and check-ins work from `practice` on (`hotkeyReady`). */
+export const ONBOARDING_STEPS = [
+  'welcome',
+  'comfort',
+  'privacy',
+  'people',
+  'consent',
+  'about',
+  'review',
+  'spoons',
+  'permission',
+  'practice',
+  'home'
+] as const
+export const OnboardingStep = z.enum(ONBOARDING_STEPS)
+export type OnboardingStep = z.infer<typeof OnboardingStep>
+
+/** What the person typed for onboarding's "about you" questions; missing or empty means skipped. */
+export const OnboardingAnswers = z.object({
+  instructions: z.string().max(1000).optional(),
+  changesHelp: z.string().max(1000).optional(),
+  changesNotice: z.string().max(1000).optional(),
+  calming: z.string().max(1000).optional(),
+  sensory: z.string().max(1000).optional(),
+  strengths: z.string().max(1000).optional()
+})
+export type OnboardingAnswers = z.infer<typeof OnboardingAnswers>
+
+/** Where onboarding is, so a person who quits resumes there. Answers stay on this machine unless sent. */
+export const Onboarding = z.object({
+  step: OnboardingStep,
+  done: z.boolean(),
+  answers: OnboardingAnswers
+})
+export type Onboarding = z.infer<typeof Onboarding>
+
+/** True once the hotkey and check-ins may run: onboarding is done, or it reached its practice step. */
+export const hotkeyReady = (o: Onboarding | undefined): boolean =>
+  !!o && (o.done || ONBOARDING_STEPS.indexOf(o.step) >= ONBOARDING_STEPS.indexOf('practice'))
+
 export const Settings = z.object({
   checkIns: z
     .array(CheckInTime)
@@ -383,7 +434,9 @@ export const Settings = z.object({
     .refine((ts) => new Set(ts.map((t) => t.time)).size === ts.length, 'Check-in times must differ')
     .refine((ts) => new Set(ts.map((t) => t.id)).size === ts.length, 'Check-in ids must differ'),
   language: z.enum(['en', 'es']),
-  calmMotion: z.boolean()
+  calmMotion: z.boolean(),
+  /** Missing until onboarding starts. In demo mode main reports it done. */
+  onboarding: Onboarding.optional()
 })
 export type Settings = z.infer<typeof Settings>
 

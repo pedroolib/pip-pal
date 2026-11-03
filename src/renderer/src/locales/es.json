@@ -29,7 +29,8 @@
   "calm": {
     "offer": "{{strategy}} te ayuda. ¿{{minutes}} min y luego {{then}}?",
     "whySelf": "De tu manual: dijiste que esto te ayuda a calmarte.",
-    "whyCoach": "De tu manual: lo eligieron tú y tu coach.",
+    "whyOnboarding": "De tu perfil: le dijiste a Pip que esto te ayuda a calmarte.",
+    "whyLearned": "De tu perfil: Pip notó que esto te ayuda y tú lo aceptaste.",
     "start": "Empezar {{minutes}} min",
     "skip": "Saltar",
     "ready": "Ya estoy",
@@ -176,8 +177,8 @@
     "people_other": "{{count}} personas",
     "origin": {
       "self": "Escrito por ti",
-      "coach": "Elegido en el onboarding",
-      "pip": "Aprendido por Pip"
+      "onboarding": "Pip (onboarding)",
+      "learned": "Pip (aprendido)"
     },
     "sharedWith": "Compartido con",
     "onlyYou": "Solo tú",

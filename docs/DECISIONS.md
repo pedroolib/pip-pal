@@ -152,8 +152,9 @@ Es el centro del pitch de IA responsable.
 2. **Se quitan los datos personales antes de enviar.** El perfil tiene una lista `people` (jefe, buddy, equipo): sus nombres se cambian por su rol (`[Manager]`) y los correos, teléfonos y URLs se quitan con regex. Al volver la respuesta, se restauran localmente. No usamos detección automática de nombres porque en 4 días no sería confiable.
 3. **El resumen se filtra con código, no con el prompt.** A Claude solo le llegan los campos del perfil visibles para ese destinatario, así que la versión del jefe no puede filtrar lo del psicólogo aunque el modelo se equivoque. **Cuidado:** `forRecipient` vacía `people`, y esa lista es la que usa el cambio de nombres. Si se llama `buildProfileContext(forRecipient(...))` tal cual, los nombres le llegan a Claude sin cambiar. `src/main/ai/summary.ts` le devuelve `people` y los `aliases` solo para el cambio de nombres. Cualquier código nuevo que mande a Claude algo filtrado por destinatario tiene que hacer lo mismo.
 4. **Pip nunca envía nada solo.** La persona revisa cada viñeta y copia las que quiere (exportar PDF vendrá después).
-5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo que Pip aprende se guarda solo como pendiente (`Profile.pending`). No llega a Claude ni a ningún resumen hasta que la persona lo aprueba, y al aprobarlo entra privado. Cambió el 3 de noviembre: el usuario quería que Pip guardara solo, y esta fue la versión segura de eso.
+5. **Origen y aprobación.** Cada dato del perfil dice quién escribió su texto actual (`self`, `onboarding`, `learned`). Lo que Pip escribe se guarda solo como sugerencia (`Profile.pending`). No llega a Claude ni a ningún resumen hasta que la persona lo acepta, y al aceptarlo entra privado. Cambió el 3 de noviembre: el usuario quería que Pip guardara solo, y esta fue la versión segura de eso. El origen `coach` se quitó el mismo día (ver §13).
 6. **Solo se abren enlaces `https://`** fuera de la app (`isSafeExternalUrl` en `src/main/external-links.ts`, usado por los dos `setWindowOpenHandler`); cualquier otro esquema se ignora. Pendiente si algún día se muestran enlaces de fuera: un `will-navigate` que bloquee la navegación dentro de las ventanas.
+7. **Respuestas del onboarding.** Son la única excepción a "solo sale lo seleccionado": salen después de un aviso que nombra a Claude (Anthropic), limpias con `scrubForModel`, y la persona puede elegir "Keep my words, don't send". La lista de personas se pide antes, así que la limpieza ya conoce los nombres.
 
 **Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
 - Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Los **alias** (`aliases`, opcionales en cada persona y en el perfil) entran en la misma pasada: un alias se busca entero, con o sin "@" ("@srivera" y "srivera" dan `[Manager]`), antes de quitar los @handles; los del perfil dan `[Me]`. Al restaurar siempre sale el nombre completo. Se ignoran los alias con menos de 2 letras o dígitos, el nombre completo de otra persona gana y una clave que comparten dos personas es `[someone]`. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
@@ -195,7 +196,7 @@ Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts
 - **Privacidad:** el texto crudo se queda en la máquina. Solo sale limpio (`scrubForModel`), y la versión del jefe recibe solo conteos y temas, nunca texto de mensajes. El filtro por destinatario es código, no el prompt.
 - **Retención:** 90 días (`EVENT_RETENTION_DAYS`); se borra al leer o escribir. En Ajustes la persona puede borrar un evento o todos.
 - **Patrones** (solo código, sin Claude; ventana de 14 días, mínimo 3 veces): `energy:<franja>` (la franja más baja del día en 3 o más días), `drain:<categoría>` (baja de cucharas entre dos check-ins con un mensaje de esa categoría en medio; dice "suele venir con", nunca "causa"), `ask:<tema>` (3 o más preguntas copiadas del mismo tema), `calm:<estrategia>` (usada y el siguiente check-in del día fue más alto). Con menos de 3 check-ins en el periodo no hay patrones.
-- **Pendientes:** cada patrón es un `PendingEntry` con `key` estable y `why`. Aprobar lo mueve a su sección con origen `pip` y `visibleTo: []`. Descartar guarda la `key` en `Profile.dismissed` 30 días. Pip nunca edita entradas `coach` o `self` ni muestra nada en el overlay. Se usó la lista `Profile.pending` que ya existía, en vez de una marca `pending: true` en cada entrada: ya estaba fuera del contexto de Claude.
+- **Pendientes:** cada patrón es un `PendingEntry` con `key` estable y `why`. Aceptar lo mueve a su sección con origen `learned` (o `self` si la persona editó el texto) y `visibleTo: []`. Rechazar guarda la `key` en `Profile.dismissed` 30 días. Pip nunca edita entradas que ya existen ni muestra nada en el overlay. Se usó la lista `Profile.pending` que ya existía, en vez de una marca `pending: true` en cada entrada: ya estaba fuera del contexto de Claude.
 - **Cuándo se detecta:** al guardar un check-in (si falla, el check-in se guarda igual) y al abrir la Casa (`refreshLearned`). El texto de cada patrón sale de plantillas en inglés en `src/main/insights.ts`, porque main no tiene i18next.
 - **Detalles de los detectores** (`src/main/insights.ts`):
   - `energy`: solo cuenta días con al menos 2 franjas, y un empate no nombra ninguna.
@@ -273,3 +274,45 @@ Es nivel 0 porque la rúbrica pide evidencia.
 - Tarjetas: falta "qué se espera sin decirse (con porqué)" del guion; ningún tipo de `expand` lo trae, así que pide cambiar `src/shared/` (PR revisado por los tres).
 - Pruebas con usuarios: ya hay una persona en contacto; falta agendar las sesiones (miércoles 4).
 - Mi resumen: falta la generación real con Claude filtrada por destinatario en main (hoy la Casa usa el resumen de ejemplo, igual para todos) y exportar PDF.
+
+## 13. Onboarding
+
+Decidido el 3 de noviembre de 2026 tomando como referencia el onboarding de HeyClicky (solo el flujo; el diseño es nuestro). Las palabras están en [GLOSSARY.md](../GLOSSARY.md).
+
+**Se construye antes de la entrega** (subió del nivel 2): sin él, una persona real abría la app con el perfil de Sam. El demo en vivo sigue con Sam (`PIP_DEMO=1`) y no muestra el onboarding; en el pitch va un clip.
+
+**Primera vez:** sin `PIP_DEMO=1`, el perfil, los check-ins, los eventos y los logros empiezan vacíos (`storage.ts`). Con `PIP_DEMO=1` se carga Sam y su semana, y `settings:get` reporta el onboarding como terminado. `.env` se lee al arrancar, antes de abrir el almacenamiento, para que `PIP_DEMO` cuente. Los archivos que ya existen no cambian: quien ya tiene a Sam en su `userData` lo conserva.
+
+**Pasos** (`ONBOARDING_STEPS`): welcome (qué esperar y cuánto dura) → comfort (idioma y "Calmer motion", antes de cualquier animación) → privacy (escribe el nombre de tu jefe y ve cómo queda `[Manager]`) → people (quién es quién, local) → consent (el aviso) → about (6 preguntas) → review (las mismas sugerencias de My profile) → spoons (qué son y el primer check-in) → permission (Accesibilidad, solo en Mac) → practice (mensaje de ejemplo + atajo + "Break it into steps", con llamadas reales) → home (dónde vive Pip). Todo se puede saltar; el paso y las respuestas se guardan en `Settings.onboarding` para retomar, y se puede repetir desde Settings (solo agrega sugerencias, nunca cambia lo que ya está).
+
+**Las 6 preguntas:** cómo te gusta recibir instrucciones; cuando algo cambia en el trabajo (proyecto, jefe, prioridades), qué te ayuda más; con cuánta anticipación te gusta saber de un cambio; qué te ayuda a calmarte; ruido, luz o interrupciones; en qué eres bueno y qué disfrutas. La pregunta de cambios se partió en dos para que cada una pida una sola cosa.
+
+**Qué se tomó de HeyClicky y qué no:**
+
+| Se tomó | Por qué |
+|---|---|
+| Bienvenida con el personaje | Pip es la interfaz; la primera impresión baja la ansiedad. |
+| Cada permiso con su razón | Sin Accesibilidad la captura usa lo último copiado sin avisar. |
+| Practicar el gesto ("This is how you talk to me") | Seleccionar + atajo no es obvio; practicarlo es el momento en que se entiende. |
+| Preguntas sobre la persona | El perfil es lo que nos diferencia; vacío, las respuestas son genéricas. |
+| Puntos de progreso, Atrás, Saltar | Predecibilidad y salida siempre visibles; para personas autistas pesa más que para nadie. |
+
+| Se dejó fuera | Por qué |
+|---|---|
+| Iniciar sesión con Google | No hay cuentas ni servidor. |
+| "¿Cómo nos encontraste?" | Sirve al marketing, no a la persona; cada paso cuesta energía. |
+| Elegir el estilo del personaje | Los objetos para Pip son nivel 2. |
+| Micrófono, prueba de voz, "Type instead" | La voz es nivel 3. |
+| Grabación de pantalla, dibujar y encerrar en pantalla | Rompe la promesa de leer solo lo seleccionado; además es nivel 3. |
+| Video del fundador con "sube el volumen" | Sonido y video automáticos son un riesgo sensorial. |
+| Conversación abierta con elogios ("I love the confidence") | Vaga e impredecible; preferimos preguntas fijas y literales. |
+
+**Agregados que no tiene HeyClicky:** qué esperar antes de empezar, idioma y movimiento primero, ejemplo vivo de privacidad, quién es quién (la limpieza depende de esa lista), explicación de las cucharas con el primer check-in, revisión de cada sugerencia con su "You said…", y el cierre con "puedes repetir esto en Settings".
+
+**Pip escribe el perfil, la persona decide.** Una sola llamada a Claude (`src/main/ai/onboarding.ts`) con las respuestas limpias las convierte en sugerencias `onboarding` con su `why` ("You said…"); también puede sugerir estrategias de calma (`section: 'calming'` con `minutes`). Mismo camino que `expand`: limpiar → envolver en `<answers>` → JSON → validar sin reintento → restaurar nombres. Sin `ANTHROPIC_API_KEY`, sin red o con respuesta inválida, rechaza (nunca cae a un fixture: serían sugerencias escritas para Sam), y la interfaz guarda cada respuesta tal cual como `self`, con un botón para que Pip la reescriba después. Lo mismo si la persona elige "Keep my words, don't send".
+
+**Se quitó el origen `coach`.** El usuario quiere solo tres orígenes: `self`, `onboarding` y `learned` (antes `pip`). Las 18 entradas `coach` de Sam pasaron a `onboarding`. Un `profile.json` viejo se convierte al leer (`coach` → `onboarding`, `pip` → `learned`) en vez de tratarse como corrupto. Editar el texto de una entrada, o de una sugerencia antes de aceptarla, la vuelve `self`; cambiar solo con quién se comparte, no.
+
+**Práctica con llamadas reales:** el usuario quiere que la persona vea al modelo usando su perfil desde el primer día. El triage (Jev) no lee el perfil; por eso la práctica guía a pulsar "Break it into steps" y resalta "Used your profile". Si falla, se muestra el ejemplo guardado marcado como práctica. Se usa nuestro mensaje de ejemplo, no uno real de la persona.
+
+**Silencio mientras tanto:** el atajo y los check-ins no corren hasta que el onboarding termina o llega al paso de práctica (`hotkeyReady`); en demo siempre corren.
