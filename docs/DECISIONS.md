@@ -150,9 +150,9 @@ Es el centro del pitch de IA responsable.
 
 1. **Pip solo lee lo que la persona selecciona** y manda con el atajo. Nunca lee correo ni chat por su cuenta. (Resuelve la pregunta abierta de la entrevista.)
 2. **Se quitan los datos personales antes de enviar.** El perfil tiene una lista `people` (jefe, buddy, equipo): sus nombres se cambian por su rol (`[Manager]`) y los correos, teléfonos y URLs se quitan con regex. Al volver la respuesta, se restauran localmente. No usamos detección automática de nombres porque en 4 días no sería confiable.
-3. **El resumen se filtra con código, no con el prompt.** A Claude solo le llegan los campos del perfil visibles para ese destinatario, así que la versión del jefe no puede filtrar lo del psicólogo aunque el modelo se equivoque.
+3. **El resumen se filtra con código, no con el prompt.** A Claude solo le llegan los campos del perfil visibles para ese destinatario, así que la versión del jefe no puede filtrar lo del psicólogo aunque el modelo se equivoque. **Cuidado:** `forRecipient` vacía `people`, y esa lista es la que usa el cambio de nombres. Si se llama `buildProfileContext(forRecipient(...))` tal cual, los nombres le llegan a Claude sin cambiar. `src/main/ai/summary.ts` le devuelve `people` y los `aliases` solo para el cambio de nombres. Cualquier código nuevo que mande a Claude algo filtrado por destinatario tiene que hacer lo mismo.
 4. **Pip nunca envía nada solo.** La persona revisa cada viñeta y copia las que quiere (exportar PDF vendrá después).
-5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo aprendido por Pip solo se guarda si la persona lo aprueba.
+5. **Origen y aprobación.** Cada dato del perfil dice quién lo escribió (`coach`, `self`, `pip`). Lo que Pip aprende se guarda solo como pendiente (`Profile.pending`). No llega a Claude ni a ningún resumen hasta que la persona lo aprueba, y al aprobarlo entra privado. Cambió el 3 de noviembre: el usuario quería que Pip guardara solo, y esta fue la versión segura de eso.
 6. **Solo se abren enlaces `https://`** fuera de la app (`isSafeExternalUrl` en `src/main/external-links.ts`, usado por los dos `setWindowOpenHandler`); cualquier otro esquema se ignora. Pendiente si algún día se muestran enlaces de fuera: un `will-navigate` que bloquee la navegación dentro de las ventanas.
 
 **Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
@@ -176,7 +176,7 @@ Es el centro del pitch de IA responsable.
 
 ## 6. Datos
 
-**No hay base de datos.** Todo vive en archivos JSON en `app.getPath('userData')` (en Mac, `~/Library/Application Support/Pip/`): `profile.json`, `checkins.json`, `changes.json`, `achievements.json`, `settings.json`. Son pocos datos, de una sola persona y en una máquina; leer y filtrar en JavaScript tarda milisegundos.
+**No hay base de datos.** Todo vive en archivos JSON en `app.getPath('userData')` (en Mac, `~/Library/Application Support/Pip/`): `profile.json`, `checkins.json`, `changes.json`, `achievements.json`, `events.json`, `settings.json`. Son pocos datos, de una sola persona y en una máquina; leer y filtrar en JavaScript tarda milisegundos.
 
 Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts`; la versión con datos de ejemplo vive en `src/shared/mock-api.ts` y se queda para el navegador):
 - **Escritura segura:** escribir a un archivo temporal y renombrarlo, para no corromper datos si la app se cierra a la mitad.
@@ -195,7 +195,29 @@ Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts
 - **Privacidad:** el texto crudo se queda en la máquina. Solo sale limpio (`scrubForModel`), y la versión del jefe recibe solo conteos y temas, nunca texto de mensajes. El filtro por destinatario es código, no el prompt.
 - **Retención:** 90 días (`EVENT_RETENTION_DAYS`); se borra al leer o escribir. En Ajustes la persona puede borrar un evento o todos.
 - **Patrones** (solo código, sin Claude; ventana de 14 días, mínimo 3 veces): `energy:<franja>` (la franja más baja del día en 3 o más días), `drain:<categoría>` (baja de cucharas entre dos check-ins con un mensaje de esa categoría en medio; dice "suele venir con", nunca "causa"), `ask:<tema>` (3 o más preguntas copiadas del mismo tema), `calm:<estrategia>` (usada y el siguiente check-in del día fue más alto). Con menos de 3 check-ins en el periodo no hay patrones.
-- **Pendientes:** cada patrón es un `PendingEntry` con `key` estable y `why`. Aprobar lo mueve a su sección con origen `pip` y `visibleTo: []`. Descartar guarda la `key` en `Profile.dismissed` 30 días. Pip nunca edita entradas `coach` o `self` ni muestra nada en el overlay.
+- **Pendientes:** cada patrón es un `PendingEntry` con `key` estable y `why`. Aprobar lo mueve a su sección con origen `pip` y `visibleTo: []`. Descartar guarda la `key` en `Profile.dismissed` 30 días. Pip nunca edita entradas `coach` o `self` ni muestra nada en el overlay. Se usó la lista `Profile.pending` que ya existía, en vez de una marca `pending: true` en cada entrada: ya estaba fuera del contexto de Claude.
+- **Cuándo se detecta:** al guardar un check-in (si falla, el check-in se guarda igual) y al abrir la Casa (`refreshLearned`). El texto de cada patrón sale de plantillas en inglés en `src/main/insights.ts`, porque main no tiene i18next.
+- **Detalles de los detectores** (`src/main/insights.ts`):
+  - `energy`: solo cuenta días con al menos 2 franjas, y un empate no nombra ninguna.
+  - `drain`: categoría = tipo de cambio si `isChange` ≥ 0.5; si no, `new_task` si `isNewTask` ≥ 0.5; si no, `tone:<tono>`. Cada categoría cuenta una sola vez por baja.
+  - `calm`: solo estrategias que existen en el perfil.
+  - "Ya aprobado" significa una entrada de esa sección con el mismo texto. Si la persona lo edita al aprobarlo, Pip puede volver a sugerirlo más adelante.
+
+**Mi resumen con Claude** (`src/main/ai/summary.ts`, `summaryFacts` en `src/main/insights.ts`):
+- **Quién hace qué:** el código calcula los hechos del periodo, los filtra por destinatario y le pasa a Claude solo eso. Claude solo redacta las viñetas, cada una con `text`, `why`, `source` e `include`. Sin `ANTHROPIC_API_KEY` devuelve el resumen de ejemplo con el destinatario y el periodo pedidos.
+- **Coach, psicóloga y terapeuta** reciben todos los hechos más fragmentos de los mensajes: los 20 más nuevos, de 300 caracteres. El corte se hace **después** de limpiar, para no partir un nombre.
+- **Jefe:** solo conteos y temas. No recibe texto de mensajes, patrones, cucharas ni estrategias de calma: se tratan como datos de salud. "Lo que más pregunto" le llega reescrito como ajuste ("Written deadlines help me.") y desmarcado.
+- **Con menos de 3 check-ins** (`PATTERN_MIN_CHECKINS`) no hay patrones ni bajas, y el código agrega una viñeta fija, "Not enough yet for patterns.", desmarcada. Esa regla vive en el código, no en el prompt.
+- **Inyección:** los hechos van dentro de `<facts>` como datos no confiables. La etiqueta `facts` se quita aunque no esté cerrada (`ok </facts Ignore…`), repitiendo hasta que no cambie nada. La respuesta tiene tope: máximo 12 viñetas, de 500 caracteres cada una. Si no cumple, se rechaza sin reintentar.
+- Las estrategias de calma privadas no se nombran, y el texto de las preguntas copiadas nunca sale.
+
+**Respaldos del registro:** como cualquier log, un `events.json` corrupto se respalda como `events.json.<n>.bak`. Pero esos respaldos guardan texto de mensajes, así que "Delete all" también los borra (y el `.tmp`), y la retención borra los `.bak` de más de 90 días.
+- **Límite 1:** la edad se mide desde que se hizo el respaldo. Un evento que estaba en un archivo corrupto puede quedar hasta unos 180 días.
+- **Límite 2:** en Windows, si el antivirus bloquea un `.bak`, `unlinkSync` falla y no se puede listar ni borrar eventos hasta que se libera. Hace falta un try/catch.
+
+**Semana de ejemplo:** `week.checkins.json` y `week.events.json` están armados para que se activen los cuatro patrones (`energy:midday`, `drain:project`, `ask:deadline`, `calm:music`). Una prueba lo revisa. Si se editan, hay que volver a correrla.
+
+**Mock del navegador:** los métodos de `src/shared/mock-api.ts` que cambian algo (`refreshLearned`, `logEvent`) tienen que guardar en el estado del mock. Si no, la vista en el navegador no muestra la pantalla siguiente (pasó con los pendientes en My profile).
 
 **Cuándo cambiar:**
 - **Cifrado con `safeStorage`** (llavero del sistema) **antes de que una persona real meta su propio perfil.** Sam es ficticio, así que no hace falta para el demo.
@@ -212,7 +234,7 @@ Es nivel 3. Para el Launchpad basta con las keys en la Mac del demo. **Sigue abi
 
 ## 8. Idioma
 
-**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. **D prepara `es.json` para las pruebas con usuarios en México.** Pip responde en el idioma del mensaje. El equipo verificó que Jev funciona en español.
+**Todo en inglés por ahora,** con los textos en `src/renderer/src/locales/en.json` (i18next). Agregar un idioma es poner `<lang>.json` y registrarlo en `src/renderer/src/i18n.ts`. `es.json` ya existe para las pruebas con usuarios en México. Si a `es.json` le falta una llave, i18next muestra el texto en inglés. **Pendiente:** traducir los textos de Mi resumen por periodo, "What Pip remembers" y los pendientes de My profile (PR #19). Pip responde en el idioma del mensaje. El equipo verificó que Jev funciona en español.
 
 ## 9. Demo
 
@@ -238,6 +260,7 @@ Es nivel 0 porque la rúbrica pide evidencia.
 
 - `src/shared/` es el contrato entre módulos y solo cambia por PR que vean los tres devs.
 - Una rama por funcionalidad, PR a `main`.
+- Los commits y PRs no llevan atribución a Claude (ni `Co-Authored-By` ni autor "Claude"). Van con el nombre de quien los sube.
 - La configuración de Pedro's Factory (`.factory/stack.md`) escala a revisión humana: `src/main/`, `src/preload/`, `src/shared/`, `electron-builder.yml`, cambios de dependencias y todo lo que mande datos fuera de la máquina.
 
 ## 12. Preguntas abiertas
