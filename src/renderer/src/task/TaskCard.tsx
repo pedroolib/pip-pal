@@ -107,7 +107,7 @@ export function TaskCard({
   due: string | null
   onDone: () => void
   onStuck: () => void
-  /** "Not now": tuck the card away and bring it back once, a little later. */
+  /** The clock: open the reminder form for this step. */
   onLater?: () => void
   /** "That's not right": new steps from what the person typed. */
   onCorrect?: (text: string) => void

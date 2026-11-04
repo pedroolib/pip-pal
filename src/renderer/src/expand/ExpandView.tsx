@@ -294,7 +294,7 @@ export function ExpandView({
   /** Offer a strategy, or null when the person skipped it or is ready. */
   onCalm: (strategy: CalmingStrategy | null) => void
   onStepDone: () => void
-  /** "Not now" on the steps card: tuck it away, Pip brings it back once later. */
+  /** The clock on the steps card: open the reminder form for the current step. */
   onLater: () => void
   /** "That's not right" on the steps card: ask again with what the person added. */
   onCorrect: (text: string) => void
