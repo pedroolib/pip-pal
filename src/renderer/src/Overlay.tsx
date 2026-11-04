@@ -160,14 +160,12 @@ function Overlay(): React.JSX.Element {
   // Tell the subscribe-once handlers what is open.
   const viewNow = useRef<View | null>(null)
   const onDemandNow = useRef(false)
-  // The menu opened on the press, before Pip knows there is no selection (see onCommandStart).
-  const [menuPending, setMenuPending] = useState(false)
-  // An early press's read is in flight: its onCommand or onCaptured is still to come.
-  const pressEarly = useRef(false)
+  const readingNow = useRef(false)
   useEffect(() => {
     viewNow.current = view
+    readingNow.current = view === 'triage' && !triage && !error
     onDemandNow.current = onDemand
-  }, [view, onDemand])
+  }, [view, onDemand, triage, error])
   // A calming strategy is offered at most once per message, so Pip doesn't insist.
   const calmOffered = useRef(false)
   // The selected text, for the button's Claude call. Stays in this window.
@@ -222,8 +220,6 @@ function Overlay(): React.JSX.Element {
   // `here`: text from the record flow opens where that flow already sits.
   const capture = (selected: string, here = false): void => {
     if (!here && hasTyped()) return api.refuseSelection() // what they typed would be lost
-    setMenuPending(false)
-    pressEarly.current = false
     refreshSettings()
     const id = ++request.current
     text.current = selected
@@ -259,40 +255,31 @@ function Overlay(): React.JSX.Element {
       () => {}
     )
   }
-  const openMenu = (failed: boolean): void => {
-    setMenuPending(false)
+  // `inPlace`: Pip is already reading at the cursor, so the menu opens where it is: the window has moved and
+  // grown since, and reading the cursor back from it again would put Pip on another side of the card.
+  const openMenu = (failed: boolean, inPlace = false): void => {
     refreshSettings()
     setCopyFailed(failed)
-    openAtCursor()
+    if (!inPlace) openAtCursor()
     setView('menu')
   }
   // Nothing selected. Main left the window alone if a card holds the keyboard, else moved it to the cursor.
   const onCommand = ({ copyFailed: failed }: { copyFailed: boolean }): void => {
     const now = viewNow.current
     if (now === 'record') return // RecordFlow listens too
-    if (pressEarly.current) {
-      // The read of an early press: if the person already picked or closed, it has nothing left to open.
-      pressEarly.current = false
-      if (now === 'menu') {
-        setCopyFailed(failed)
-        setMenuPending(false)
-      }
-      return
-    }
     if (now === 'menu') return setView('hidden')
     if (hasTyped()) return
     if (now === 'checkIn' && !onDemandNow.current) setCheckInWaits(true)
-    openMenu(failed)
+    openMenu(failed, readingNow.current)
   }
-  // The press, while Pip still reads the selection: the menu is already up, without the keyboard. Text then
-  // replaces it (capture); nothing selected settles it (onCommand).
+  // The press, before the selection is read: Pip appears reading, as in a triage; capture or onCommand then replaces it.
   const onCommandStart = (): void => {
-    const now = viewNow.current
-    if (now === 'record' || now === 'menu' || hasTyped()) return
-    if (now === 'checkIn' && !onDemandNow.current) setCheckInWaits(true)
-    openMenu(false)
-    setMenuPending(true)
-    pressEarly.current = true
+    if (viewNow.current !== 'hidden') return
+    request.current++ // an older read must not fill this one
+    openAtCursor()
+    setTriage(null)
+    setError(false)
+    setView('triage')
   }
   // `pip-pal --record` opens the source card at the cursor; once open, RecordFlow handles it.
   const openRecord = (): void => {
@@ -433,7 +420,9 @@ function Overlay(): React.JSX.Element {
     api.setBubbleOpen(true)
     const close = (): void => {
       if (!hasTask) request.current++ // a late answer must not reopen what was closed
-      setView(stepForm ? 'task' : 'hidden')
+      // The menu's own cards (and the check-in it opened) go back to it; the menu itself closes.
+      const fromMenu = view === 'tell' || view === 'remind' || checkInOnDemand
+      setView(stepForm ? 'task' : fromMenu ? 'menu' : 'hidden')
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') close()
@@ -596,10 +585,7 @@ function Overlay(): React.JSX.Element {
     setView('hidden')
   }
   // The general menu is view 'menu' (CommandMenu); its cards come back to it instead of closing Pip.
-  const backToMenu = (): void => {
-    setMenuPending(false)
-    setView('menu')
-  }
+  const backToMenu = (): void => setView('menu')
   const pick = (item: CommandItem): void => {
     if (item === 'home') {
       api.openHome()
@@ -689,6 +675,7 @@ function Overlay(): React.JSX.Element {
         data-hold={HIDE_WHILE_FITTING.includes(view) || undefined}
         className={cn(
           'relative flex flex-col select-none',
+          !corner && 'place-hold',
           corner ? 'max-h-full w-full items-end' : 'w-fit max-w-full',
           view === 'checkIn' &&
             'h-full [&>[data-slot=card]]:flex-1 [&>[data-slot=card]]:justify-between'
@@ -698,16 +685,17 @@ function Overlay(): React.JSX.Element {
         {view === 'checkIn' && (
           <CheckInCard
             onAnswer={answer}
-            onSnooze={onDemand ? () => setView('hidden') : snoozeCheckIn}
+            onSnooze={onDemand ? backToMenu : snoozeCheckIn}
           />
         )}
         {view === 'menu' && (
-          <CommandMenu pending={menuPending} copyFailed={copyFailed} onPick={pick} onClose={() => setView('hidden')} />
+          <CommandMenu flip={flip} copyFailed={copyFailed} onPick={pick} onClose={() => setView('hidden')} />
         )}
-        {view === 'tell' && <TellCard onClose={backToMenu} />}
+        {view === 'tell' && <TellCard flip={flip} onClose={backToMenu} />}
         {view === 'remind' && (
           <ReminderForm
             initialText={fromStep ?? ''}
+            flip={flip}
             onSaved={reminderSaved}
             onCancel={() => (fromStep !== null ? setView('task') : backToMenu())}
           />
@@ -736,7 +724,7 @@ function Overlay(): React.JSX.Element {
           <RecordFlow
             flip={flip}
             onRead={(said) => capture(said, true)}
-            onClose={() => setView('hidden')}
+            onClose={backToMenu}
           />
         )}
         {view === 'task' && active && task && (

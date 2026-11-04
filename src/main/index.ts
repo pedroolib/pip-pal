@@ -111,6 +111,34 @@ function setEscape(on: boolean): void {
   })
 }
 
+// Windows can put a window back on the taskbar whenever it is shown, so say again that it stays off.
+function showPip(win: BrowserWindow): void {
+  win.showInactive()
+  // On Windows setSkipTaskbar can take focus away, so never while a card holds the keyboard.
+  if (!win.isFocused()) win.setSkipTaskbar(true)
+}
+
+// Windows can refuse to hand the overlay the keyboard (a background app may not take focus), and then the arrow keys
+// would drive the app underneath instead of the command menu. isFocused() can't tell: it may say true while the keys
+// still go to the other app. So while the menu is open its keys are always caught globally, as Escape is.
+// shortcut: they stay caught if the person moves to another app with the menu still open, until it closes; close the menu on a click outside if that bites.
+const MENU_KEYS: Record<string, string> = {
+  Up: 'ArrowUp',
+  Down: 'ArrowDown',
+  Home: 'Home',
+  End: 'End',
+  Enter: 'Enter',
+  Tab: 'Tab',
+  'Shift+Tab': 'Shift+Tab'
+}
+function setMenuKeys(on: boolean): void {
+  for (const accel of Object.keys(MENU_KEYS)) globalShortcut.unregister(accel)
+  if (!on) return
+  for (const [accel, key] of Object.entries(MENU_KEYS)) {
+    globalShortcut.register(accel, () => overlay?.webContents.send(IPC.menuKey, key))
+  }
+}
+
 // The overlay: transparent, frameless and docked bottom-right, floating over every app.
 function createOverlay(): void {
   const { workArea } = screen.getPrimaryDisplay()
@@ -151,17 +179,20 @@ function createOverlay(): void {
   mainWindow.on('closed', () => {
     overlay = null
     setEscape(false)
+    setMenuKeys(false)
     setCorner(null)
     resetOverlayPage()
   })
   // A reload or crash skips React's cleanup, so the bubble could never release the shortcut.
   mainWindow.webContents.on('render-process-gone', () => {
     setEscape(false)
+    setMenuKeys(false)
     resetOverlayPage()
   })
   mainWindow.webContents.on('did-start-navigation', (_e, _url, _inPlace, isMainFrame) => {
     if (!isMainFrame) return
     setEscape(false)
+    setMenuKeys(false)
     setCorner(null) // the reloaded overlay has no task open
     resetOverlayPage()
   })
@@ -174,7 +205,7 @@ function createOverlay(): void {
 
   // showInactive: Pip appearing must not steal focus from the app the person is working in.
   mainWindow.on('ready-to-show', () => {
-    mainWindow.showInactive()
+    showPip(mainWindow)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -253,20 +284,23 @@ function setCorner(state: CornerPip | null): void {
     width: CORNER.size,
     height: CORNER.size
   })
-  win.showInactive()
+  showPip(win)
 }
 
 // The overlay is unfocusable except while a record card needs the keyboard (IPC.overlayFocus).
 function setOverlayFocus(win: BrowserWindow, on: boolean): void {
+  // Windows puts the window back on the taskbar when it becomes focusable; say so before focusing, because
+  // setSkipTaskbar can take the focus away.
   if (on) {
     win.setFocusable(true)
+    win.setSkipTaskbar(true)
     win.focus()
+    win.webContents.focus() // the page itself, or the arrow keys still go to the app underneath
   } else {
     win.blur()
     win.setFocusable(false)
+    win.setSkipTaskbar(true)
   }
-  // Windows puts the window back on the taskbar when it becomes focusable.
-  win.setSkipTaskbar(true)
 }
 
 // The bubble opens next to the cursor, its card just inside the transparent padding. Not clamped: the
@@ -276,7 +310,7 @@ async function moveToCursor(win: BrowserWindow): Promise<void> {
   const cursor = await cursorPoint()
   const { width, height } = win.getBounds()
   win.setBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
-  win.showInactive()
+  showPip(win)
 }
 
 // shortcut: the overlay window stays shown with nothing drawn, so a card counts as open while it holds the keyboard, even
@@ -287,8 +321,6 @@ const cardOpen = (): boolean => overlayWantsKeyboard
 // selection: text goes to triage, and with none the overlay decides what the press means. Ignores
 // presses while one is reading.
 let capturing = false
-// How long after the copy keys are pressed the menu is shown ahead of the result; an app that has text answers sooner.
-const EARLY_MENU_MS = 150
 async function command(): Promise<void> {
   if (recordingActive) {
     overlay?.webContents.send(IPC.recordHotkey)
@@ -300,23 +332,17 @@ async function command(): Promise<void> {
   const held = !!overlay?.isFocused()
   if (held) setOverlayFocus(overlay!, false)
   const before = overlay && { bounds: overlay.getBounds(), held }
-  // Closed: if the read takes longer than a selection does, show the menu without waiting out its timeout on an
-  // empty selection. A quicker read (text) never flashes it. An open card stays as it is until the read says.
-  let early = false
+  // Closed: Pip appears reading at once, as the answer to the press; the result then shows the bubble or the menu.
+  // An open card stays as it is until the read says what the press means.
+  const early = !!overlay && !cardOpen()
   let settled = false
-  const win0 = overlay && !cardOpen() ? overlay : null
-  let earlyMenu: ReturnType<typeof setTimeout> | null = null
+  if (early) {
+    const win = overlay!
+    void moveToCursor(win).then(() => settled || win.webContents.send(IPC.commandStart))
+  }
   try {
-    const { text, copyFailed, app: from } = await captureSelection(() => {
-      // Starting the copy takes a while; the clipboard answers soon after it is pressed, or the selection is empty.
-      if (!win0) return
-      earlyMenu = setTimeout(() => {
-        early = true
-        void moveToCursor(win0).then(() => settled || win0.webContents.send(IPC.commandStart))
-      }, EARLY_MENU_MS)
-    })
+    const { text, copyFailed, app: from } = await captureSelection()
     settled = true
-    if (earlyMenu) clearTimeout(earlyMenu)
     if (is.dev) {
       // Only a preview, so the terminal doesn't fill with whole messages.
       const where = from ? ` (⌘C went to ${from})` : ''
@@ -493,6 +519,12 @@ app.whenReady().then(() => {
     win.setBounds(clampBounds({ x: bx, y: by, width: bw, height: bh }))
   })
 
+  ipcMain.on(IPC.menuKeysWanted, (event, wanted: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || typeof wanted !== 'boolean') return
+    setMenuKeys(wanted)
+  })
+
   ipcMain.on(IPC.bubbleOpen, (event, open: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== overlay || typeof open !== 'boolean') return
@@ -556,7 +588,7 @@ app.whenReady().then(() => {
       if (is.dev) console.log(`[check-in] ${slot} is due`)
       const win = overlay
       if (!win) return
-      win.showInactive()
+      showPip(win)
       win.webContents.send(IPC.checkInDue, slot)
     },
     times: () => devTimes ?? enabledTimes(storage.settings.load())
@@ -570,7 +602,7 @@ app.whenReady().then(() => {
     onDue: (reminder) => {
       const win = overlay
       if (!win) return
-      win.showInactive()
+      showPip(win)
       win.webContents.send(IPC.reminderDue, reminder)
     }
   })

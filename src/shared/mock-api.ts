@@ -228,6 +228,8 @@ export function createMockApi(): PipApi {
     setOverlayBounds: () => {},
     onDismiss: () => () => {},
     setBubbleOpen: () => {},
+    setMenuKeysWanted: () => {},
+    onMenuKey: () => () => {},
     setOverlayFocus: () => {},
     // A plain browser has no corner window: the overlay draws the corner Pip in the page instead.
     setCorner: () => {},

@@ -1,10 +1,15 @@
-// The menu the command shortcut opens when nothing is selected. A roving-focus list: the overlay window is
-// never focused, so it asks for the keyboard while open and hands it back on close.
+// The menu the command shortcut opens when nothing is selected. The overlay window is never focused, so it asks for
+// the keyboard while open and hands it back on close; main also catches the menu's keys, as Windows may refuse it.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell, Home, Info, MessageCircle, Mic, Smile, type LucideIcon } from 'lucide-react'
 import { api } from '@renderer/api'
 import { Card } from '@renderer/components/ui/card'
+import { cn } from '@renderer/lib/utils'
+import { Pip } from '@renderer/pip/Pip'
+import { PIP_SIZE, type Flip } from '@renderer/triage/model'
+import { menuMove } from './menuMove'
+import { MOOD } from './moods'
 
 export type CommandItem = 'home' | 'listen' | 'checkIn' | 'tell' | 'remind'
 
@@ -17,109 +22,138 @@ const ITEMS: [CommandItem, LucideIcon][] = [
 ]
 
 export function CommandMenu({
-  pending,
+  flip = { x: false, y: false },
   copyFailed,
   onPick,
   onClose
 }: {
-  /** Still reading the selection: shown already, but the keyboard is not taken yet (the copy keys must reach the app). */
-  pending: boolean
+  /** Pip stays where the reading Pip was: right of the card, left when flipped on x, below when on y. */
+  flip?: Flip
   copyFailed: boolean
   onPick: (item: CommandItem) => void
   onClose: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [index, setIndex] = useState(0)
+  // Mouse first, as in a native menu: nothing is selected until the pointer moves over a row or a key is pressed, and
+  // the selection then belongs to whichever of the two was used last.
+  const [index, setIndex] = useState<number | null>(null)
   // The focus ring is for the keyboard; the pointer only tints the row it is over.
-  const [byKeys, setByKeys] = useState(true)
+  const [byKeys, setByKeys] = useState(false)
   const rows = useRef<(HTMLButtonElement | null)[]>([])
 
   useEffect(() => {
-    if (pending) return
     api.setOverlayFocus(true)
-    return () => api.setOverlayFocus(false)
-  }, [pending])
-  useEffect(() => {
-    if (!pending) rows.current[index]?.focus()
-  }, [index, pending])
-
-  const onKeyDown = (e: React.KeyboardEvent): void => {
-    const last = ITEMS.length - 1
-    const next: Record<string, number> = {
-      ArrowDown: index === last ? 0 : index + 1,
-      ArrowUp: index === 0 ? last : index - 1,
-      Home: 0,
-      End: last
+    api.setMenuKeysWanted(true)
+    return () => {
+      api.setOverlayFocus(false)
+      api.setMenuKeysWanted(false)
     }
-    if (e.key === 'Escape') onClose()
-    else if (e.key in next) setIndex(next[e.key])
-    else return
-    e.preventDefault()
+  }, [])
+  useEffect(() => {
+    if (index === null) (document.activeElement as HTMLElement | null)?.blur()
+    else rows.current[index]?.focus()
+  }, [index])
+
+  // Whether the key was one of the menu's.
+  const press = (key: string): boolean => {
+    const next = menuMove(key, index, ITEMS.length)
+    if (next !== null) {
+      setByKeys(true)
+      setIndex(next)
+    } else if (key === 'Escape') onClose()
+    else if (key === 'Enter') {
+      if (index !== null) onPick(ITEMS[index][0])
+    } else return false
+    return true
   }
+  // Main catches these keys while the menu is open; the page only hears them itself in a plain browser, or if the
+  // OS would not let main have them.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (press(e.key === 'Tab' && e.shiftKey ? 'Shift+Tab' : e.key)) e.preventDefault()
+    }
+    window.addEventListener('keydown', onKey)
+    const offMenuKey = api.onMenuKey(press)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      offMenuKey()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `press` only reads `index`
+  }, [index, onPick])
 
   return (
-    <Card
-      role="menu"
-      aria-label={t('command.label')}
-      onKeyDown={(e) => {
-        setByKeys(true)
-        onKeyDown(e)
-      }}
-      onMouseMove={() => setByKeys(false)}
-      data-keys={byKeys}
-      className="group/menu w-80 max-w-full gap-0.5 p-2 shadow-lg"
-    >
-      {copyFailed && (
-        <p
-          role="status"
-          className="mb-1.5 flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-sm"
-        >
-          <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
-          {t('command.cantRead')}
-        </p>
+    <div
+      className={cn(
+        'flex max-w-full gap-2',
+        flip.x && 'flex-row-reverse',
+        flip.y ? 'items-end' : 'items-start'
       )}
-      {ITEMS.map(([item, Icon], i) => (
-        <button
-          key={item}
-          ref={(el) => {
-            rows.current[i] = el
-          }}
-          type="button"
-          role="menuitem"
-          tabIndex={i === index ? 0 : -1}
-          onFocus={() => setIndex(i)}
-          // Focus follows the pointer, so hover and keyboard never mark two rows at once.
-          onMouseMove={() => i !== index && setIndex(i)}
-          onClick={() => onPick(item)}
-          className="group flex min-h-12 w-full items-center gap-3 rounded-md border border-transparent px-3 py-1.5 text-left outline-none hover:bg-accent focus:bg-accent focus-visible:bg-accent group-data-[keys=true]/menu:focus:border-ring group-data-[keys=true]/menu:focus:ring-[3px] group-data-[keys=true]/menu:focus:ring-ring/50"
-        >
-          <Icon aria-hidden className="size-5 shrink-0 text-primary" />
-          <span className="flex flex-col">
-            <span className="text-base leading-snug font-bold">
-              {t(`command.items.${item}.name`)}
+    >
+      <Pip
+        mood={index === null ? 'hello' : MOOD[ITEMS[index][0]]}
+        size={PIP_SIZE}
+        className={flip.y ? 'mb-3' : 'mt-3'}
+      />
+      <Card
+        role="menu"
+        aria-label={t('command.label')}
+        onMouseMove={() => setByKeys(false)}
+        onMouseLeave={() => !byKeys && setIndex(null)}
+        data-keys={byKeys}
+        className="group/menu w-80 max-w-full gap-0.5 p-2 shadow-lg"
+      >
+        {copyFailed && (
+          <p
+            role="status"
+            className="mb-1.5 flex items-start gap-2 rounded-lg bg-secondary/60 p-3 text-sm"
+          >
+            <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+            {t('command.cantRead')}
+          </p>
+        )}
+        {ITEMS.map(([item, Icon], i) => (
+          <button
+            key={item}
+            ref={(el) => {
+              rows.current[i] = el
+            }}
+            type="button"
+            role="menuitem"
+            tabIndex={i === (index ?? 0) ? 0 : -1}
+            data-active={i === index}
+            // The selection follows the pointer, so hover and keyboard never mark two rows at once.
+            onMouseMove={() => setIndex(i)}
+            onClick={() => onPick(item)}
+            className="group flex min-h-12 w-full items-center gap-3 rounded-md border border-transparent px-3 py-1.5 text-left outline-none data-[active=true]:bg-accent group-data-[keys=true]/menu:data-[active=true]:border-ring group-data-[keys=true]/menu:data-[active=true]:ring-[3px] group-data-[keys=true]/menu:data-[active=true]:ring-ring/50"
+          >
+            <Icon aria-hidden className="size-5 shrink-0 text-primary" />
+            <span className="flex flex-col">
+              <span className="text-base leading-snug font-bold">
+                {t(`command.items.${item}.name`)}
+              </span>
+              <span className="text-sm leading-tight text-muted-foreground group-data-[active=true]:text-body">
+                {t(`command.items.${item}.hint`)}
+              </span>
             </span>
-            <span className="text-sm leading-tight text-muted-foreground group-hover:text-body group-focus-visible:text-body">
-              {t(`command.items.${item}.hint`)}
-            </span>
-          </span>
-        </button>
-      ))}
-      <p className="flex flex-wrap gap-x-3.5 px-3 pt-2 pb-1 text-xs text-muted-foreground">
-        {(
-          [
-            ['↑↓', 'move'],
-            ['Enter', 'pick'],
-            ['Esc', 'close']
-          ] as const
-        ).map(([key, what]) => (
-          <span key={what} className="inline-flex items-center gap-1">
-            <kbd className="rounded-md border bg-card px-1.5 py-px text-xs font-bold text-body shadow-[0_1px_0_var(--border)]">
-              {key}
-            </kbd>
-            {t(`command.keys.${what}`)}
-          </span>
+          </button>
         ))}
-      </p>
-    </Card>
+        <p className="flex flex-wrap gap-x-3.5 px-3 pt-2 pb-1 text-xs text-muted-foreground">
+          {(
+            [
+              ['↑↓', 'move'],
+              ['Enter', 'pick'],
+              ['Esc', 'close']
+            ] as const
+          ).map(([key, what]) => (
+            <span key={what} className="inline-flex items-center gap-1">
+              <kbd className="rounded-md border bg-card px-1.5 py-px text-xs font-bold text-body shadow-[0_1px_0_var(--border)]">
+                {key}
+              </kbd>
+              {t(`command.keys.${what}`)}
+            </span>
+          ))}
+        </p>
+      </Card>
+    </div>
   )
 }

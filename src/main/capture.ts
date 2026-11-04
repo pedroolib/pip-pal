@@ -71,15 +71,14 @@ export interface Capture {
   app?: string
 }
 
-/** `onCopied`: the copy keys were pressed; the clipboard answers within a moment (an empty selection waits it out). */
-export async function captureSelection(onCopied?: () => void): Promise<Capture> {
-  if (process.platform === 'darwin') return captureMac(onCopied)
+export async function captureSelection(): Promise<Capture> {
+  if (process.platform === 'darwin') return captureMac()
   if (process.platform === 'linux') {
     const { text, last } = unseenPrimary(await readPrimaryLinux(), lastPrimary)
     lastPrimary = last
     return { text, copyFailed: false }
   }
-  return captureWindows(onCopied)
+  return captureWindows()
 }
 
 // shortcut: Linux keeps the primary selection after deselecting, so unchanged text counts as nothing selected until it
@@ -107,18 +106,17 @@ async function readPrimaryLinux(): Promise<string> {
 
 // Simulates ⌘C in the app in front, reads the clipboard and puts back what was there before.
 // Needs Accessibility permission (Terminal's while developing, Pip's once packaged).
-function captureMac(onCopied?: () => void): Promise<Capture> {
+function captureMac(): Promise<Capture> {
   return captureByCopy(
     async () =>
       (await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])).stdout.trim(),
-    'Could not simulate ⌘C, so the selection could not be read. Allow Accessibility for Terminal (dev) or Pip.',
-    onCopied
+    'Could not simulate ⌘C, so the selection could not be read. Allow Accessibility for Terminal (dev) or Pip.'
   )
 }
 
 // Simulates Ctrl+C the same way; Windows needs no permission. -EncodedCommand (UTF-16LE base64)
 // keeps the script's quotes intact.
-function captureWindows(onCopied?: () => void): Promise<Capture> {
+function captureWindows(): Promise<Capture> {
   const encoded = Buffer.from(COPY_WHEN_KEYS_RELEASED_WIN, 'utf16le').toString('base64')
   return captureByCopy(async () => {
     const { stdout } = await run(
@@ -127,21 +125,19 @@ function captureWindows(onCopied?: () => void): Promise<Capture> {
       { timeout: 5000 }
     )
     return isTerminal(/^front:(.*)$/m.exec(stdout)?.[1] ?? '') ? null : undefined
-  }, 'Could not simulate Ctrl+C, so the selection could not be read.', onCopied)
+  }, 'Could not simulate Ctrl+C, so the selection could not be read.')
 }
 
 // `copy` presses the copy keys in the app in front and may return that app's name; null means it pressed nothing.
 async function captureByCopy(
   copy: () => Promise<string | undefined | null>,
-  failure: string,
-  onCopied?: () => void
+  failure: string
 ): Promise<Capture> {
   const saved = await saveClipboard()
   clipboard.clear()
   try {
     const app = await copy()
     if (app === null) return { text: '', copyFailed: false }
-    onCopied?.()
     return { text: await waitForText(500), copyFailed: false, app }
   } catch (err) {
     console.warn(`[capture] ${failure}`, err instanceof Error ? err.message : err)
