@@ -17,7 +17,7 @@ type Step = { text: string; why: string | null }
 
 // "That's not right": the person tells Pip what it was missing and gets new steps. The overlay
 // is never focused, so it takes the keyboard while the field is open.
-// `ask`: Pip is asking for context, so the field starts open and can't be cancelled.
+// Closed until clicked, even when Pip asks (`ask`): the answer arrives while the person may be typing elsewhere.
 export function Correct({
   onSend,
   ask = false
@@ -26,7 +26,7 @@ export function Correct({
   ask?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(ask)
+  const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   useEffect(() => {
     if (!open) return
@@ -35,9 +35,14 @@ export function Correct({
   }, [open])
   if (!open)
     return (
-      <Button variant="ghost" size="sm" className="self-start" onClick={() => setOpen(true)}>
+      <Button
+        variant={ask ? 'default' : 'ghost'}
+        size="sm"
+        className="self-start"
+        onClick={() => setOpen(true)}
+      >
         <MessageSquarePlus aria-hidden />
-        {t('card.correct.open')}
+        {t(ask ? 'card.correct.answer' : 'card.correct.open')}
       </Button>
     )
   return (
@@ -54,11 +59,9 @@ export function Correct({
         <Button size="sm" disabled={!text.trim()} onClick={() => onSend(text.trim())}>
           {t(ask ? 'card.correct.sendAsk' : 'card.correct.send')}
         </Button>
-        {!ask && (
-          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-            {t('card.correct.cancel')}
-          </Button>
-        )}
+        <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+          {t('card.correct.cancel')}
+        </Button>
       </div>
     </div>
   )

@@ -17,6 +17,7 @@ import {
   activeIndex,
   approvePending,
   dismissPending,
+  keepNewPending,
   removeAt,
   removeById,
   upsert,
@@ -108,8 +109,10 @@ function Manual({
   /** Writes the profile; on failure the editor stays open and nothing local changes. */
   async function persist(next: Profile): Promise<boolean> {
     try {
-      await api.saveProfile(next)
-      setProfile(next)
+      const merged = profile ? keepNewPending(next, profile, await api.getProfile()) : next
+      await api.saveProfile(merged)
+      setProfile(merged)
+      onPendingChange?.(merged.pending?.length ?? 0)
       return true
     } catch {
       return false
@@ -130,7 +133,6 @@ function Manual({
   /** Saves a pending-entry change; focus goes to the card's heading (or stays put once it is empty). */
   async function settle(next: Profile): Promise<boolean> {
     if (!(await persist(next))) return false
-    onPendingChange?.(next.pending?.length ?? 0)
     requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-pending-h]')?.focus())
     return true
   }

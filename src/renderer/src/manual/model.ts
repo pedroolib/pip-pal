@@ -4,6 +4,17 @@ import type { Origin, Profile } from '@shared/schemas'
 
 type WithId = { id?: string }
 
+/**
+ * What to save over `live`: `next`, plus suggestions main added since this page loaded (`seen`). Main adds them
+ * while the page is open, and they may hold the only copy of what the person said. One that was accepted or
+ * rejected here is in `seen`, so it does not come back.
+ */
+export function keepNewPending(next: Profile, seen: Profile, live: Profile): Profile {
+  const known = new Set([...(seen.pending ?? []), ...(next.pending ?? [])].map((p) => p.id))
+  const added = (live.pending ?? []).filter((p) => !known.has(p.id))
+  return added.length ? { ...next, pending: [...(next.pending ?? []), ...added] } : next
+}
+
 /** Replaces the item with the same id, or appends it (with a fresh id) when it is new. */
 export function upsert<T extends WithId>(list: T[], item: T): T[] {
   if (item.id && list.some((x) => x.id === item.id)) {

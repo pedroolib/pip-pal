@@ -8,6 +8,7 @@ import {
   addAlias,
   aliasesToSave,
   hasTooLongAlias,
+  keepNewPending,
   removeAt,
   removeById,
   splitAliases,
@@ -218,5 +219,39 @@ describe('pending entries', () => {
   it('an unknown id changes nothing', () => {
     expect(approvePending(base, 'zzz')).toBe(base)
     expect(dismissPending(base, 'zzz', new Date())).toBe(base)
+  })
+})
+
+describe('keepNewPending', () => {
+  const entry = (id: string): NonNullable<Profile['pending']>[number] => ({
+    id,
+    key: id,
+    why: 'Why.',
+    section: 'learning',
+    text: id,
+    origin: 'learned',
+    visibleTo: []
+  })
+  const withPending = (...ids: string[]): Profile =>
+    ({ pending: ids.map(entry) }) as unknown as Profile
+  const ids = (p: Profile): string[] => (p.pending ?? []).map((x) => x.id)
+
+  it('keeps a suggestion main added while the page was open', () => {
+    const seen = withPending('a')
+    expect(ids(keepNewPending(seen, seen, withPending('a', 'new')))).toEqual(['a', 'new'])
+  })
+
+  it('does not bring back one the person accepted or rejected here', () => {
+    expect(ids(keepNewPending(withPending(), withPending('a'), withPending('a')))).toEqual([])
+  })
+
+  it('does not double one the save already holds', () => {
+    const next = withPending('drafted')
+    expect(ids(keepNewPending(next, withPending(), withPending('drafted')))).toEqual(['drafted'])
+  })
+
+  it('handles profiles with no pending list', () => {
+    const empty = {} as Profile
+    expect(keepNewPending(empty, empty, empty)).toBe(empty)
   })
 })
