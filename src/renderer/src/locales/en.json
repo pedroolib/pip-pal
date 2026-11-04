@@ -32,6 +32,7 @@
     "close": "Close",
     "correct": {
       "open": "That's not right",
+      "answer": "Answer",
       "label": "What is Pip missing or getting wrong?",
       "placeholder": "For example: \"Support package 35 is our monthly update bundle. It is installed from the admin portal.\"",
       "send": "Redo the steps",

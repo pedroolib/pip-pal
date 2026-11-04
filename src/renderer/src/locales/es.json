@@ -33,6 +33,7 @@
     "close": "Cerrar",
     "correct": {
       "open": "Esto no es correcto",
+      "answer": "Responder",
       "label": "¿Qué le falta o qué entiende mal Pip?",
       "placeholder": "Por ejemplo: \"El paquete de soporte 35 es nuestro paquete mensual de actualización. Se instala desde el portal de administración.\"",
       "send": "Rehacer los pasos",
