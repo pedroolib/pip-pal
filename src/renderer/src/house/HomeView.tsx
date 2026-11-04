@@ -4,6 +4,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Face } from '@renderer/checkin/Face'
 import { hashFor } from './route'
 import { AchievementRow } from './AchievementRow'
+import { ComingUp } from './ComingUp'
 import { isToday, latest, timeLabel } from './days'
 import { HouseCard } from './parts'
 import { useLoad } from './useLoad'
@@ -63,6 +64,7 @@ export function HomeView({ learned }: { learned: number }): React.JSX.Element {
               )}
             </HouseCard>
           </div>
+          <ComingUp />
           {learned > 0 && (
             <HouseCard aria-labelledby="home-learned">
               <h2 id="home-learned" className="text-[1.0625rem] leading-snug font-bold">
