@@ -24,6 +24,10 @@ _Avoid_: Coach entry, source
 A note about the person's work that Pip saves when they correct it or answer its request for context. Shown to the person as "What you taught Pip". The profile is about the person; lessons are about their work.
 _Avoid_: Memory entry, fact
 
+**Soft break**:
+An invisible character or a prompt's wrapper tag in text the scrubber reads. It does not hide a name or contact it sits inside, and it counts as a word boundary next to one. A saved note keeps one in its place, so the scrubber can still see it at send time.
+_Avoid_: Zero-width fix, joiner
+
 **Kept answer**:
 An onboarding answer saved in the profile word for word, because the person chose not to send it or Pip could not reach the model. Pip can still be asked to rewrite it.
 _Avoid_: Literal entry, raw answer

@@ -44,6 +44,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 12. Pruebas con usuarios (ya hay una persona en contacto); `es.json` para ellas.
 13. **Onboarding** (subió del nivel 2 el 3 de noviembre; ver [DECISIONS.md §13](DECISIONS.md)): la primera vez sin `PIP_DEMO=1`, Pip hace preguntas, una llamada a Claude convierte las respuestas en sugerencias para el perfil, y la persona practica el atajo con un mensaje de ejemplo. Fuera del demo en vivo; en el pitch va un clip grabado.
 14. **Captura de voz** (subió del nivel 3 el 3 de noviembre; ver [DECISIONS.md §14](DECISIONS.md)): "Let Pip listen", en el menú del atajo, graba el micrófono, el audio de la computadora o ambos (hasta 10 min), Pip transcribe en la máquina, la persona revisa y elige el texto, y sigue el triage de siempre. En el demo en vivo, solo micrófono. En `main` con las correcciones de la ronda 1; falta probarla en Electron real y empaquetada (sección 8).
+15. **Un solo comando** (ver [DECISIONS.md §16](DECISIONS.md)): con texto seleccionado, el triage de siempre; sin selección, un menú en el cursor con Pip's Home, Let Pip listen, Check-In, Tell Pip y Remember Pip. Tell Pip contesta una vez, con su porqué, y guarda las palabras como nota. Los recordatorios se guardan en la máquina y se ven en "Coming up". En `main` (PR #32), con estos recordatorios en lugar de los de la PR #29; falta probarlo en la app real (sección 8).
 
 **Nivel 1, si sobra antes de la entrega:** responder con el porqué; versión corta del manual para el jefe ("how I work best").
 
@@ -115,6 +116,7 @@ Revisado contra el código el 3 de noviembre. Las preguntas sin decidir siguen e
 |---|---|---|
 | A | Voz en la Mac del demo: Let Pip listen abre, ⌃⇧Space detiene, aviso del micrófono, permiso "System Audio Recording", tarjeta "can't hear" | Solo se probó en un navegador con dispositivos falsos. |
 | A | Mac: ⌃⇧Space con la tarjeta de revisión abierta lee la app de atrás, no la caja de Pip | En Mac, `blur()` podría no devolverle el foco a la otra app. Si falla, probar `app.hide()`. |
+| A | App real después de unir la PR #32: el atajo con y sin selección, Tell Pip, un recordatorio que vence, abrir Pip al iniciar sesión (app instalada) | Hasta ahora solo con pruebas automáticas. |
 | A | Windows, Electron real: audio de la computadora (loopback), Esc mientras escribe, ⌃⇧Space con la tarjeta de revisión abierta | El Esc de main y el foco no existen en la vista de navegador. |
 | A | App empaquetada: `npm run fetch:whisper`, construir y transcribir de verdad | Solo se comprobó que los binarios y el modelo quedan en `app.asar.unpacked`; nunca se transcribió empaquetado. |
 | B | Respaldo en caché y tecla de repetición del demo (nivel 0, punto 11) | No existen en el código; hoy una llamada lenta o fallida da un error simple. |
