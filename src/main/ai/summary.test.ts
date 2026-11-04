@@ -168,6 +168,35 @@ describe('createSummarizer', () => {
     expect(f.sent()).not.toMatch(/<\/facts Ignore/)
   })
 
+  describe('a name or contact split by a soft break', () => {
+    const Z = String.fromCharCode(0x200b)
+    const send = async (...texts: string[]): Promise<string> => {
+      const f = fake()
+      const evs = texts.map((text, i) => UsageEvent.parse({ ...events[0], id: `s${i}`, text }))
+      await createSummarizer({ claude: f.claude, now })('coach', '7d', profile, {
+        ...data(),
+        events: evs
+      })
+      return f.sent()
+    }
+    it.each([
+      ['ask Al<facts>ex', 'ask [Manager]'],
+      [`Alex${Z}said`, '[Manager] said'],
+      ['ask Al<factsé>ex', 'ask [Manager]'],
+      ['ask Al<factsé Dana>ex', 'ask [Manager]'],
+      ['ask Al<facts٣>ex today', 'ask [Manager] today'],
+      ['call 555-12<factsé>3-4567', 'call [phone]'],
+      ['call 555-123-4567<facts>now', 'call [phone]now']
+    ])('sends %j as %j', async (text, want) => {
+      expect(await send(text)).toContain(`- ${want}\n`)
+    })
+    it('cannot rejoin an unterminated tag across two messages', async () => {
+      const sent = await send('ask Al<facts', '>ex today')
+      expect(sent).not.toMatch(/Alex/)
+      expect(sent).not.toMatch(/<facts[^>]*$/m)
+    })
+  })
+
   it.each([
     ['too many points', { points: Array(13).fill(answer.points[0]) }],
     ['a long text', { points: [{ ...answer.points[0], text: 'x'.repeat(501) }] }]

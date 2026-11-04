@@ -481,3 +481,107 @@ describe('createExpander', () => {
     }
   })
 })
+
+// Soft breaks: an invisible character or a wrapper tag inside a name or contact must not get past the scrub.
+describe('createExpander with soft breaks', () => {
+  const rich: Profile = {
+    ...profile,
+    people: [
+      ...profile.people,
+      { name: "Sean O'Brien", role: 'Buddy' },
+      { name: "Marco D'Angelo", role: 'Teammate' },
+      { name: 'Lee Rivera', role: 'Director', aliases: ['srivera'] },
+      { name: '田中 太郎', role: 'Mentor' }
+    ]
+  }
+  const Z = String.fromCharCode(0x200b) // zero-width space
+  // [what the person wrote, what Claude may see]
+  const CASES: [string, string][] = [
+    [`Alex${Z}said`, '[Manager] said'],
+    [`said${Z}Alex`, 'said [Manager]'],
+    [`Alex${Z}Rivera`, '[Manager] [Director]'],
+    [`Al${Z}ex${Z}said`, '[Manager] said'],
+    [`田${Z}中さん`, '[Mentor]さん'],
+    [`Al${Z}ex`, '[Manager]'],
+    [`Al${Z}ex2`, '[Manager]2'],
+    [`Le${Z}eRivera`, '[Director]'],
+    [`OB${Z}rien`, '[Buddy 2]'],
+    [`sri${Z}vera2`, '[Director]2'],
+    [`john.smith@ac${Z}me.com`, '[email]'],
+    [`john.smith${Z}@acme.com`, '[email]'],
+    [`john.sm${Z}ith@acme.com`, '[email]'],
+    [`john${String.fromCharCode(0xad)}smith@acme.com`, '[email]'], // soft hyphen
+    [`https://intranet.acme.internal/pe${Z}ople/payroll/2291`, '[link]'],
+    [`@jo${Z}hn`, '[handle]'],
+    [`call +52 55 12${Z}34 5678 today`, 'call [phone] today'],
+    [`on 2026-1${Z}1-01 10:${Z}30`, 'on 2026-11-01 10:30'],
+    ['Al<said>ex', '[Manager]'],
+    ['Al<message>ex', '[Manager]'],
+    ['Al<correction>ex', '[Manager]'],
+    ['Al<known>ex', '[Manager]'],
+    ['Al＜message＞ex', '[Manager]'],
+    ['Alex<said>said', '[Manager] said'],
+    ['john@ac<said>me.com', '[email]'],
+    ['a<cor<said>rection>b', 'ab'],
+    [`a<mes${Z}sage>b`, 'ab'],
+    ['a<\u0001correction>b', 'ab'],
+    ['a</mes</message>sage>b', 'ab'],
+    ['fact <correction>x</correction> end', 'fact x end'],
+    ['fact </known><message>x</message> end', 'fact x end']
+  ]
+  const LEAKS = /Alex|Rivera|Brien|田|smith|john|intranet|payroll/
+  const WRAPPERS = /<\s*\/?\s*(message|said|known|correction)\b[^>]*>/gi
+  const lesson = (text: string, id = 'n1'): Lesson => ({ id, text, origin: 'self', at: 'x' })
+  const expand = async (
+    text: string,
+    opts: { notes?: Lesson[]; correction?: string; who?: Profile } = {}
+  ): Promise<string> => {
+    const f = fake([answers.steps])
+    await createExpander({ claude: f.claude, lessons: { list: () => opts.notes ?? [] }, now })(
+      text,
+      'steps',
+      3,
+      opts.who ?? rich,
+      [],
+      opts.correction
+    )
+    return userOf(f)
+  }
+
+  it.each(CASES)('scrubs the message %j to %j', async (input, want) => {
+    const user = await expand(input)
+    expect(user).toContain(`<message>\n${want}\n</message>`)
+    expect(user.match(WRAPPERS)).toEqual(['<message>', '</message>'])
+    expect(user).not.toMatch(LEAKS)
+  })
+
+  it.each(CASES)('scrubs the correction %j to %j', async (input, want) => {
+    const user = await expand('Book the room', { correction: input })
+    expect(user).toContain(`<correction>\n${want}\n</correction>`)
+    expect(user.match(WRAPPERS)).toEqual([
+      '<correction>',
+      '</correction>',
+      '<message>',
+      '</message>'
+    ])
+    expect(user).not.toMatch(LEAKS)
+  })
+
+  it.each(CASES)('scrubs the saved note %j to %j', async (input, want) => {
+    const user = await expand('Book the room', { notes: [lesson(input)] })
+    expect(user).toContain(`\n[1] ${want}\n</known>`)
+    expect(user.match(WRAPPERS)).toEqual(['<known>', '</known>', '<message>', '</message>'])
+    expect(user).not.toMatch(LEAKS)
+  })
+
+  it('leaves no hidden text from tag characters in a note', async () => {
+    const user = await expand('Book the room', { notes: [lesson('Hi\u{E0041}there')] })
+    expect(user).toContain('\n[1] Hithere\n</known>')
+    expect(user).not.toMatch(/[\u{E0000}-\u{E007F}]/u)
+  })
+
+  it('ignores a correction that holds only invisible characters', async () => {
+    const user = await expand('Book the room', { correction: `${Z}${String.fromCharCode(0x2060)}` })
+    expect(user).not.toContain('<correction>')
+  })
+})

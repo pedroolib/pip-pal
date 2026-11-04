@@ -50,6 +50,31 @@ describe('profile drafter', () => {
     expect(out[1]).toMatchObject({ section: 'calming', text: 'Calm music', minutes: 15 })
   })
 
+  describe('a name or contact split by a soft break', () => {
+    const Z = String.fromCharCode(0x200b)
+    const people: Profile = { ...profile, people: [{ name: 'Alex Morgan', role: 'Manager' }] }
+    const send = async (answers: Record<string, string>): Promise<string> => {
+      const claude = fake({ suggestions: [] })
+      await createProfileDrafter({ claude })(answers, people)
+      return claude.ask.mock.calls[0][0].user
+    }
+    it.each([
+      ['ask Al<answers>ex', 'ask [Manager]'],
+      [`Alex${Z}said`, '[Manager] said'],
+      ['ask Al<answersé>ex', 'ask [Manager]'],
+      ['ask Al<answersé Dana>ex', 'ask [Manager]'],
+      ['mail john@ac<answersñ>me.com', 'mail [email]'],
+      ['ask 555-123-4567<answers>said', 'ask [phone]said']
+    ])('sends %j as %j', async (text, want) => {
+      expect(await send({ instructions: text })).toContain(`A: ${want}\n`)
+    })
+    it('cannot rejoin an unterminated tag across two answers', async () => {
+      const user = await send({ instructions: 'ask Al<answers', changesHelp: '>ex today' })
+      expect(user).not.toMatch(/Alex/)
+      expect(user.match(/<\/?answers/g)).toEqual(['<answers', '</answers'])
+    })
+  })
+
   it('refuses no answers and invalid input without calling Claude or echoing it', async () => {
     const claude = fake({ suggestions: [] })
     const draft = createProfileDrafter({ claude })
