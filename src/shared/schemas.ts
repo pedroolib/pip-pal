@@ -540,6 +540,10 @@ export const TellAnswer = z.object({
   note: NoteProposal.nullable()
 })
 export type TellAnswer = z.infer<typeof TellAnswer>
+/** How Pip words its own replies (never what it says). `plain` is the default; `raw` mirrors slang and swearing. */
+export const REPLY_TONES = ['plain', 'friend', 'boss', 'raw'] as const
+export const ReplyTone = z.enum(REPLY_TONES)
+export type ReplyTone = z.infer<typeof ReplyTone>
 
 export const Settings = z.object({
   checkIns: z
@@ -551,6 +555,8 @@ export const Settings = z.object({
   calmMotion: z.boolean(),
   /** Start Pip when the person logs in, so reminders still arrive. On when missing (packaged app only). */
   launchAtLogin: z.boolean().optional(),
+  /** Missing means `plain`; older settings files stay valid. */
+  tone: ReplyTone.optional(),
   /** Missing until onboarding starts. In demo mode main reports it done. */
   onboarding: Onboarding.optional(),
   /** Last source picked; Microphone when missing. */

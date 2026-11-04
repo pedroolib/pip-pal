@@ -45,7 +45,8 @@ export function registerMockHandlers(
   const decoder = process.env.ANTHROPIC_API_KEY
     ? createDecoder({
         claude: createClaudeClient(),
-        jev: process.env.TYPESAFE_API_KEY ? createJevClient() : null
+        jev: process.env.TYPESAFE_API_KEY ? createJevClient() : null,
+        tone: () => settings.load().tone
       })
     : null
   if (!decoder) console.log('ANTHROPIC_API_KEY not set: decode uses the demo fixture.')
@@ -70,7 +71,8 @@ export function registerMockHandlers(
     load: () => profiles.load(),
     save: (p) => profiles.save(p),
     makeTriager: () => createTriager({ jev: createTriageJevClient() }),
-    makeExpander: () => createExpander({ claude: createClaudeClient(), lessons }),
+    makeExpander: () =>
+      createExpander({ claude: createClaudeClient(), lessons, tone: () => settings.load().tone }),
     makeRememberer: () =>
       createRememberer({
         claude: createClaudeClient(),

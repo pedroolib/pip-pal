@@ -497,6 +497,26 @@
         "es": "Español",
         "note": "Pip answers each message in the language it is written in."
       },
+      "tone": {
+        "title": "How should Pip talk to you?",
+        "note": "This changes how Pip words its answers, never what they say. Messages you send to others stay polite.",
+        "plain": {
+          "label": "Plain and neutral",
+          "example": "Your manager wants the report by Friday. First, check the template."
+        },
+        "friend": {
+          "label": "Like a friend",
+          "example": "Okay, so your manager wants the report by Friday. Easy start: grab the template."
+        },
+        "boss": {
+          "label": "Like a boss",
+          "example": "Report due Friday. Step one: open the template."
+        },
+        "raw": {
+          "label": "Like a mate, slang and swearing included",
+          "example": "Right, the report's due Friday, annoying but doable. Start with the damn template."
+        }
+      },
       "calm": {
         "title": "Calmer motion",
         "body": "Pip stays still and screens fade less. Your computer's reduced-motion setting always applies too."
@@ -540,7 +560,7 @@
       "title": "Hi, I'm Pip.",
       "body": "I help you read work messages, especially when something changes. First, let's set me up for you. Here is what we will do:",
       "list": [
-        "Pick your language and how much movement you want",
+        "Pick your language, how much movement you want and how I talk to you",
         "See how I keep your messages private",
         "Tell me who you work with",
         "Answer 6 short questions about how you work best",
@@ -552,8 +572,8 @@
       "start": "Let's start"
     },
     "comfort": {
-      "title": "Language and movement",
-      "body": "Choose these first, so the rest of setup feels right.",
+      "title": "Language, movement and how I talk",
+      "body": "Choose these first, so the rest of setup feels right. You can change them any time in Settings.",
       "motion": "Calmer motion",
       "motionNote": "Pip and the cards move less. Your system's reduce-motion setting already does this."
     },
