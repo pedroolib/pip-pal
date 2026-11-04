@@ -18,9 +18,11 @@ interface Props {
   /** Gets the new full value; set it into the field's state. */
   onText: (next: string) => void
   className?: string
+  /** Match the buttons beside it; small by default, for rows under a field. */
+  size?: 'sm' | 'lg'
 }
 
-export function DictateButton({ field, onText, className }: Props): React.JSX.Element {
+export function DictateButton({ field, onText, className, size = 'sm' }: Props): React.JSX.Element {
   const { t } = useTranslation()
   const [phase, setPhase] = useState<Phase>('idle')
   const [failure, setFailure] = useState<DictateFailure | null>(null)
@@ -89,7 +91,7 @@ export function DictateButton({ field, onText, className }: Props): React.JSX.El
         type="button"
         data-overlay-hit
         variant={recording ? 'default' : 'outline'}
-        size="sm"
+        size={size}
         disabled={busy}
         aria-pressed={recording}
         className={cn(recording && 'motion-safe:animate-pulse')}

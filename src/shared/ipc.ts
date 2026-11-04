@@ -102,6 +102,8 @@ export const IPC = {
   recordHotkey: 'pip:record-hotkey',
   /** main → overlay: the command shortcut was pressed. */
   command: 'pip:command',
+  /** main → overlay: the command shortcut was pressed and Pip is still reading the selection. */
+  commandStart: 'pip:command-start',
   /** overlay → main: whether a recording is running, so the shortcut can tell. */
   recordingActive: 'overlay:recording-active',
   /** overlay → main: it has subscribed, so what main sends from now on reaches it. */
@@ -209,6 +211,11 @@ export interface PipApi {
    * with its could-not-read line. Returns an unsubscribe function.
    */
   onCommand(cb: (e: { copyFailed: boolean }) => void): () => void
+  /**
+   * The command shortcut was pressed on a closed overlay, before the selection is read: the overlay shows the menu
+   * at once, and `onCommand` (nothing selected) or `onCaptured` (text) then settles it. Returns an unsubscribe function.
+   */
+  onCommandStart(cb: () => void): () => void
   /** Overlay only: whether a recording is running; ignored from other windows. */
   setRecordingActive(on: boolean): void
   /** Overlay only, once its page has subscribed and again after a reload: main then sends what it held back. */

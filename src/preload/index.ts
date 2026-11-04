@@ -52,6 +52,7 @@ const api: PipApi = {
   onCornerOpen: (cb) => on<void>(IPC.cornerOpen, cb),
   onRecordHotkey: (cb) => on<void>(IPC.recordHotkey, cb),
   onCommand: (cb) => on(IPC.command, cb),
+  onCommandStart: (cb) => on<void>(IPC.commandStart, cb),
   setRecordingActive: (on) => ipcRenderer.send(IPC.recordingActive, on),
   overlayReady: () => ipcRenderer.send(IPC.overlayReady),
   refuseSelection: () => ipcRenderer.send(IPC.selectionRefused),

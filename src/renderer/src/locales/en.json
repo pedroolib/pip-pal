@@ -457,10 +457,6 @@
           "done": "You finished a step: {{text}}",
           "can_wait": "You left a step for later: {{text}}"
         },
-      "launch": {
-        "title": "Start Pip when I log in",
-        "body": "So your reminders still arrive after you restart your computer. Takes effect in the installed app."
-      },
         "calm": {
           "used": "You tried a calming strategy",
           "skipped": "You skipped a calming strategy"
@@ -469,6 +465,10 @@
         "confirmBody": "This clears the whole list on this computer. It cannot be undone. Your profile and check-ins stay.",
         "keep": "Keep it",
         "confirmDelete": "Delete all"
+      },
+      "launch": {
+        "title": "Start Pip when I log in",
+        "body": "So your reminders still arrive after you restart your computer. Takes effect in the installed app."
       },
       "checkIns": {
         "title": "Check-in times",
@@ -735,11 +735,11 @@
   },
   "tell": {
     "title": "Tell Pip",
-    "hint": "Goes to Claude (Anthropic's AI) only when you press Send, with names removed. Notes you keep go out again later.",
+    "hint": "Tell Pip something to remember, ask a question, or say what is on your mind.",
     "label": "Your message to Pip",
-    "placeholder": "Write or speak. For example: I focus best when I get a plan the day before.",
+    "placeholder": "Type here, or press Speak.",
     "send": "Send",
-    "close": "Close",
+    "close": "Back",
     "sending": "Pip is reading what you wrote…",
     "youSaid": "You said",
     "why": "Why:",
@@ -770,7 +770,7 @@
     "save": "Save reminder",
     "saveChanges": "Save changes",
     "cancel": "Cancel",
-    "close": "Close"
+    "close": "Back"
   },
   "due": {
     "title": "Reminder",

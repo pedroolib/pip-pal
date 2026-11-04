@@ -17,23 +17,31 @@ const ITEMS: [CommandItem, LucideIcon][] = [
 ]
 
 export function CommandMenu({
+  pending,
   copyFailed,
   onPick,
   onClose
 }: {
+  /** Still reading the selection: shown already, but the keyboard is not taken yet (the copy keys must reach the app). */
+  pending: boolean
   copyFailed: boolean
   onPick: (item: CommandItem) => void
   onClose: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [index, setIndex] = useState(0)
+  // The focus ring is for the keyboard; the pointer only tints the row it is over.
+  const [byKeys, setByKeys] = useState(true)
   const rows = useRef<(HTMLButtonElement | null)[]>([])
 
   useEffect(() => {
+    if (pending) return
     api.setOverlayFocus(true)
     return () => api.setOverlayFocus(false)
-  }, [])
-  useEffect(() => rows.current[index]?.focus(), [index])
+  }, [pending])
+  useEffect(() => {
+    if (!pending) rows.current[index]?.focus()
+  }, [index, pending])
 
   const onKeyDown = (e: React.KeyboardEvent): void => {
     const last = ITEMS.length - 1
@@ -53,8 +61,13 @@ export function CommandMenu({
     <Card
       role="menu"
       aria-label={t('command.label')}
-      onKeyDown={onKeyDown}
-      className="w-80 max-w-full gap-0.5 p-2 shadow-lg"
+      onKeyDown={(e) => {
+        setByKeys(true)
+        onKeyDown(e)
+      }}
+      onMouseMove={() => setByKeys(false)}
+      data-keys={byKeys}
+      className="group/menu w-80 max-w-full gap-0.5 p-2 shadow-lg"
     >
       {copyFailed && (
         <p
@@ -75,8 +88,10 @@ export function CommandMenu({
           role="menuitem"
           tabIndex={i === index ? 0 : -1}
           onFocus={() => setIndex(i)}
+          // Focus follows the pointer, so hover and keyboard never mark two rows at once.
+          onMouseMove={() => i !== index && setIndex(i)}
           onClick={() => onPick(item)}
-          className="group flex min-h-12 w-full items-center gap-3 rounded-md border border-transparent px-3 py-1.5 text-left outline-none hover:bg-accent focus-visible:border-ring focus-visible:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="group flex min-h-12 w-full items-center gap-3 rounded-md border border-transparent px-3 py-1.5 text-left outline-none hover:bg-accent focus:bg-accent focus-visible:bg-accent group-data-[keys=true]/menu:focus:border-ring group-data-[keys=true]/menu:focus:ring-[3px] group-data-[keys=true]/menu:focus:ring-ring/50"
         >
           <Icon aria-hidden className="size-5 shrink-0 text-primary" />
           <span className="flex flex-col">

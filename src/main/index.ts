@@ -32,7 +32,7 @@ const HOTKEY = 'Control+Shift+Space'
 if (!app.requestSingleInstanceLock()) app.exit()
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
-const OVERLAY = { width: 448, height: 400, margin: 16 }
+const OVERLAY = { width: 576, height: 340, margin: 16 }
 // The window's transparent padding (p-8) may go past the screen edge while dragging; the card may not.
 const OVERLAY_PAD = 32
 
@@ -265,6 +265,8 @@ function setOverlayFocus(win: BrowserWindow, on: boolean): void {
     win.blur()
     win.setFocusable(false)
   }
+  // Windows puts the window back on the taskbar when it becomes focusable.
+  win.setSkipTaskbar(true)
 }
 
 // The bubble opens next to the cursor, its card just inside the transparent padding. Not clamped: the
@@ -285,6 +287,8 @@ const cardOpen = (): boolean => overlayWantsKeyboard
 // selection: text goes to triage, and with none the overlay decides what the press means. Ignores
 // presses while one is reading.
 let capturing = false
+// How long after the copy keys are pressed the menu is shown ahead of the result; an app that has text answers sooner.
+const EARLY_MENU_MS = 150
 async function command(): Promise<void> {
   if (recordingActive) {
     overlay?.webContents.send(IPC.recordHotkey)
@@ -295,8 +299,24 @@ async function command(): Promise<void> {
   // A card may hold the keyboard: give it back first, or the copy keys land in Pip itself.
   const held = !!overlay?.isFocused()
   if (held) setOverlayFocus(overlay!, false)
+  const before = overlay && { bounds: overlay.getBounds(), held }
+  // Closed: if the read takes longer than a selection does, show the menu without waiting out its timeout on an
+  // empty selection. A quicker read (text) never flashes it. An open card stays as it is until the read says.
+  let early = false
+  let settled = false
+  const win0 = overlay && !cardOpen() ? overlay : null
+  let earlyMenu: ReturnType<typeof setTimeout> | null = null
   try {
-    const { text, copyFailed, app: from } = await captureSelection()
+    const { text, copyFailed, app: from } = await captureSelection(() => {
+      // Starting the copy takes a while; the clipboard answers soon after it is pressed, or the selection is empty.
+      if (!win0) return
+      earlyMenu = setTimeout(() => {
+        early = true
+        void moveToCursor(win0).then(() => settled || win0.webContents.send(IPC.commandStart))
+      }, EARLY_MENU_MS)
+    })
+    settled = true
+    if (earlyMenu) clearTimeout(earlyMenu)
     if (is.dev) {
       // Only a preview, so the terminal doesn't fill with whole messages.
       const where = from ? ` (⌘C went to ${from})` : ''
@@ -307,11 +327,11 @@ async function command(): Promise<void> {
     if (!text.trim()) {
       // Nothing to read, so an open card stays and needs its keyboard back.
       if (held) setOverlayFocus(win, true)
-      if (!cardOpen()) await moveToCursor(win)
+      if (!early && !cardOpen()) await moveToCursor(win)
       win.webContents.send(IPC.command, { copyFailed })
       return
     }
-    beforeSelection = { bounds: win.getBounds(), held }
+    beforeSelection = before ?? null
     await moveToCursor(win)
     win.webContents.send(IPC.captured, text)
   } finally {

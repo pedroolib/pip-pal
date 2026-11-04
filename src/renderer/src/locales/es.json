@@ -518,11 +518,11 @@
   },
   "tell": {
     "title": "Cuéntale a Pip",
-    "hint": "Va a Claude (la IA de Anthropic) solo al pulsar Enviar, sin nombres. Las notas que guardes vuelven a salir después.",
+    "hint": "Dile a Pip algo que recordar, hazle una pregunta o cuéntale lo que tienes en mente.",
     "label": "Tu mensaje para Pip",
-    "placeholder": "Escribe o habla. Por ejemplo: Me concentro mejor cuando recibo un plan el día anterior.",
+    "placeholder": "Escribe aquí o pulsa Hablar.",
     "send": "Enviar",
-    "close": "Cerrar",
+    "close": "Atrás",
     "sending": "Pip está leyendo lo que escribiste…",
     "youSaid": "Dijiste",
     "why": "Por qué:",
@@ -553,7 +553,7 @@
     "save": "Guardar recordatorio",
     "saveChanges": "Guardar cambios",
     "cancel": "Cancelar",
-    "close": "Cerrar"
+    "close": "Atrás"
   },
   "due": {
     "title": "Recordatorio",
