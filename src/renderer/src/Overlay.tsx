@@ -4,6 +4,7 @@
 // time. While a card is open a Pip in the screen's corner keeps the bubble's buttons (or the card,
 // when the buttons are at the cursor): clicking it swaps the two. Back on a card does the same, and
 // tucking the card away (or Esc) leaves it in that corner Pip.
+// The command with nothing selected opens the menu; due reminders wait here until Pip is hidden.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { CORRECTION_MAX, OVERLAY_MIN, type Bounds } from '@shared/ipc'
@@ -20,10 +21,16 @@ import {
   type LoggableEvent,
   type NoteProposal,
   type QuestionTopic,
+  type Reminder,
   type Triage
 } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
+import { CommandMenu, type CommandItem } from '@renderer/command/CommandMenu'
+import { addDue, refreshDue } from '@renderer/command/dueQueue'
+import { ReminderDueCard } from '@renderer/command/ReminderDueCard'
+import { ReminderForm } from '@renderer/command/ReminderForm'
+import { TellCard } from '@renderer/command/TellCard'
 import { CornerButton } from '@renderer/corner/CornerPip'
 import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
 import { planSteps } from '@renderer/decode/model'
@@ -46,8 +53,16 @@ function spoonsOverride(): number | null {
 
 // 'hidden' draws nothing; the click-through window then lets every click reach the app below.
 // 'task' is what a bubble button opened; while cards are open, the corner Pip holds the other one.
-// 'record' is the voice capture flow (record hotkey); its transcript goes to the same triage.
-type View = 'checkIn' | 'triage' | 'task' | 'record' | 'hidden'
+// 'record' is the voice capture flow; its transcript goes to the same triage.
+// 'menu' is what the command opens with nothing selected; 'tell' and 'remind' are two of its choices.
+// 'due' is a reminder whose time came: it waits for 'hidden' and never takes the keyboard.
+type View = 'checkIn' | 'triage' | 'task' | 'record' | 'menu' | 'tell' | 'remind' | 'due' | 'hidden'
+// These open next to the cursor at their design size, with the window fitted to them.
+const FITTED: (View | null)[] = ['triage', 'task', 'record', 'menu', 'tell', 'remind', 'due']
+// Esc closes these. Not the due card: it stays until answered.
+const ESCAPES: (View | null)[] = ['triage', 'task', 'menu', 'tell', 'remind']
+// A scheduled check-in or a corner click would throw these away: a recording, or what the person is writing.
+const HOLDS_WORK: (View | null)[] = ['record', 'tell', 'remind']
 
 /** A bubble button's task: its one Claude call, the spoons it was made with and where the person is. */
 type Task = {
@@ -99,8 +114,6 @@ function logEvent(event: LoggableEvent): void {
 const PAD = 32
 // How far the bubble opens from the cursor; keep in step with capture() in src/main/index.ts.
 const CURSOR_GAP = 12
-// "Not now" on the steps card brings it back once, this much later, if it's still tucked away.
-const LATER_MS = 15 * 60 * 1000
 // The check-in's window; keep in step with OVERLAY in src/main/index.ts.
 const CHECKIN_SIZE = { width: 448, height: 400 }
 
@@ -131,11 +144,24 @@ function Overlay(): React.JSX.Element {
   const [tasks, setTasks] = useState<Tasks>({})
   // The card on screen (or that the corner Pip reopens).
   const [active, setActive] = useState<ActionKind | null>(null)
-  // Tells the subscribe-once record hotkey handler whether the record flow is already open.
+  const [copyFailed, setCopyFailed] = useState(false)
+  // The check-in was opened from the menu: it takes the keyboard, and "Not now" just closes it.
+  const [onDemand, setOnDemand] = useState(false)
+  // A scheduled check-in the menu or an open card held back: it comes back when Pip is hidden.
+  const [checkInWaits, setCheckInWaits] = useState(false)
+  // Due reminders, oldest first; the first one is on the card.
+  const [dueQueue, setDueQueue] = useState<Reminder[]>([])
+  // The step text when the reminder form came from a step card's clock.
+  const [fromStep, setFromStep] = useState<string | null>(null)
+  // Reminders set from a step's clock on this message. A new message empties it, and so does a restart.
+  const [stepReminders, setStepReminders] = useState<string[]>([])
+  // Tell the subscribe-once handlers what is open.
   const viewNow = useRef<View | null>(null)
+  const onDemandNow = useRef(false)
   useEffect(() => {
     viewNow.current = view
-  }, [view])
+    onDemandNow.current = onDemand
+  }, [view, onDemand])
   // A calming strategy is offered at most once per message, so Pip doesn't insist.
   const calmOffered = useRef(false)
   // The selected text, for the button's Claude call. Stays in this window.
@@ -145,7 +171,6 @@ function Overlay(): React.JSX.Element {
   const anchor = useRef<{ x: number; y: number } | null>(null)
   const request = useRef(0)
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const later = useRef<ReturnType<typeof setTimeout> | null>(null)
   const frame = useRef<HTMLDivElement>(null)
   const resized = useRef(false)
   // The check-in card fills the window and its text is sized to fit it.
@@ -153,7 +178,7 @@ function Overlay(): React.JSX.Element {
   // The bubble keeps its design size: the window is fitted to it, not the other way round, so the
   // window-based root size (main.css) must not scale it.
   useLayoutEffect(() => {
-    if (view !== 'triage' && view !== 'task' && view !== 'record') return
+    if (!FITTED.includes(view)) return
     document.documentElement.style.fontSize = '16px'
     return () => {
       document.documentElement.style.fontSize = ''
@@ -189,6 +214,7 @@ function Overlay(): React.JSX.Element {
     text.current = selected
     setTasks({})
     setActive(null)
+    setStepReminders([])
     calmOffered.current = false
     if (!here) openAtCursor()
     setTriage(null)
@@ -218,9 +244,27 @@ function Overlay(): React.JSX.Element {
       () => {}
     )
   }
-  // The record hotkey opens the source card at the cursor; once open, RecordFlow handles it.
+  // What the person wrote in the open card, which a press of the command or --record must not lose.
+  const hasTyped = (): boolean =>
+    [...(frame.current?.querySelectorAll('textarea') ?? [])].some((field) => field.value.trim())
+  const openMenu = (failed: boolean): void => {
+    refreshSettings()
+    setCopyFailed(failed)
+    openAtCursor()
+    setView('menu')
+  }
+  // Nothing selected. Main left the window alone if a card holds the keyboard, else moved it to the cursor.
+  const onCommand = ({ copyFailed: failed }: { copyFailed: boolean }): void => {
+    const now = viewNow.current
+    if (now === 'record') return // RecordFlow listens too
+    if (now === 'menu') return setView('hidden')
+    if (hasTyped()) return
+    if (now === 'checkIn' && !onDemandNow.current) setCheckInWaits(true)
+    openMenu(failed)
+  }
+  // `pip-pal --record` opens the source card at the cursor; once open, RecordFlow handles it.
   const openRecord = (): void => {
-    if (viewNow.current === 'record') return
+    if (viewNow.current === 'record' || hasTyped()) return
     refreshSettings()
     openAtCursor()
     setView('record')
@@ -277,7 +321,10 @@ function Overlay(): React.JSX.Element {
   }
   // The corner Pip trades places with what's at the cursor: the open card and the bubble's buttons.
   // From a tucked-away card (hidden), it brings the card back.
-  const swap = (): void => setView((v) => (v === 'checkIn' ? v : v === 'task' ? 'triage' : 'task'))
+  const swap = (): void =>
+    setView((v) =>
+      v === 'checkIn' || HOLDS_WORK.includes(v) ? v : v === 'task' ? 'triage' : 'task'
+    )
   // Nothing opens by itself in the app: after the check-in Pip hides and waits for the hotkey.
   const afterCheckIn = (): void => (inBrowser ? capture('') : setView('hidden'))
 
@@ -291,28 +338,50 @@ function Overlay(): React.JSX.Element {
       const due = dueCheckIn(enabledTimes(s ?? DEFAULT_SETTINGS), checkIns, new Date())
       // Quiet until onboarding reaches its practice step, like main (the browser mock has no onboarding).
       const quiet = !inBrowser && !!s && !hotkeyReady(s.onboarding)
-      // In a plain browser `?record=1` stands in for the record hotkey.
-      if (inBrowser && new URLSearchParams(location.search).get('record')) openRecord()
-      else if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
-      else setView('checkIn')
+      // In a plain browser these stand in for what the command and the schedule do.
+      const asked = new URLSearchParams(location.search)
+      if (inBrowser && asked.get('record')) openRecord()
+      else if (inBrowser && asked.get('menu')) openMenu(false)
+      else if (inBrowser && (asked.get('tell') || asked.get('remind'))) {
+        openAtCursor()
+        setView(asked.get('tell') ? 'tell' : 'remind')
+      } else if (inBrowser && asked.get('due')) {
+        const at = new Date(Date.now() - 60_000).toISOString()
+        const sample = { id: 'sample-due', text: 'Send Priya the slides', at }
+        api.saveReminder(sample).then(() => {
+          setDueQueue([sample])
+          setView('hidden')
+        })
+      } else if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
+      else {
+        setOnDemand(false)
+        setView('checkIn')
+      }
     })
     const offCaptured = api.onCaptured(capture)
     const offCorner = api.onCornerOpen(swap)
     const offRecord = api.onRecordHotkey(openRecord)
+    const offCommand = api.onCommand(onCommand)
+    const offReminderDue = api.onReminderDue((r) => setDueQueue((q) => addDue(q, r)))
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
       refreshSettings()
+      if (viewNow.current === 'menu' || HOLDS_WORK.includes(viewNow.current)) {
+        return setCheckInWaits(true)
+      }
       setAtCursor(false)
+      setOnDemand(false)
       setView('checkIn')
     })
     return () => {
       offCaptured()
       offCorner()
       offRecord()
+      offCommand()
+      offReminderDue()
       offDue()
       window.removeEventListener('focus', refreshSettings)
       if (snooze.current) clearTimeout(snooze.current)
-      if (later.current) clearTimeout(later.current)
     }
     // Subscribe once: the handlers only use state setters and refs, which never go stale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -322,24 +391,65 @@ function Overlay(): React.JSX.Element {
   // the corner Pip and their calls keep going. The overlay is never focused, so main sends a dismiss
   // when it catches Escape (or a second launch with --dismiss); the keydown is for a plain browser.
   const hasTask = Object.keys(tasks).length > 0
+  const checkInOnDemand = view === 'checkIn' && onDemand
+  const stepForm = view === 'remind' && fromStep !== null
   useEffect(() => {
-    if (view !== 'triage' && view !== 'task') return
+    if (!ESCAPES.includes(view) && !checkInOnDemand) return
     api.setBubbleOpen(true)
     const close = (): void => {
       if (!hasTask) request.current++ // a late answer must not reopen what was closed
-      setView('hidden')
+      setView(stepForm ? 'task' : 'hidden')
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') close()
     }
     const offDismiss = api.onDismiss(close)
-    window.addEventListener('keydown', onKey)
+    // Capture: a card's own Esc handler can commit the next view before the event gets back up to
+    // the window, and that view's listener would then close it too.
+    window.addEventListener('keydown', onKey, true)
     return () => {
       api.setBubbleOpen(false)
       offDismiss()
-      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKey, true)
     }
-  }, [view, hasTask])
+  }, [view, hasTask, checkInOnDemand, stepForm])
+
+  // A check-in the person asked for by keyboard must answer to the keyboard; a scheduled one never takes it.
+  useEffect(() => {
+    if (!checkInOnDemand) return
+    api.setOverlayFocus(true)
+    frame.current?.querySelector<HTMLElement>('[data-slot=card] button')?.focus()
+    return () => api.setOverlayFocus(false)
+  }, [checkInOnDemand])
+
+  // Once Pip is hidden, what waited comes up, one at a time: the check-in first, then the oldest reminder.
+  // Re-listed first, because a reminder may have been edited or deleted in the House while it waited.
+  useEffect(() => {
+    if (view !== 'hidden') return
+    if (checkInWaits) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- moving on from 'hidden' is what this effect is for
+      setCheckInWaits(false)
+      setAtCursor(false)
+      setOnDemand(false)
+      setView('checkIn')
+      return
+    }
+    if (dueQueue.length === 0) return
+    let live = true
+    const show = (): void => setView((v) => (v === 'hidden' ? 'due' : v))
+    api.listReminders().then(
+      (listed) => {
+        if (!live) return
+        const fresh = refreshDue(dueQueue, listed, new Date())
+        setDueQueue(fresh)
+        if (fresh.length > 0) show()
+      },
+      () => live && show() // a failed read must not hide what is due
+    )
+    return () => {
+      live = false
+    }
+  }, [view, checkInWaits, dueQueue])
 
   // The window is fitted to the bubble, keeping its edges at the cursor; hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
@@ -361,7 +471,7 @@ function Overlay(): React.JSX.Element {
       resized.current = true
       api.setOverlayBounds(placeAt(anchor.current, flip, OVERLAY_MIN.width, OVERLAY_MIN.height))
     }
-    if ((view !== 'triage' && view !== 'task' && view !== 'record') || !el) return
+    if (!FITTED.includes(view) || !el) return
     const fit = (): void => {
       resized.current = true
       const height =
@@ -400,13 +510,17 @@ function Overlay(): React.JSX.Element {
   const answer = (n: number): void => {
     const at = new Date()
     api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons: n })
-    afterCheckIn()
+    if (onDemand) setView('hidden')
+    else afterCheckIn()
   }
   // Asks once more later, then leaves it: Pip never insists.
   const snoozeCheckIn = (): void => {
     setView('hidden')
     if (snooze.current) return
-    snooze.current = setTimeout(() => setView((v) => (v === 'hidden' ? 'checkIn' : v)), SNOOZE_MS)
+    snooze.current = setTimeout(() => {
+      setOnDemand(false)
+      setView((v) => (v === 'hidden' || v === 'due' ? 'checkIn' : v))
+    }, SNOOZE_MS)
   }
 
   const corner = view === 'checkIn'
@@ -416,10 +530,6 @@ function Overlay(): React.JSX.Element {
   const closeTask = (): void => {
     if (!active) return
     const rest = (Object.keys(tasks) as ActionKind[]).filter((k) => k !== active)
-    if (active === 'steps' && later.current) {
-      clearTimeout(later.current)
-      later.current = null
-    }
     setTasks((all) => {
       const next = { ...all }
       delete next[active]
@@ -428,25 +538,63 @@ function Overlay(): React.JSX.Element {
     setActive(rest[0] ?? null)
     setView(rest.length > 0 && triage ? 'triage' : 'hidden')
   }
-  // Logs once per text, so copying a question twice or "Not now" twice on a step counts one.
+  // Logs once per text, so copying a question twice or saving a reminder twice for a step counts one.
   const logOnce = (kind: ActionKind, text: string, event: LoggableEvent): void => {
     if (tasks[kind]?.logged.includes(text)) return
     logEvent(event)
     patch(kind, (x) => ({ logged: [...x.logged, text] }))
   }
+  // The step card's clock: the reminder form with the step's text. Cancel goes back to the card.
   const remindLater = (): void => {
     const left = stepsTask && steps?.[stepsTask.step]
-    if (left) logOnce('steps', left.text, { kind: 'step', status: 'can_wait', text: left.text })
+    if (!left) return
+    setFromStep(left.text)
+    setView('remind')
+  }
+  const reminderSaved = (reminder: Reminder): void => {
+    if (fromStep !== null) {
+      logOnce('steps', fromStep, { kind: 'step', status: 'can_wait', text: fromStep })
+      setStepReminders((ids) => [...ids, reminder.id])
+    }
     setView('hidden')
-    if (later.current) clearTimeout(later.current)
-    const id = request.current
-    later.current = setTimeout(() => {
-      later.current = null
-      // A new message, or a card closed meanwhile, wins: Pip never insists.
-      if (id !== request.current) return
-      setActive('steps')
-      setView((v) => (v === 'hidden' ? 'task' : v))
-    }, LATER_MS)
+  }
+  const pick = (item: CommandItem): void => {
+    if (item === 'home') {
+      api.openHome()
+      setView('hidden')
+    } else if (item === 'listen') {
+      refreshSettings()
+      setView('record')
+    } else if (item === 'checkIn') {
+      setCheckInWaits(false)
+      setOnDemand(true)
+      setView('checkIn')
+    } else {
+      setFromStep(null)
+      setView(item)
+    }
+  }
+  const dropDue = (id: string): void => {
+    setDueQueue((q) => q.filter((r) => r.id !== id))
+    setView('hidden')
+  }
+  const dueDone = async (id: string): Promise<void> => {
+    await api.deleteReminder(id)
+    dropDue(id)
+  }
+  // Read again first: saving a reminder deleted in the House meanwhile would bring it back.
+  const dueLater = async (id: string, at: string): Promise<void> => {
+    const stored = (await api.listReminders()).find((r) => r.id === id)
+    if (stored) await api.saveReminder({ ...stored, at })
+    dropDue(id)
+  }
+  // Going back to the step answers the reminder: left stored, it would fire again at the next launch,
+  // with no step to go back to. A failed delete only means that happens.
+  const dueBack = (id: string): void => {
+    api.deleteReminder(id).catch(() => {})
+    setDueQueue((q) => q.filter((r) => r.id !== id))
+    setActive('steps')
+    setView('task')
   }
   const stepDone = (): void => {
     const done = stepsTask && steps?.[stepsTask.step]
@@ -488,6 +636,9 @@ function Overlay(): React.JSX.Element {
       <div
         {...drag}
         onPointerDown={(e) => {
+          // Selecting text in a field must not drag the overlay.
+          if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement)
+            return
           anchor.current = null // a drag moves the bubble away from the cursor
           drag.onPointerDown(e)
         }}
@@ -500,7 +651,34 @@ function Overlay(): React.JSX.Element {
         )}
       >
         {view === 'checkIn' && <ResizeEdges />}
-        {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
+        {view === 'checkIn' && (
+          <CheckInCard
+            onAnswer={answer}
+            onSnooze={onDemand ? () => setView('hidden') : snoozeCheckIn}
+          />
+        )}
+        {view === 'menu' && (
+          <CommandMenu copyFailed={copyFailed} onPick={pick} onClose={() => setView('hidden')} />
+        )}
+        {view === 'tell' && <TellCard onClose={() => setView('hidden')} />}
+        {view === 'remind' && (
+          <ReminderForm
+            initialText={fromStep ?? ''}
+            onSaved={reminderSaved}
+            onCancel={() => setView(fromStep !== null ? 'task' : 'hidden')}
+          />
+        )}
+        {view === 'due' && dueQueue[0] && (
+          <ReminderDueCard
+            key={dueQueue[0].id}
+            reminder={dueQueue[0]}
+            canGoBack={!!tasks.steps && stepReminders.includes(dueQueue[0].id)}
+            more={dueQueue.length - 1}
+            onDone={() => dueDone(dueQueue[0].id)}
+            onLater={(at) => dueLater(dueQueue[0].id, at)}
+            onBack={() => dueBack(dueQueue[0].id)}
+          />
+        )}
         {view === 'triage' && (
           <TriageBubble
             triage={triage}

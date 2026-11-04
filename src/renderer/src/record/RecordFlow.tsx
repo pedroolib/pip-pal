@@ -191,17 +191,29 @@ export function RecordFlow({
     }
   }, [phase, started])
 
-  // The record hotkey while this is open (the overlay only opens it): stop the recording, or start
-  // over from a finished card. Review keeps its (maybe edited) transcript: only Esc or Close drop it.
-  useEffect(
-    () =>
-      api.onRecordHotkey(() => {
-        if (phase === 'recording') stop()
-        else if (phase !== 'starting' && phase !== 'transcribing' && phase !== 'review')
-          setPhase('source')
-      }),
-    [phase]
-  )
+  // The shortcut (or `pip-pal --record`) while this is open: stop the recording, or start over from a
+  // finished card. Review keeps its (maybe edited) transcript: only Esc or Close drop it.
+  useEffect(() => {
+    const press = (): void => {
+      if (phase === 'recording') stop()
+      else if (phase !== 'starting' && phase !== 'transcribing' && phase !== 'review')
+        setPhase('source')
+    }
+    const offHotkey = api.onRecordHotkey(press)
+    const offCommand = api.onCommand(press)
+    return () => {
+      offHotkey()
+      offCommand()
+    }
+  }, [phase])
+
+  // From the start until the words are written down the shortcut means "stop", so main must not
+  // read the selection: a stray selection would otherwise replace this flow with triage.
+  const capturing = phase === 'starting' || phase === 'recording' || phase === 'transcribing'
+  useEffect(() => {
+    api.setRecordingActive(capturing)
+  }, [capturing])
+  useEffect(() => () => api.setRecordingActive(false), [])
 
   // While a card shows, or while writing down, Esc closes it (main grabs Esc only then, as for the
   // bubble); a late transcript is then ignored by `run`. Enter starts from the source card. During a
@@ -359,7 +371,7 @@ export function RecordFlow({
                   variant="outline"
                   size="lg"
                   className="rounded-full px-4"
-                  aria-keyshortcuts="Control+Shift+Enter"
+                  aria-keyshortcuts="Control+Shift+Space"
                   onClick={() => stop()}
                 >
                   <Square className="fill-current" aria-hidden />
