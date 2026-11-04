@@ -12,6 +12,9 @@ import type {
   NoteMerge,
   NoteProposal,
   NoteResolution,
+  NewReminder,
+  Reminder,
+  ReminderDelay,
   Triage,
   Profile,
   Recipient,
@@ -79,6 +82,13 @@ export const IPC = {
   summaryGenerate: 'summary:generate',
   summaryExportPdf: 'summary:export-pdf',
   homeOpen: 'home:open',
+  /** main → overlay: a reminder is due (or came due while Pip was closed). */
+  reminderDue: 'pip:reminder-due',
+  reminderAdd: 'reminder:add',
+  reminderReschedule: 'reminder:reschedule',
+  reminderFinish: 'reminder:finish',
+  reminderShow: 'reminder:show',
+  reminderList: 'reminder:list',
   /** overlay → main: whether the pointer is over Pip, so clicks elsewhere fall through to the app below. */
   overlayInteractive: 'overlay:interactive',
   /** overlay → main: move or resize the overlay window as the person drags a card, its edges or Pip. */
@@ -162,6 +172,20 @@ export interface PipApi {
   generateSummary(recipient: Recipient, period: SummaryPeriod): Promise<Summary>
   /** Prints the open summary to PDF; resolves to the saved path, or null if cancelled. */
   exportSummaryPdf(): Promise<string | null>
+  /**
+   * "Not now": Pip saves this and shows it again at the chosen time, even after a restart. The same kind
+   * and source replaces the earlier one. Rejects with bad input.
+   */
+  addReminder(reminder: NewReminder, delay: ReminderDelay): Promise<Reminder>
+  /** Picks a new time for a reminder (and gives it its nudges back). */
+  rescheduleReminder(id: string, delay: ReminderDelay): Promise<void>
+  /** Done, or opened: the reminder goes away. An unknown id does nothing. */
+  finishReminder(id: string): Promise<void>
+  /** Shows a parked (or waiting) reminder now. */
+  showReminder(id: string): Promise<void>
+  listReminders(): Promise<Reminder[]>
+  /** `missed`: it came due while Pip was closed or asleep. Returns an unsubscribe function. */
+  onReminderDue(cb: (reminder: Reminder, missed: boolean) => void): () => void
   openHome(): void
   /** Overlay only: true while the pointer is over a Pip surface; ignored from other windows. */
   setOverlayInteractive(interactive: boolean): void

@@ -7,6 +7,7 @@ import {
   Languages,
   Moon,
   Plus,
+  Power,
   RotateCcw,
   ShieldCheck,
   Sun,
@@ -202,6 +203,31 @@ export function SettingsView({
           </div>
           <p>{t('house.settings.calm.body')}</p>
           {fail('calm')}
+        </HouseCard>
+
+        <HouseCard className="h-full">
+          <div className="flex items-center gap-3">
+            <span className={iconChip}>
+              <Power className="size-6" aria-hidden />
+            </span>
+            <Label
+              htmlFor="launch"
+              data-disabled={off || undefined}
+              className="flex-1 text-[1.0625rem] leading-snug font-bold"
+            >
+              {t('house.settings.launch.title')}
+            </Label>
+            <Switch
+              id="launch"
+              disabled={off}
+              checked={settings?.launchAtLogin ?? true}
+              onCheckedChange={(launchAtLogin) =>
+                settings && change('launch', { ...settings, launchAtLogin })
+              }
+            />
+          </div>
+          <p>{t('house.settings.launch.body')}</p>
+          {fail('launch')}
         </HouseCard>
       </div>
 

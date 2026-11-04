@@ -20,12 +20,16 @@ import {
   type LoggableEvent,
   type NoteProposal,
   type QuestionTopic,
+  type Reminder,
+  type ReminderDelay,
+  REMINDER_SOURCE_MAX,
   type Triage
 } from '@shared/schemas'
 import { api, inBrowser } from '@renderer/api'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { CornerButton } from '@renderer/corner/CornerPip'
-import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
+import { slotFor, spoonsToday } from '@renderer/checkin/model'
+import { ReminderCard } from '@renderer/reminder/ReminderCard'
 import { planSteps } from '@renderer/decode/model'
 import { ExpandView } from '@renderer/expand/ExpandView'
 import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
@@ -47,7 +51,8 @@ function spoonsOverride(): number | null {
 // 'hidden' draws nothing; the click-through window then lets every click reach the app below.
 // 'task' is what a bubble button opened; while cards are open, the corner Pip holds the other one.
 // 'record' is the voice capture flow (record hotkey); its transcript goes to the same triage.
-type View = 'checkIn' | 'triage' | 'task' | 'record' | 'hidden'
+// 'reminder' is a saved "Not now" coming back (main fires it; see src/main/reminders.ts).
+type View = 'checkIn' | 'triage' | 'task' | 'record' | 'reminder' | 'hidden'
 
 /** A bubble button's task: its one Claude call, the spoons it was made with and where the person is. */
 type Task = {
@@ -99,9 +104,7 @@ function logEvent(event: LoggableEvent): void {
 const PAD = 32
 // How far the bubble opens from the cursor; keep in step with capture() in src/main/index.ts.
 const CURSOR_GAP = 12
-// "Not now" on the steps card brings it back once, this much later, if it's still tucked away.
-const LATER_MS = 15 * 60 * 1000
-// The check-in's window; keep in step with OVERLAY in src/main/index.ts.
+// The check-in's window (the reminder card uses it too); keep in step with OVERLAY in src/main/index.ts.
 const CHECKIN_SIZE = { width: 448, height: 400 }
 
 // Window bounds that keep `anchor`'s edges still (right/bottom when flipped). After a drag there is
@@ -144,8 +147,9 @@ function Overlay(): React.JSX.Element {
   // the bubble resizes so Pip doesn't move; null once the person drags the bubble elsewhere.
   const anchor = useRef<{ x: number; y: number } | null>(null)
   const request = useRef(0)
-  const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const later = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The reminder main holds for the steps card that was tucked away with "Not now".
+  const reminderId = useRef<string | null>(null)
+  const [reminder, setReminder] = useState<{ item: Reminder; missed: boolean } | null>(null)
   const frame = useRef<HTMLDivElement>(null)
   const resized = useRef(false)
   // The check-in card fills the window and its text is sized to fit it.
@@ -153,7 +157,7 @@ function Overlay(): React.JSX.Element {
   // The bubble keeps its design size: the window is fitted to it, not the other way round, so the
   // window-based root size (main.css) must not scale it.
   useLayoutEffect(() => {
-    if (view !== 'triage' && view !== 'task' && view !== 'record') return
+    if (view !== 'triage' && view !== 'task' && view !== 'record' && view !== 'reminder') return
     document.documentElement.style.fontSize = '16px'
     return () => {
       document.documentElement.style.fontSize = ''
@@ -277,7 +281,8 @@ function Overlay(): React.JSX.Element {
   }
   // The corner Pip trades places with what's at the cursor: the open card and the bubble's buttons.
   // From a tucked-away card (hidden), it brings the card back.
-  const swap = (): void => setView((v) => (v === 'checkIn' ? v : v === 'task' ? 'triage' : 'task'))
+  const swap = (): void =>
+    setView((v) => (v === 'checkIn' || v === 'reminder' ? v : v === 'task' ? 'triage' : 'task'))
   // Nothing opens by itself in the app: after the check-in Pip hides and waits for the hotkey.
   const afterCheckIn = (): void => (inBrowser ? capture('') : setView('hidden'))
 
@@ -305,14 +310,20 @@ function Overlay(): React.JSX.Element {
       setAtCursor(false)
       setView('checkIn')
     })
+    const offReminder = api.onReminderDue((item, missed) => {
+      refreshSettings()
+      setAtCursor(false)
+      if (item.kind === 'checkin') return setView('checkIn')
+      setReminder({ item, missed })
+      setView('reminder')
+    })
     return () => {
       offCaptured()
       offCorner()
       offRecord()
       offDue()
+      offReminder()
       window.removeEventListener('focus', refreshSettings)
-      if (snooze.current) clearTimeout(snooze.current)
-      if (later.current) clearTimeout(later.current)
     }
     // Subscribe once: the handlers only use state setters and refs, which never go stale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -323,10 +334,11 @@ function Overlay(): React.JSX.Element {
   // when it catches Escape (or a second launch with --dismiss); the keydown is for a plain browser.
   const hasTask = Object.keys(tasks).length > 0
   useEffect(() => {
-    if (view !== 'triage' && view !== 'task') return
+    if (view !== 'triage' && view !== 'task' && view !== 'reminder') return
     api.setBubbleOpen(true)
     const close = (): void => {
-      if (!hasTask) request.current++ // a late answer must not reopen what was closed
+      // Esc on a reminder is "no answer": main nudges again later.
+      if (!hasTask && view !== 'reminder') request.current++ // a late answer must not reopen what was closed
       setView('hidden')
     }
     const onKey = (e: KeyboardEvent): void => {
@@ -353,7 +365,7 @@ function Overlay(): React.JSX.Element {
     (view === 'task' && !!task && !task.result && !task.error)
   useEffect(() => {
     const el = frame.current
-    if (view === 'checkIn' && resized.current) {
+    if ((view === 'checkIn' || view === 'reminder') && resized.current) {
       resized.current = false
       api.setOverlayBounds({ x: screenX, y: screenY, ...CHECKIN_SIZE })
     }
@@ -388,6 +400,12 @@ function Overlay(): React.JSX.Element {
   useEffect(() => {
     if (!inBrowser) api.setCorner(holds && { holds, progress: cornerProgress })
   }, [holds, cornerProgress])
+  // The steps card is back on screen, so the reminder for it has done its job.
+  useEffect(() => {
+    if (view !== 'task' || active !== 'steps' || !reminderId.current) return
+    api.finishReminder(reminderId.current).catch(() => {})
+    reminderId.current = null
+  }, [view, active])
   // A plain browser has no corner window, so the page draws that Pip in its own corner.
   const cornerInPage = inBrowser && holds && (
     <div className="fixed right-7 bottom-7">
@@ -402,24 +420,21 @@ function Overlay(): React.JSX.Element {
     api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons: n })
     afterCheckIn()
   }
-  // Asks once more later, then leaves it: Pip never insists.
-  const snoozeCheckIn = (): void => {
-    setView('hidden')
-    if (snooze.current) return
-    snooze.current = setTimeout(() => setView((v) => (v === 'hidden' ? 'checkIn' : v)), SNOOZE_MS)
+  // Main asks again at the chosen time (and nudges if unanswered). If it can't save that, keep asking now.
+  const snoozeCheckIn = (delay: ReminderDelay): void => {
+    api.addReminder({ kind: 'checkin', title: t('reminder.checkInTitle') }, delay).then(
+      () => setView('hidden'),
+      () => {}
+    )
   }
 
-  const corner = view === 'checkIn'
+  const corner = view === 'checkIn' || view === 'reminder'
   const bubble = !corner
   // Closing a card drops it; with other cards still open the bubble comes back and the corner Pip
   // holds the next one.
   const closeTask = (): void => {
     if (!active) return
     const rest = (Object.keys(tasks) as ActionKind[]).filter((k) => k !== active)
-    if (active === 'steps' && later.current) {
-      clearTimeout(later.current)
-      later.current = null
-    }
     setTasks((all) => {
       const next = { ...all }
       delete next[active]
@@ -434,19 +449,36 @@ function Overlay(): React.JSX.Element {
     logEvent(event)
     patch(kind, (x) => ({ logged: [...x.logged, text] }))
   }
-  const remindLater = (): void => {
+  // Main keeps the reminder (saved to disk) and shows it at the chosen time; the card stays put if saving fails.
+  const remindLater = (delay: ReminderDelay): void => {
     const left = stepsTask && steps?.[stepsTask.step]
-    if (left) logOnce('steps', left.text, { kind: 'step', status: 'can_wait', text: left.text })
-    setView('hidden')
-    if (later.current) clearTimeout(later.current)
-    const id = request.current
-    later.current = setTimeout(() => {
-      later.current = null
-      // A new message, or a card closed meanwhile, wins: Pip never insists.
-      if (id !== request.current) return
+    api
+      .addReminder(
+        {
+          kind: 'steps',
+          title: left?.text ?? t('reminder.stepsTitle'),
+          why: left?.why ?? undefined,
+          source: text.current.slice(0, REMINDER_SOURCE_MAX)
+        },
+        delay
+      )
+      .then(
+        (r) => {
+          reminderId.current = r.id
+          if (left) logOnce('steps', left.text, { kind: 'step', status: 'can_wait', text: left.text })
+          setView('hidden')
+        },
+        () => {}
+      )
+  }
+  // "Open steps": the tucked-away card if this window still has it, else read the same message again.
+  const openReminder = (r: Reminder): void => {
+    api.finishReminder(r.id).catch(() => {})
+    setReminder(null)
+    if (tasks.steps?.result && text.current.slice(0, REMINDER_SOURCE_MAX) === r.source) {
       setActive('steps')
-      setView((v) => (v === 'hidden' ? 'task' : v))
-    }, LATER_MS)
+      setView('task')
+    } else capture(r.source ?? '')
   }
   const stepDone = (): void => {
     const done = stepsTask && steps?.[stepsTask.step]
@@ -501,6 +533,21 @@ function Overlay(): React.JSX.Element {
       >
         {view === 'checkIn' && <ResizeEdges />}
         {view === 'checkIn' && <CheckInCard onAnswer={answer} onSnooze={snoozeCheckIn} />}
+        {view === 'reminder' && reminder && (
+          <ReminderCard
+            reminder={reminder.item}
+            missed={reminder.missed}
+            onOpen={() => openReminder(reminder.item)}
+            onDone={() => {
+              api.finishReminder(reminder.item.id).catch(() => {})
+              setView('hidden')
+            }}
+            onAgain={(delay) => {
+              api.rescheduleReminder(reminder.item.id, delay).catch(() => {})
+              setView('hidden')
+            }}
+          />
+        )}
         {view === 'triage' && (
           <TriageBubble
             triage={triage}

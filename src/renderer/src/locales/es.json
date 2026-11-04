@@ -23,7 +23,7 @@
     "then": "Después: {{step}}",
     "due": "para el {{date}}",
     "before": "antes del {{date}}",
-    "later": "Ahora no, vuelve a mostrarlo en 15 minutos",
+    "later": "Ahora no, recuérdamelo más tarde",
     "canWait": "Lo demás puede esperar",
     "minimize": "Guardar la tarjeta",
     "allDone": "Todo listo por ahora",
@@ -40,6 +40,24 @@
       "sendAsk": "Hacer los pasos",
       "cancel": "Cancelar"
     }
+  },
+  "reminder": {
+    "when": "¿Cuándo quieres que te lo recuerde?",
+    "cancel": "Mejor no",
+    "delay": {
+      "5m": "5 minutos",
+      "15m": "15 minutos",
+      "30m": "30 minutos",
+      "1h": "1 hora",
+      "tomorrow": "Mañana"
+    },
+    "title": "Un recordatorio de Pip",
+    "fromEarlier": "De antes, cuando Pip estaba cerrado",
+    "open": "Abrir los pasos",
+    "again": "Recuérdamelo otra vez",
+    "done": "Listo",
+    "checkInTitle": "¿Cómo va tu energía?",
+    "stepsTitle": "Tus pasos te esperan"
   },
   "checkIn": {
     "title": "¿Qué carita se parece a tu energía ahora?",
@@ -352,7 +370,13 @@
       "noAchievement": "Todavía no hay nada aquí",
       "noAchievementHint": "Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí.",
       "hello": "Hola, soy Pip. Esta es mi casa: aquí viven tu manual, tus logros y tus ajustes.",
-      "helloDone": "Entendido"
+      "helloDone": "Entendido",
+      "pending": {
+        "title": "Esperándote",
+        "hint": "Pip te lo recordó varias veces y paró. Se quedan aquí hasta que estés listo.",
+        "show": "Mostrar ahora",
+        "done": "Listo"
+      }
     },
     "achievements": {
       "intro": "Cosas que hiciste, de la más reciente a la más antigua.",
@@ -448,6 +472,10 @@
       "calm": {
         "title": "Movimiento más tranquilo",
         "body": "Pip se queda quieto y las pantallas se desvanecen menos. El ajuste de movimiento reducido de tu computadora siempre aplica también."
+      },
+      "launch": {
+        "title": "Abrir Pip al iniciar sesión",
+        "body": "Para que tus recordatorios lleguen aunque reinicies el equipo. Funciona en la app instalada."
       },
       "privacy": {
         "title": "Privacidad",

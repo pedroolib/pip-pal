@@ -22,7 +22,7 @@
     "then": "Then {{step}}",
     "due": "due {{date}}",
     "before": "before {{date}}",
-    "later": "Not now, bring this back in 15 minutes",
+    "later": "Not now, remind me later",
     "canWait": "The rest can wait",
     "minimize": "Tuck the card away",
     "allDone": "All done for now",
@@ -39,6 +39,24 @@
       "sendAsk": "Make the steps",
       "cancel": "Cancel"
     }
+  },
+  "reminder": {
+    "when": "When should I remind you?",
+    "cancel": "Never mind",
+    "delay": {
+      "5m": "5 minutes",
+      "15m": "15 minutes",
+      "30m": "30 minutes",
+      "1h": "1 hour",
+      "tomorrow": "Tomorrow"
+    },
+    "title": "A reminder from Pip",
+    "fromEarlier": "From earlier, while Pip was closed",
+    "open": "Open steps",
+    "again": "Remind me again",
+    "done": "Done",
+    "checkInTitle": "How is your energy?",
+    "stepsTitle": "Your steps are waiting"
   },
   "checkIn": {
     "title": "Which face matches your energy right now?",
@@ -363,7 +381,13 @@
       "learnedHint": "Nothing is used or shared until you say yes.",
       "learnedAction": "Review in My profile",
       "hello": "Hi, I'm Pip. This is my house: your manual, your wins and your settings live here.",
-      "helloDone": "Got it"
+      "helloDone": "Got it",
+      "pending": {
+        "title": "Waiting for you",
+        "hint": "Pip reminded you a few times and stopped. They stay here until you are ready.",
+        "show": "Show now",
+        "done": "Done"
+      }
     },
     "achievements": {
       "intro": "Things you did, newest first.",
@@ -496,6 +520,10 @@
       "calm": {
         "title": "Calmer motion",
         "body": "Pip stays still and screens fade less. Your computer's reduced-motion setting always applies too."
+      },
+      "launch": {
+        "title": "Start Pip when I log in",
+        "body": "So your reminders still arrive after you restart your computer. Takes effect in the installed app."
       },
       "privacy": {
         "title": "Privacy",

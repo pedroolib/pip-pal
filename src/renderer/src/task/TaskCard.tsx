@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Clock, MessageSquarePlus, Minus } from 'lucide-react'
 import { CORRECTION_MAX } from '@shared/ipc'
+import type { ReminderDelay } from '@shared/schemas'
 import { api } from '@renderer/api'
+import { SnoozePicker } from '@renderer/reminder/SnoozePicker'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
@@ -107,8 +109,8 @@ export function TaskCard({
   due: string | null
   onDone: () => void
   onStuck: () => void
-  /** "Not now": tuck the card away and bring it back once, a little later. */
-  onLater?: () => void
+  /** "Not now": tuck the card away; Pip reminds the person at the time they pick. */
+  onLater?: (delay: ReminderDelay) => void
   /** "That's not right": new steps from what the person typed. */
   onCorrect?: (text: string) => void
   /** Back to the other options, when there are any. */
@@ -118,6 +120,7 @@ export function TaskCard({
   children?: React.ReactNode
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const [picking, setPicking] = useState(false)
   const finished = current >= steps.length
   const step = steps[current]
   const next = steps[current + 1]
@@ -221,7 +224,7 @@ export function TaskCard({
                   variant="outline"
                   aria-label={t('card.later')}
                   title={t('card.later')}
-                  onClick={onLater}
+                  onClick={() => setPicking((p) => !p)}
                 >
                   <Clock aria-hidden />
                 </Button>
@@ -229,6 +232,10 @@ export function TaskCard({
             </div>
           )}
         </div>
+
+        {picking && onLater && (
+          <SnoozePicker onPick={onLater} onCancel={() => setPicking(false)} />
+        )}
 
         {!finished && next && (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
