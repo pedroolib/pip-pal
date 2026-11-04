@@ -1,7 +1,7 @@
 // What the person taught Pip when they corrected an answer. Kept on this machine with real names; the
 // newest ones go, scrubbed, into every prompt and the model decides which apply. The shape lives in @shared/schemas.
 import { z } from 'zod'
-import { scrubForModel } from '@shared/profile'
+import { scrubForModel, SOFT_BREAK, softBreaks } from '@shared/profile'
 import {
   Lesson,
   LESSON_MAX,
@@ -12,7 +12,6 @@ import {
   type NoteResolution,
   type Profile
 } from '@shared/schemas'
-import { stripTag } from './decoder'
 import type { ClaudeJsonClient } from './expand'
 
 export interface LessonStore {
@@ -31,15 +30,23 @@ export const StoredLesson = z.preprocess((value) => {
     : value
 }, Lesson)
 
-/** One line, with no invisible characters: they can hide instructions from the person reading the note, or split a name past the scrubber. */
+const BREAK_SPACE = new RegExp(`${SOFT_BREAK}* ${SOFT_BREAK}*`, 'g')
+const EDGE = new RegExp(`^[\\s${SOFT_BREAK}]+|[\\s${SOFT_BREAK}]+$`, 'g')
+/**
+ * One line. Each run of invisible characters or wrapper tags is kept as one SOFT_BREAK, so the hidden text is gone
+ * but the scrubber still sees where a name was split, even for a name added to the profile later. It scrubs nothing
+ * and needs no profile. A break at the edge or beside a space says nothing, so it goes.
+ */
 const cleanNote = (text: string): string =>
-  text
-    .replace(/\p{Cf}/gu, '')
+  softBreaks(text)
     .replace(/[\s\p{Cc}]+/gu, ' ')
-    .trim()
+    .replace(BREAK_SPACE, ' ')
     .slice(0, LESSON_MAX)
+    .replace(EDGE, '')
 
-const sameText = (a: string, b: string): boolean => a.toLowerCase() === b.toLowerCase()
+// Breaks are not words: an old note holding a break or a tag must still match the same note without it.
+const flat = (text: string): string => cleanNote(text).replaceAll(SOFT_BREAK, '')
+const sameText = (a: string, b: string): boolean => flat(a).toLowerCase() === flat(b).toLowerCase()
 
 const Decision = z.object({
   decision: z.enum(['add', 'update', 'profile', 'none']),
@@ -121,10 +128,10 @@ export function createRememberer({
       ...(notes.length ? notes : ['(none)']),
       '',
       '<message>',
-      stripTag(scrubForModel(text, profile).text, 'message'),
+      scrubForModel(text, profile).text, // the scrubber removed every wrapper tag
       '</message>',
       '<said>',
-      stripTag(said.text, 'said'),
+      said.text,
       '</said>'
     ].join('\n')
 
@@ -205,7 +212,7 @@ export function applyNote(
   const target = targetId === null ? note : current.find((l) => l.id === targetId)
   if (target === undefined) return
   // "Keep" on the person's own words changes nothing, so they stay `self`.
-  if (target && !targetId && clean === target.text) return
+  if (target && !targetId && flat(clean) === flat(target.text)) return
   const others = current.filter((l) => l.id !== noteId && l.id !== target?.id)
   const duplicate = others.some((l) => sameText(l.text, clean))
   const origin = edited ? 'self' : 'learned'

@@ -12,7 +12,7 @@ import {
   UnclearPart,
   type Profile
 } from '@shared/schemas'
-import { describeIssues, MAX_CHARS, stripTag } from './decoder'
+import { describeIssues, MAX_CHARS } from './decoder'
 import type { LessonStore } from './lessons'
 
 const [Steps, Questions, Transition] = Expansion.options
@@ -99,7 +99,8 @@ export function createExpander({
     // NFKC can expand one character up to 18x; the 2x margin leaves room for [Role] tokens.
     if (scrubbed.text.length > 2 * MAX_CHARS)
       throw new Error(`The selected text is too long to expand (over ${MAX_CHARS} characters).`)
-    const body = stripTag(scrubbed.text, 'message') // the message cannot close its own wrapper
+    // The scrubber removed every wrapper tag, so neither the message nor a note can close its own.
+    const said = correction ? scrubForModel(correction, profile).text : ''
     const taught = lessons ? recentLessons(lessons.list()) : []
     const energy = Number.isInteger(spoons) ? spoons : 'unknown'
     const user = [
@@ -125,24 +126,23 @@ export function createExpander({
             '<known>',
             // Saved with real names, so only here do they get swapped.
             ...taught.map(
-              (l, i) =>
-                `[${i + 1}] ${stripTag(scrubForModel(l.text, profile).text, 'known').replace(/\s+/g, ' ')}`
+              (l, i) => `[${i + 1}] ${scrubForModel(l.text, profile).text.replace(/\s+/g, ' ')}`
             ),
             '</known>',
             ''
           ]
         : []),
-      ...(correction?.trim()
+      ...(said.trim()
         ? [
             'The person read an earlier answer and said it was wrong or lacked context. Follow what they said over your own guess, and build the steps on it. Do not ask for more context: answer with what you have.',
             '<correction>',
-            stripTag(scrubForModel(correction, profile).text, 'correction'),
+            said,
             '</correction>',
             ''
           ]
         : []),
       '<message>',
-      body,
+      scrubbed.text,
       '</message>'
     ].join('\n')
 

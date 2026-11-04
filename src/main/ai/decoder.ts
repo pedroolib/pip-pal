@@ -59,12 +59,6 @@ export function createDecoder({
     // NFKC can expand one character up to 18x; the 2x margin leaves room for [Role] tokens.
     if (scrubbed.text.length > 2 * MAX_CHARS)
       throw new Error(`The selected text is too long to decode (over ${MAX_CHARS} characters).`)
-    // Stripped until stable, so "</mes</message>sage>" cannot rebuild the tag.
-    let body = scrubbed.text
-    for (let prev = ''; prev !== body;) {
-      prev = body
-      body = body.replace(/<\s*\/?\s*message\b[^>]*>/gi, () => '')
-    }
     const user = [
       `Today is ${now().toISOString().slice(0, 10)}.`,
       `Energy (spoons, 1-5): ${Number.isInteger(spoons) ? spoons : 'unknown'}.`,
@@ -73,7 +67,7 @@ export function createDecoder({
       buildProfileContext(profile),
       '',
       '<message>',
-      body, // the message cannot close its own wrapper
+      scrubbed.text, // the scrubber removed every wrapper tag, so the message cannot close its own
       '</message>'
     ].join('\n')
 
@@ -104,16 +98,6 @@ async function classifyWithJev(
   } finally {
     clearTimeout(timer)
   }
-}
-
-// Stripped until stable, so "</mes</message>sage>" cannot rebuild the tag.
-export function stripTag(text: string, tag: string): string {
-  const re = new RegExp(`<\\s*\\/?\\s*${tag}\\b[^>]*>`, 'gi')
-  for (let prev = ''; prev !== text;) {
-    prev = text
-    text = text.replace(re, () => '')
-  }
-  return text
 }
 
 /** Issue codes and field paths only, never the model's output or the message. */
