@@ -4,7 +4,7 @@ Referencias visuales del concepto (de Canva: https://canva.link/dv2bgf5xclz1mch)
 
 | Archivo | Qué es |
 |---|---|
-| [task-card-reference.png](task-card-reference.png) | La tarjeta de tarea objetivo: Pip asomándose, título y paso, barra de 5 segmentos, "NOW", instrucción, Done / I'm stuck / reloj, "Then…". |
+| [task-card-reference.png](task-card-reference.png) | La tarjeta de tarea objetivo: Pip asomándose, título y paso, barra de 5 segmentos, instrucción, Done / I'm stuck / reloj, "Then…". La etiqueta "NOW" de la imagen se quitó de la tarjeta: era redundante. |
 | [harbor-components.png](harbor-components.png) | Paleta Harbor y componentes: tarjeta de tarea, tarjeta de pasos ("Here's what Laura needs"), Pip acoplado con anillo de progreso y la píldora "Step 3 done". |
 | [triage-bubble.md](triage-bubble.md) | La burbuja del triage (borrador): ideas, estructura, reglas por línea y el prompt para Claude Design. |
 | [pip-moods.png](pip-moods.png) | Los 12 estados de ánimo de Pip **actuales**. Se va a redibujar (abajo). |
@@ -17,7 +17,7 @@ Referencias visuales del concepto (de Canva: https://canva.link/dv2bgf5xclz1mch)
 | "Done" | `Button` variante `default` (`--primary: #3368A0`) |
 | "I'm stuck" y botón del reloj | `Button` variantes `outline` y `size="icon"` |
 | Barra de 5 segmentos | Tailwind puro: 5 `div`s |
-| "NOW", título, texto | Tailwind puro, Atkinson Hyperlegible, colores de texto de Harbor |
+| Título, texto | Tailwind puro, Atkinson Hyperlegible, colores de texto de Harbor |
 | Teclas | `<kbd>` con Tailwind. **Según el sistema:** `⌘` en Mac, `Ctrl` en Windows y Linux. |
 | Pip asomándose | SVG con posición absoluta |
 

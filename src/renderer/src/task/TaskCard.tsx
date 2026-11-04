@@ -122,9 +122,6 @@ export function TaskCard({
             </div>
           ) : (
             <div className="flex flex-col gap-1 @xl:flex-1" aria-live="polite">
-              <p className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-                {t('card.now')}
-              </p>
               {/* Keyed by step so each new step fades in. */}
               <div key={current} className="motion-swap flex flex-col gap-1">
                 <h1 className="text-2xl leading-tight font-bold">
