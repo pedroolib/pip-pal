@@ -511,6 +511,27 @@ export const NoteResolution = z.object({
 })
 export type NoteResolution = z.infer<typeof NoteResolution>
 
+export const REMINDER_TEXT_MAX = 500
+export const REMINDER_MAX = 200
+/**
+ * Something the person asked Pip to remind them of, at a time. Kept on this machine and apart from `Profile`,
+ * so a summary cannot include it.
+ */
+export const Reminder = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(REMINDER_TEXT_MAX),
+  at: z.iso.datetime({ offset: true })
+})
+export type Reminder = z.infer<typeof Reminder>
+
+/** Pip's answer to something the person told it. `reply` is null when the call failed and their words were kept. */
+export const TellAnswer = z.object({
+  reply: z.string().nullable(),
+  why: z.string().nullable(),
+  note: NoteProposal.nullable()
+})
+export type TellAnswer = z.infer<typeof TellAnswer>
+
 export const Settings = z.object({
   checkIns: z
     .array(CheckInTime)

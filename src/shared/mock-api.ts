@@ -11,10 +11,13 @@ import {
   LoggableEvent,
   type Lesson,
   Expansion,
+  LESSON_MAX,
   OnboardingAnswers,
   type PendingEntry,
   Profile,
+  REMINDER_MAX,
   Recipient,
+  Reminder,
   SummaryPeriod,
   UsageEvent,
   Settings,
@@ -45,6 +48,7 @@ export function createMockApi(): PipApi {
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
   let events = UsageEvent.array().parse(eventsJson)
+  let reminders: Reminder[] = []
   let lessons: Lesson[] = [
     {
       id: 'lesson-package-35',
@@ -225,6 +229,36 @@ export function createMockApi(): PipApi {
     clickCorner: () => {},
     onCornerOpen: () => () => {},
     onRecordHotkey: () => () => {},
+    onCommand: () => () => {},
+    setRecordingActive: () => {},
+    listReminders: async () => [...reminders],
+    saveReminder: async (r) => {
+      const reminder = Reminder.parse(r)
+      const i = reminders.findIndex((x) => x.id === reminder.id)
+      if (i >= 0) reminders[i] = reminder
+      else if (reminders.length >= REMINDER_MAX) throw new Error('Too many reminders')
+      else reminders.push(reminder)
+    },
+    deleteReminder: async (id) => void (reminders = reminders.filter((r) => r.id !== id)),
+    onReminderDue: () => () => {},
+    tellPip: async (message) => {
+      const text = message.trim()
+      if (!text || text.length > LESSON_MAX) throw new Error('Bad message')
+      const note: Lesson = {
+        id: crypto.randomUUID(),
+        text,
+        origin: 'self',
+        at: new Date().toISOString()
+      }
+      lessons = [...lessons, note]
+      const proposal = { kind: 'add' as const, noteId: note.id, targetId: null, oldText: null }
+      if (/fail/i.test(text)) return { reply: null, why: null, note: { ...proposal, text, why: null } }
+      return {
+        reply: 'Thanks for telling me. I will plan around that.',
+        why: 'You said it in your own words, so I keep it as you wrote it.',
+        note: { ...proposal, text: `Pip's cleaner version: ${text}`, why: null }
+      }
+    },
     transcribe: async (audio) => {
       if (audio.length === 0) throw new Error('No audio')
       await new Promise((r) => setTimeout(r, 800))

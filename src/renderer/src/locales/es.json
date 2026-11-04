@@ -23,7 +23,7 @@
     "then": "Después: {{step}}",
     "due": "para el {{date}}",
     "before": "antes del {{date}}",
-    "later": "Ahora no, vuelve a mostrarlo en 15 minutos",
+    "later": "Recuérdame este paso",
     "canWait": "Lo demás puede esperar",
     "minimize": "Guardar la tarjeta",
     "allDone": "Todo listo por ahora",
@@ -475,6 +475,80 @@
     "asked": "Preguntaste en vez de adivinar: {{what}}",
     "change": "Hiciste un plan para el cambio de {{type}}",
     "changeAny": "Hiciste un plan para un cambio"
+  },
+  "command": {
+    "label": "Menú de Pip",
+    "items": {
+      "home": { "name": "La casa de Pip", "hint": "Mira tu día y tu perfil" },
+      "listen": { "name": "Deja que Pip escuche", "hint": "Anota lo que se dice" },
+      "checkIn": { "name": "Check-in", "hint": "Cuenta cómo está tu energía" },
+      "tell": { "name": "Cuéntale a Pip", "hint": "Pregunta o comparte algo" },
+      "remind": { "name": "Recuérdame, Pip", "hint": "Crea un recordatorio" }
+    },
+    "cantRead": "Pip no pudo leer la selección.",
+    "keys": {
+      "move": "Mover",
+      "pick": "Elegir",
+      "close": "Cerrar"
+    }
+  },
+  "tell": {
+    "title": "Cuéntale a Pip",
+    "hint": "No se envía nada hasta que pulses Enviar.",
+    "label": "Tu mensaje para Pip",
+    "placeholder": "Escribe o habla. Por ejemplo: Me concentro mejor cuando recibo un plan el día anterior.",
+    "send": "Enviar",
+    "close": "Cerrar",
+    "sending": "Pip está leyendo lo que escribiste…",
+    "youSaid": "Dijiste",
+    "why": "Por qué:",
+    "another": "Cuéntale otra cosa a Pip",
+    "failedTitle": "Pip no pudo responder",
+    "failedBody": "Tus palabras quedaron guardadas como nota. No se pierde nada.",
+    "tryAgain": "Intentar de nuevo"
+  },
+  "reminder": {
+    "titleNew": "Crear un recordatorio",
+    "titleEdit": "Editar recordatorio",
+    "textLabel": "¿Qué quieres que Pip te recuerde?",
+    "when": "Cuándo",
+    "in15": "En 15 minutos",
+    "in1h": "En 1 hora",
+    "tomorrow9": "Mañana a las 9:00",
+    "custom": "Elegir fecha y hora",
+    "date": "Fecha",
+    "time": "Hora",
+    "summary": "Pip te lo recordará {{when}}.",
+    "errorPast": "Elige una hora en el futuro.",
+    "errorLong": "Los recordatorios pueden tener hasta 500 caracteres.",
+    "errorFull": "Pip guarda hasta 200 recordatorios. Borra uno para añadir otro.",
+    "fromStep": "Viene de tu paso. Puedes cambiarlo.",
+    "tuckStep": "Al guardar, Pip aparta este paso hasta entonces.",
+    "save": "Guardar recordatorio",
+    "saveChanges": "Guardar cambios",
+    "cancel": "Cancelar",
+    "close": "Cerrar"
+  },
+  "due": {
+    "title": "Recordatorio",
+    "setFor": "Programado para {{time}}",
+    "done": "Listo",
+    "later": "Recuérdamelo más tarde",
+    "backToStep": "Volver a este paso",
+    "again": "Recuérdamelo otra vez",
+    "back": "Atrás",
+    "more_one": "{{count}} recordatorio más después de este.",
+    "more_other": "{{count}} recordatorios más después de este.",
+    "failed": "Pip no pudo cambiar este recordatorio. Inténtalo de nuevo."
+  },
+  "comingUp": {
+    "title": "Próximamente",
+    "sub": "Los recordatorios se quedan en este equipo.",
+    "edit": "Editar",
+    "delete": "Borrar",
+    "showMore": "Ver {{count}} más",
+    "deleteCheck": "¿Borrar este recordatorio?",
+    "keep": "Conservarlo"
   },
   "dictate": {
     "start": "Hablar",

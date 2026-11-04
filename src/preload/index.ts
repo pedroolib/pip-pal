@@ -51,6 +51,13 @@ const api: PipApi = {
   clickCorner: () => ipcRenderer.send(IPC.cornerClick),
   onCornerOpen: (cb) => on<void>(IPC.cornerOpen, cb),
   onRecordHotkey: (cb) => on<void>(IPC.recordHotkey, cb),
+  onCommand: (cb) => on(IPC.command, cb),
+  setRecordingActive: (on) => ipcRenderer.send(IPC.recordingActive, on),
+  listReminders: () => ipcRenderer.invoke(IPC.reminderList),
+  saveReminder: (reminder) => ipcRenderer.invoke(IPC.reminderSave, reminder),
+  deleteReminder: (id) => ipcRenderer.invoke(IPC.reminderDelete, id),
+  onReminderDue: (cb) => on(IPC.reminderDue, cb),
+  tellPip: (message) => ipcRenderer.invoke(IPC.tellPip, message),
   transcribe: (audio) => ipcRenderer.invoke(IPC.transcribe, audio)
 }
 

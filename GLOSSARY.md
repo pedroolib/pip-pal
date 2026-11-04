@@ -32,8 +32,24 @@ _Avoid_: Literal entry, raw answer
 A profile built by an actual person through onboarding, as opposed to Sam's demo profile.
 _Avoid_: User profile
 
+**Command**:
+Pip's one keyboard shortcut (Ctrl+Shift+Space). With text selected it reads that text; with nothing selected it opens the command menu.
+_Avoid_: Hotkey, capture shortcut, record hotkey
+
+**Command menu**:
+The small list that opens at the cursor when the command finds nothing selected: Pip's Home, Let Pip listen, Check-In, Tell Pip and Remember Pip.
+_Avoid_: Launcher, palette
+
+**Tell Pip**:
+Writing or speaking to Pip and pressing Send. Pip answers with a reply and its why, and may offer to keep the words as a note. Only sent text leaves the machine, scrubbed.
+_Avoid_: Chat, ask Pip, prompt
+
+**Reminder**:
+Something the person asked Pip to bring back at a chosen time. Kept on this machine, outside the profile, and shown under "Coming up". Pip never sends it anywhere.
+_Avoid_: Alarm, task, timer
+
 **Voice capture**:
-Recording spoken words with their own hotkey, writing them down on this machine and reading the reviewed text with Pip.
+Recording spoken words from the command menu ("Let Pip listen") or `pip-pal --record`, writing them down on this machine and reading the reviewed text with Pip.
 _Avoid_: Meeting notes, dictation
 
 **Source**:

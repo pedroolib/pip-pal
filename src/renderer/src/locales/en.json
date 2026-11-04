@@ -22,7 +22,7 @@
     "then": "Then {{step}}",
     "due": "due {{date}}",
     "before": "before {{date}}",
-    "later": "Not now, bring this back in 15 minutes",
+    "later": "Remind me about this step",
     "canWait": "The rest can wait",
     "minimize": "Tuck the card away",
     "allDone": "All done for now",
@@ -660,7 +660,7 @@
     },
     "permission": {
       "title": "Let me copy what you select",
-      "mac": "On a Mac, I need Accessibility permission to copy the text you select when you press the shortcut. Without it, I use the last thing you copied.",
+      "mac": "On a Mac, I need Accessibility permission to copy the text you select when you press the shortcut. Without it, I can't read your selection and I open my menu instead.",
       "open": "Open the permission",
       "granted": "Done. I can copy your selection.",
       "waiting": "In the window that opens, turn on Pip. Then come back here.",
@@ -692,6 +692,80 @@
       "body": "Go through setup again. Pip only adds suggestions; nothing in your profile changes until you accept it.",
       "button": "Run setup again"
     }
+  },
+  "command": {
+    "label": "Pip's menu",
+    "items": {
+      "home": { "name": "Pip's Home", "hint": "See your day and your profile" },
+      "listen": { "name": "Let Pip listen", "hint": "Write down what is said" },
+      "checkIn": { "name": "Check-In", "hint": "Share how your energy is" },
+      "tell": { "name": "Tell Pip", "hint": "Ask or share something" },
+      "remind": { "name": "Remember Pip", "hint": "Set a reminder" }
+    },
+    "cantRead": "Pip could not read the selection.",
+    "keys": {
+      "move": "Move",
+      "pick": "Pick",
+      "close": "Close"
+    }
+  },
+  "tell": {
+    "title": "Tell Pip",
+    "hint": "Nothing is sent until you press Send.",
+    "label": "Your message to Pip",
+    "placeholder": "Write or speak. For example: I focus best when I get a plan the day before.",
+    "send": "Send",
+    "close": "Close",
+    "sending": "Pip is reading what you wrote…",
+    "youSaid": "You said",
+    "why": "Why:",
+    "another": "Tell Pip something else",
+    "failedTitle": "Pip could not answer",
+    "failedBody": "Your words are saved as a note. Nothing is lost.",
+    "tryAgain": "Try again"
+  },
+  "reminder": {
+    "titleNew": "Set a reminder",
+    "titleEdit": "Edit reminder",
+    "textLabel": "What should Pip remind you about?",
+    "when": "When",
+    "in15": "In 15 minutes",
+    "in1h": "In 1 hour",
+    "tomorrow9": "Tomorrow at 9:00",
+    "custom": "Pick a date and time",
+    "date": "Date",
+    "time": "Time",
+    "summary": "Pip will remind you {{when}}.",
+    "errorPast": "Pick a time in the future.",
+    "errorLong": "Reminders can be up to 500 characters.",
+    "errorFull": "Pip keeps up to 200 reminders. Delete one to add another.",
+    "fromStep": "From your step. You can change it.",
+    "tuckStep": "When you save, Pip tucks this step away until then.",
+    "save": "Save reminder",
+    "saveChanges": "Save changes",
+    "cancel": "Cancel",
+    "close": "Close"
+  },
+  "due": {
+    "title": "Reminder",
+    "setFor": "Set for {{time}}",
+    "done": "Done",
+    "later": "Remind me later",
+    "backToStep": "Back to this step",
+    "again": "Remind me again",
+    "back": "Back",
+    "more_one": "{{count}} more reminder after this one.",
+    "more_other": "{{count}} more reminders after this one.",
+    "failed": "Pip could not change this reminder. Try again."
+  },
+  "comingUp": {
+    "title": "Coming up",
+    "sub": "Reminders stay on this computer.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "showMore": "Show {{count}} more",
+    "deleteCheck": "Delete this reminder?",
+    "keep": "Keep it"
   },
   "dictate": {
     "start": "Speak",

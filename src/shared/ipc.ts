@@ -15,10 +15,12 @@ import type {
   Triage,
   Profile,
   Recipient,
+  Reminder,
   Settings,
   Slot,
   Summary,
   SummaryPeriod,
+  TellAnswer,
   UnclearPart,
   UsageEvent
 } from './schemas'
@@ -96,8 +98,19 @@ export const IPC = {
   /** corner window → main → overlay: the person clicked the corner Pip. */
   cornerClick: 'corner:click',
   cornerOpen: 'overlay:corner-open',
-  /** main → overlay: the record hotkey was pressed. */
+  /** main → overlay: `pip-pal --record` was run. */
   recordHotkey: 'pip:record-hotkey',
+  /** main → overlay: the command shortcut was pressed. */
+  command: 'pip:command',
+  /** overlay → main: whether a recording is running, so the shortcut can tell. */
+  recordingActive: 'overlay:recording-active',
+  reminderList: 'reminder:list',
+  reminderSave: 'reminder:save',
+  reminderDelete: 'reminder:delete',
+  /** main → overlay: a reminder's time has come. */
+  reminderDue: 'pip:reminder-due',
+  /** overlay → main: something the person typed or dictated to Pip and sent. */
+  tellPip: 'pip:tell',
   /** overlay → main: audio in, transcript out; runs on this machine. */
   transcribe: 'pip:transcribe'
 } as const
@@ -181,8 +194,31 @@ export interface PipApi {
   clickCorner(): void
   /** Overlay: the corner Pip was clicked, so swap the cursor's card with it. Returns an unsubscribe function. */
   onCornerOpen(cb: () => void): () => void
-  /** Each press opens the source card, or stops the recording if one is running. Returns an unsubscribe function. */
+  /**
+   * Only `pip-pal --record` now: opens the source card, or stops the recording if one is running. The
+   * shortcut pressed with no selection on an open record card arrives through `onCommand`. Returns an unsubscribe function.
+   * shortcut: to be removed from callers once the command replaces it; kept so main and renderer still compile.
+   */
   onRecordHotkey(cb: () => void): () => void
+  /**
+   * The command shortcut was pressed. `copyFailed`: Pip found nothing selected, so the overlay shows the menu
+   * with its could-not-read line. Returns an unsubscribe function.
+   */
+  onCommand(cb: (e: { copyFailed: boolean }) => void): () => void
+  /** Overlay only: whether a recording is running; ignored from other windows. */
+  setRecordingActive(on: boolean): void
+  listReminders(): Promise<Reminder[]>
+  /** Creates, or updates the one with the same id. Rejects with bad input or past REMINDER_MAX. */
+  saveReminder(reminder: Reminder): Promise<void>
+  deleteReminder(id: string): Promise<void>
+  /** A reminder's time came (or passed while Pip was off). Returns an unsubscribe function. */
+  onReminderDue(cb: (reminder: Reminder) => void): () => void
+  /**
+   * Text the person typed or dictated and pressed Send on. One Claude call (scrubbed): a reply, why, and what
+   * to do with their words as a note. Their words are saved first; if the call fails `reply` is null and the
+   * note keeps them. Rejects with bad input.
+   */
+  tellPip(message: string): Promise<TellAnswer>
   /**
    * `audio`: 16 kHz mono, at most RECORD_MAX_MS + 5 s. Transcribed on this machine; nothing leaves it.
    * Rejects on bad input or failure. With PIP_DEMO=1 it falls back to the scripted transcript on failure

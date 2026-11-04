@@ -148,13 +148,13 @@ Detalles de diseño en [design/README.md](design/README.md).
 
 Es el centro del pitch de IA responsable.
 
-1. **Pip solo lee lo que la persona selecciona** y manda con el atajo. Nunca lee correo ni chat por su cuenta. (Resuelve la pregunta abierta de la entrevista.)
+1. **Pip solo lee lo que la persona selecciona** y manda con el atajo. Nunca lee correo ni chat por su cuenta. (Resuelve la pregunta abierta de la entrevista.) Desde el 3 de noviembre (§16) también sale lo que la persona escribe o dicta a Pip y envía con Send, y el atajo ya no usa el portapapeles.
 2. **Se quitan los datos personales antes de enviar.** El perfil tiene una lista `people` (jefe, buddy, equipo): sus nombres se cambian por su rol (`[Manager]`) y los correos, teléfonos y URLs se quitan con regex. Al volver la respuesta, se restauran localmente. No usamos detección automática de nombres porque en 4 días no sería confiable.
 3. **El resumen se filtra con código, no con el prompt.** A Claude solo le llegan los campos del perfil visibles para ese destinatario, así que la versión del jefe no puede filtrar lo del psicólogo aunque el modelo se equivoque. **Cuidado:** `forRecipient` vacía `people`, y esa lista es la que usa el cambio de nombres. Si se llama `buildProfileContext(forRecipient(...))` tal cual, los nombres le llegan a Claude sin cambiar. `src/main/ai/summary.ts` le devuelve `people` y los `aliases` solo para el cambio de nombres. Cualquier código nuevo que mande a Claude algo filtrado por destinatario tiene que hacer lo mismo.
 4. **Pip nunca envía nada solo.** La persona revisa cada viñeta y copia las que quiere (exportar PDF vendrá después).
 5. **Origen y aprobación.** Cada dato del perfil dice quién escribió su texto actual (`self`, `onboarding`, `learned`). Lo que Pip escribe se guarda solo como sugerencia (`Profile.pending`). No llega a Claude ni a ningún resumen hasta que la persona lo acepta, y al aceptarlo entra privado. Cambió el 3 de noviembre: el usuario quería que Pip guardara solo, y esta fue la versión segura de eso. El origen `coach` se quitó el mismo día (ver §13).
 6. **Solo se abren enlaces `https://`** fuera de la app (`isSafeExternalUrl` en `src/main/external-links.ts`, usado por los dos `setWindowOpenHandler`); cualquier otro esquema se ignora. Pendiente si algún día se muestran enlaces de fuera: un `will-navigate` que bloquee la navegación dentro de las ventanas.
-7. **Respuestas del onboarding.** Son la única excepción a "solo sale lo seleccionado": salen después de un aviso que nombra a Claude (Anthropic), limpias con `scrubForModel`, y la persona puede elegir "Keep my words, don't send". La lista de personas se pide antes, así que la limpieza ya conoce los nombres.
+7. **Respuestas del onboarding.** Son una excepción a "solo sale lo seleccionado" (la otra es lo que se envía con Tell Pip, §16): salen después de un aviso que nombra a Claude (Anthropic), limpias con `scrubForModel`, y la persona puede elegir "Keep my words, don't send". La lista de personas se pide antes, así que la limpieza ya conoce los nombres.
 
 **Cómo se quitan los datos** (`src/shared/profile.ts`: `scrubForModel`, `restoreDecoded`, `buildProfileContext`):
 - Correos, teléfonos, URLs y @handles se quitan. Cada nombre del perfil (el de la persona y la lista `people`) se cambia por un rol (`[Manager]`, `[Me]`; si dos personas comparten rol llevan número), en una sola pasada, el más largo primero. Los **alias** (`aliases`, opcionales en cada persona y en el perfil) entran en la misma pasada: un alias se busca entero, con o sin "@" ("@srivera" y "srivera" dan `[Manager]`), antes de quitar los @handles; los del perfil dan `[Me]`. Al restaurar siempre sale el nombre completo. Se ignoran los alias con menos de 2 letras o dígitos, el nombre completo de otra persona gana y una clave que comparten dos personas es `[someone]`. Se cubren mayúsculas, acentos, guiones, apóstrofes, formas de usuario (`sam_rivera`), caracteres invisibles y varios alfabetos (latino, griego, cirílico, árabe, hebreo, indios, CJK, tailandés y otros).
@@ -295,7 +295,7 @@ Decidido el 3 de noviembre de 2026 tomando como referencia el onboarding de HeyC
 | Se tomó | Por qué |
 |---|---|
 | Bienvenida con el personaje | Pip es la interfaz; la primera impresión baja la ansiedad. |
-| Cada permiso con su razón | Sin Accesibilidad la captura usa lo último copiado sin avisar. |
+| Cada permiso con su razón | Sin Accesibilidad la captura usaba lo último copiado sin avisar (desde §16 abre el menú y avisa que no pudo leer la selección). |
 | Practicar el gesto ("This is how you talk to me") | Seleccionar + atajo no es obvio; practicarlo es el momento en que se entiende. |
 | Preguntas sobre la persona | El perfil es lo que nos diferencia; vacío, las respuestas son genéricas. |
 | Puntos de progreso, Atrás, Saltar | Predecibilidad y salida siempre visibles; para personas autistas pesa más que para nadie. |
@@ -328,7 +328,8 @@ Decidido el 3 de noviembre de 2026 tomando como referencia el onboarding de HeyC
 
 Decidido el 3 de noviembre de 2026 (subió del nivel 3). Para instrucciones habladas, como un jefe que explica qué hacer, o una conversación corta.
 
-- **Atajo propio, ⌃⇧Enter.** El atajo de texto sigue significando "Pip lee solo lo que seleccionaste", y con la selección vacía sigue usando lo último copiado. El mismo atajo detiene la grabación. Se puede cambiar después.
+- **Cambió el 3 de noviembre (§16): ya no hay atajo propio.** Grabar se elige en el menú del comando ("Let Pip listen") o con `pip-pal --record`, y ⌃⇧Enter se quitó. Lo que sigue es como se decidió originalmente y se conserva como historia.
+- **Atajo propio, ⌃⇧Enter.** El atajo de texto sigue significando "Pip lee solo lo que seleccionaste", y con la selección vacía sigue usando lo último copiado (§16 quitó esto último). El mismo atajo detiene la grabación. Se puede cambiar después.
 - **Fuente:** una tarjeta pregunta Microphone, Computer audio o Both. Viene marcada la última fuente usada (`Settings.recordSource`), Microphone la primera vez. Enter empieza y Esc cancela. Nunca graba sola.
 - **Consentimiento:** con Computer audio o Both aparece una línea tranquila: "Let people know you're recording". Grabar a otras personas puede pedir aviso según el lugar, y es un riesgo social para quien ya teme romper normas.
 - **Mientras graba:** una píldora con el tiempo y Stop. Para sola a los **10 minutos**, porque más que eso no cabe en el triage (`MAX_CHARS` = 8000). Las notas de juntas largas quedan en el nivel 3 y parten de aquí.
@@ -369,7 +370,7 @@ Si la llamada falla o la respuesta no es válida, se muestra `add` con las palab
 
 **Las notas no son verdad.** El prompt dice que pueden estar viejas, que si chocan con el mensaje manda el mensaje, y que son datos, no instrucciones.
 
-**Lo que sale de la máquina.** Texto seleccionado, lo que la persona escribe para corregir o enseñar a Pip, y las notas guardadas, siempre sin nombres. Las notas se limpian otra vez cada vez que salen, porque un nombre agregado a `people` después no estaba en la limpieza original. Falta acordar el cambio de la regla de privacidad de `CLAUDE.md`, que solo menciona texto seleccionado y onboarding.
+**Lo que sale de la máquina.** Texto seleccionado, lo que la persona escribe para corregir o enseñar a Pip, y las notas guardadas, siempre sin nombres. Las notas se limpian otra vez cada vez que salen, porque un nombre agregado a `people` después no estaba en la limpieza original. Falta acordar el cambio de la regla de privacidad de `CLAUDE.md`, que solo menciona texto seleccionado y onboarding. (Lo que se envía con Tell Pip ya está en esa regla; ver §16.)
 
 **Almacén.** Cada nota es `{ id, text, origin, at }` en su propio archivo, no en `Profile`, para que un resumen no pueda incluirla ni por error. Se guarda con nombres reales, igual que `profile.json`, y se limpia solo al salir, así que un cambio de rol o un nombre nuevo aplica a las notas viejas. `origin` es `self` si son palabras de la persona y `learned` si es la reescritura de Pip. No se guarda el mensaje original. Antes de guardar se quitan caracteres invisibles y saltos de línea, y se rechaza un duplicado exacto sin importar mayúsculas. El formato anterior (`correction`, `message`) se convierte al leer, sin perder datos: esas notas quedan como `learned` porque no se sabe quién las escribió, y conservan sus tokens `[Role]`, que se ven así en Settings hasta que se borren.
 
@@ -377,3 +378,18 @@ Si la llamada falla o la respuesta no es válida, se muestra `add` con las palab
 
 **Lo que sigue:**
 - **Después:** un botón "This worked" que guarde los pasos validados como procedimiento, y búsqueda en notas viejas si hace falta.
+
+## 16. Un solo comando
+
+Decidido el 3 de noviembre de 2026. Pip tiene un solo atajo, ⌃⇧Space (Ctrl+Shift+Space en Windows y Linux), para que la persona recuerde una sola cosa y nada la sorprenda.
+
+- **Con texto seleccionado** hace lo de siempre: el triage. **Sin selección** abre un menú en el cursor con cinco opciones: Pip's Home, Let Pip listen, Check-In, Tell Pip y Remember Pip.
+- **Se quitó ⌃⇧Enter.** Grabar se elige en el menú. `pip-pal --capture` ejecuta el comando y `pip-pal --record` se queda para quien asigna sus propias teclas (Hyprland). Con una grabación en curso el comando siempre la detiene y no simula ⌃C ni lee la selección, así que una selección suelta no puede hacer perder una grabación. Sin selección y con la tarjeta de grabar abierta, hace lo que hacía el atajo de grabar en esa tarjeta.
+- **Se quitó lo último copiado.** Sin selección ya no se lee el portapapeles viejo: nunca se manda a triage ni a Claude. Es más privado y menos sorprendente. El portapapeles se sigue guardando y restaurando alrededor de la copia simulada. Si la copia falló (Mac sin Accesibilidad) el menú lo dice en una línea.
+- **Privacidad (cambia la regla de §5 y de `CLAUDE.md`).** A Claude solo salía el texto seleccionado y las respuestas del onboarding. Ahora también sale lo que la persona escribió o dictó a Pip y envió con Send, limpio con `scrubForModel` y con el perfil completo (personas y alias), nunca una copia `forRecipient`. Tell Pip no envía nada hasta que la persona presiona Send. Los recordatorios nunca salen de la máquina.
+- **Tell Pip.** Una llamada a Claude devuelve respuesta, `why` y la decisión sobre la nota, con el mismo flujo de §15 (las palabras se guardan primero y después Pip decide; `none` quita la nota). Si falla, las palabras quedan como nota y la tarjeta lo dice, con reintento. Un intercambio por vez, sin historial.
+- **Recordatorios.** `Reminder` es `{ id, text (1 a 500), at }`, máximo 200, en su propio archivo y fuera de `Profile`, para que un resumen no pueda incluirlos. Una vez, sin repetición. Un temporizador en el más próximo; los retrasos de más de 2^31-1 ms (unos 24,8 días) se vuelven a armar. Se muestran al abrir Pip o al despertar el equipo si ya vencieron. La tarjeta de aviso nunca toma el teclado ni interrumpe otra tarjeta o una grabación: espera a que Pip esté oculto. Con varios, uno por vez, el más viejo primero.
+- **El reloj del paso** ya no es un temporizador fijo de 15 minutos en memoria: abre el formulario con el texto del paso y sin hora elegida, y la tarjeta se guarda al grabar el recordatorio. Cuesta un toque más y quita la sorpresa.
+- **Contrato.** `PipApi` suma `listReminders`, `saveReminder`, `deleteReminder`, `onReminderDue`, `tellPip`, `onCommand` (con `copyFailed`) y `setRecordingActive`. `onRecordHotkey` queda solo para `--record`.
+
+**Límites aceptados:** las apps que copian sin selección (VS Code copia la línea, Excel la celda) harán triage de eso. En Linux, el texto primario sin cambios cuenta como nada seleccionado, así que repetir el atajo sobre la misma selección abre el menú. En Windows una selección vacía espera a PowerShell y al sondeo del portapapeles de 500 ms, y el menú puede tardar cerca de un segundo.
