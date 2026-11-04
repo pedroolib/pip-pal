@@ -36,6 +36,7 @@ const EDGE = new RegExp(`^[\\s${SOFT_BREAK}]+|[\\s${SOFT_BREAK}]+$`, 'g')
  * One line. Each run of invisible characters or wrapper tags is kept as one SOFT_BREAK, so the hidden text is gone
  * but the scrubber still sees where a name was split, even for a name added to the profile later. It scrubs nothing
  * and needs no profile. A break at the edge or beside a space says nothing, so it goes.
+ * shortcut: the slice to LESSON_MAX can cut a contact or a name into a form no later send recognises ("...mail john@acme.com" saved as "...mail john@acme", "O'Brien" as "O'Brie"); same on main, cut back to the last whitespace if one shows up.
  */
 const cleanNote = (text: string): string =>
   softBreaks(text)

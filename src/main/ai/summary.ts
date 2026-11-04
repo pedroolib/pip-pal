@@ -80,11 +80,12 @@ export function createSummarizer({
           ] // shortcut: the 20 newest only, raise if summaries feel thin
         : [])
     ].join('\n')
-    // Stripped until stable, so "</fac</facts>ts>" cannot rebuild the tag.
+    // Stripped until stable, so "</fac</facts>ts>" cannot rebuild the tag. The scrubber took every closed tag; what is left is
+    // unterminated and can span two lines, and a space keeps it from rejoining the text around it into a name.
     let body = block
     for (let prev = ''; prev !== body;) {
       prev = body
-      body = body.replace(/<\s*\/?\s*facts\b[^>]*>?/gi, () => '')
+      body = body.replace(/<\s*\/?\s*facts\b[^>]*>?/gi, () => ' ')
     }
     const user = [
       `Period: ${period}.`,

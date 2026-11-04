@@ -37,39 +37,65 @@ export function forRecipient(profile: Profile, recipient: Recipient): Profile {
   }
 }
 
-const EMAIL = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu
+/**
+ * The one mark left for a soft break (a run of invisible characters or wrapper tags). It is Cf, so `fold` deletes it
+ * and keys never hold it, every Cf in the input becomes it so nothing can forge another, and it is no letter or mark.
+ */
+export const SOFT_BREAK = String.fromCharCode(0x200b)
+// The contact patterns run on soft-broken text and read a break both ways. Every place a contact can go on takes an optional
+// break (`B` in a class, `Z` between literals), so a break is transparent inside a contact; and it is no word character, so
+// the boundaries also hold at it. Backtracking tries both at each break, including mixes no single reading of the text
+// would see ("555-12<Z>3-4567<Z>now"). A run of breaks is one break, so this costs what the plain pattern costs, and on
+// text with no break these are the plain patterns.
+const B = SOFT_BREAK
+const Z = `${B}?`
+const loose = (word: string): string => [...word].join(Z)
+const LABEL = `[\\p{L}\\p{N}-](?:[\\p{L}\\p{N}${B}-]*[\\p{L}\\p{N}-])?`
+const EMAIL = new RegExp(
+  `[\\p{L}\\p{N}._%+-][\\p{L}\\p{N}._%+${B}-]*@${Z}${LABEL}(?:${Z}\\.${Z}${LABEL})+`,
+  'gu'
+)
 // @mentions, minus trailing punctuation; a letter or "_" first, so "@10am" stays a time.
-const HANDLE = /(?<![\p{L}\p{N}])@[\p{L}_](?:[\p{L}\p{N}._-]*[\p{L}\p{N}])?/gu
-const TAIL = `[^\\s<>"]*[^\\s<>".,;:!?)\\]']` // a URL tail never ends on sentence punctuation
+const HANDLE = new RegExp(
+  `(?<![\\p{L}\\p{N}])@${Z}[\\p{L}_](?:[\\p{L}\\p{N}._${B}-]*[\\p{L}\\p{N}])?`,
+  'gu'
+)
+const TAIL = `[^\\s<>"]*[^\\s<>".,;:!?)\\]'${B}]` // a URL tail never ends on sentence punctuation
+const SCHEME = ['https', 'http', 'ftp'].map(loose).join('|')
+const TLD = 'com org net io co edu gov app dev ai me info mx es uk de fr'
+  .split(' ')
+  .map(loose)
+  .join('|')
 // shortcut: a bare domain (no scheme, no www.) is only caught for the TLDs listed here, so "startup.xyz" passes; widen the list when a real case shows up.
 const URL_RE = new RegExp(
-  `\\b(?:(?:https?|ftp)://|www\\.)${TAIL}|(?<![\\w.@-])(?:[a-z0-9-]+\\.)+(?:com|org|net|io|co|edu|gov|app|dev|ai|me|info|mx|es|uk|de|fr)\\b(?:[/?#]${TAIL})?`,
+  `\\b(?:(?:${SCHEME})${Z}:${Z}/${Z}/|${loose('www')}${Z}\\.)${TAIL}|(?<![\\w.@-])(?:[a-z0-9-][a-z0-9${B}-]*\\.${Z})+(?:${TLD})\\b(?:${Z}[/?#]${TAIL})?`,
   'giu'
 )
+const MONTH = `(?:0${Z}[1-9]|1${Z}[0-2])`
+const DAY = `(?:0${Z}[1-9]|[12]${Z}\\d|3${Z}[01])`
 // shortcut: any run of 7+ digits split by spaces/dashes reads as a phone ("tasks 10 20 30 40" too); safe for privacy but may drop meaning, tighten if decodes suffer.
-// An ISO date is matched first and kept, so "2026-11-01 10:30" is never read as a phone.
+// An ISO date is matched first and kept, so "2026-11-01 10:30" is never read as a phone. A digit right after a break may
+// be the same number ("2026-11-01<Z>5678" with the break transparent), so it stops the date and the phone reading takes it.
 // shortcut: a phone written exactly like a valid date ("5551-12-25 67") keeps its date-shaped part; tighten if one shows up.
-const PHONE =
-  /(?<![\d+])(\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?!\d))|(?<![\d+])\+?\(?\d[\d\s().-]{5,}\d(?!\w)/g
+const PHONE = new RegExp(
+  `(?<![\\d+])(\\d${Z}\\d${Z}\\d${Z}\\d${Z}-${Z}${MONTH}${Z}-${Z}${DAY}(?!${Z}\\d))|(?<![\\d+])(?:\\+${Z})?(?:\\(${Z})?\\d[\\d\\s().${B}-]{5,}\\d(?!\\w)`,
+  'g'
+)
 const phone = (m: string, date?: string): string =>
   date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'
 
 // NFKC turns fullwidth letters into plain ones. Format characters (zero-width, soft hyphen) hide names: `fold` deletes them from keys, `softBreaks` keeps them in text as breaks.
 // A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
-// shortcut: NFKC also rewrites the text Claude sees ("½" -> "1⁄2", "x²" -> "x2", "℃" -> "°C"); apply it only for matching if decodes suffer.
+// shortcut: NFKC also rewrites the text Claude sees and, through `cleanNote`, the note saved on disk ("½" -> "1⁄2", "x²" -> "x2", "℃" -> "°C"); apply it only for matching if decodes suffer.
+// shortcut: invisible characters that are not Cf (U+E0100, U+17B4, U+3164, U+2800, U+0001) are neither breaks nor removed, so "Al" + U+E0100 + "ex" passes and a note keeps them; same on main, add them to `softBreaks` if one shows up, after checking the marks MARKS lists.
 // shortcut: Cyrillic look-alikes ("Dаna" with U+0430) are not folded to Latin; add a small skeleton map if one shows up.
 const compatible = (s: string): string => s.replace(/´/g, "'").normalize('NFKC')
 const normalize = (s: string): string => compatible(s).replace(/\p{Cf}/gu, '')
 
-/**
- * The one mark left for a soft break (a run of invisible characters or wrapper tags). It is Cf, so `fold` deletes it
- * and keys never hold it, every Cf in the input becomes it so nothing can forge another, and it is no letter or mark.
- */
-export const SOFT_BREAK = '\u200b'
-// Every wrapper a prompt in src/main/ai uses. The lookahead stands for the `\b` after a tag name; a tag may go on with attributes.
-const WRAPPER = /^\/?(?:message|said|known|correction|answers|facts)(?![\p{L}\p{N}_])/iu
+// Every wrapper a prompt in src/main/ai uses. The lookahead is the ASCII `\b` of the strips in summary.ts and onboarding.ts: what they read as a tag, this must too, or they rejoin it after the scrub. A tag may go on with attributes.
+const WRAPPER = /^\/?(?:message|said|known|correction|answers|facts)(?![A-Za-z0-9_])/i
 const WRAPPER_HEAD = 12 // "/correction" plus the character after it
-const IN_TAG = /[\p{Cc}\u200b]/u
+const IN_TAG = new RegExp(`[\\p{Cc}${SOFT_BREAK}]`, 'u')
 // Whether the "<" at chars[open] starts a wrapper tag. Reads no further than the next "<".
 const opensWrapper = (chars: string[], open: number): boolean => {
   let head = ''
@@ -80,6 +106,7 @@ const opensWrapper = (chars: string[], open: number): boolean => {
   }
   return WRAPPER.test(head)
 }
+const BREAK_RUN = new RegExp(`${SOFT_BREAK}+`, 'g')
 /**
  * NFKC text where each run of invisible characters or wrapper tags is one SOFT_BREAK, nested tags included: what a
  * removed tag left can complete an outer one. Idempotent, and deleting the breaks gives what `normalize` gives on tag-free text.
@@ -101,45 +128,7 @@ export function softBreaks(text: string): string {
       }
     }
   }
-  return out.join('').replaceAll(/\u200b+/g, SOFT_BREAK)
-}
-
-// `text.replace(re, fn)` on the text read without its breaks. Breaks inside a replaced match go with it; all others stay.
-function replaceJoined(
-  text: string,
-  re: RegExp,
-  fn: (match: string, group?: string) => string
-): string {
-  if (!text.includes(SOFT_BREAK)) return text.replace(re, fn)
-  const at: number[] = [] // where each joined character sits in `text`
-  for (let i = 0; i < text.length; i++) if (text[i] !== SOFT_BREAK) at.push(i)
-  let out = ''
-  let last = 0
-  for (const match of text.replaceAll(SOFT_BREAK, '').matchAll(re)) {
-    const m = match[0]
-    const swapped = fn(m, match[1])
-    if (swapped === m) continue
-    out += text.slice(last, at[match.index]) + swapped
-    last = at[match.index + m.length - 1] + 1
-  }
-  return out + text.slice(last)
-}
-
-/**
- * Soft-broken text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs.
- * A handle whose folded text is in `aliases` is kept, so the name swap turns it into its person's token.
- * The result still holds soft breaks: `names` reads and drops them.
- */
-function stripContacts(text: string, aliases: Set<string> = new Set()): string {
-  const noEmails = replaceJoined(softBreaks(text), EMAIL, () => '[email]')
-  const noHandles = replaceJoined(noEmails, HANDLE, (m) =>
-    aliases.has(fold(m.slice(1))) ? m : '[handle]'
-  )
-  return replaceJoined(
-    replaceJoined(noHandles, URL_RE, () => '[link]'),
-    PHONE,
-    phone
-  )
+  return out.join('').replace(BREAK_RUN, SOFT_BREAK)
 }
 
 // Case, accents, apostrophes, hyphens and spacing folded, so "JOSE", "O’Brien" / "O'Brien", "Dana-Lee" / "Dana Lee","José" and "José" share one key.
@@ -334,6 +323,7 @@ const BRACKET = /\[[^\][]+\]/g
 function nameSwapper(profile: Profile): {
   clean: (text: string) => string // contacts removed, then names swapped
   scrubRole: (role: string, self: Who, selfText: string) => string
+  contacts: (text: string) => string
   owner: Who
   restoreMap: Map<string, string> // lowercased "[Role]" -> real name
 } {
@@ -345,19 +335,13 @@ function nameSwapper(profile: Profile): {
   if (hasLetter(fold(owner.real))) who.set(fold(owner.real), owner)
   // A person whose name has no letter ("🦊") is never matched by name but still gets a token for their aliases.
   const nameless = new Map<number, Who>()
-  profile.people.forEach((p, i) => {
+  // Roles are filled in once the name walk exists: `contacts` needs it.
+  const persons = profile.people.map((p, i) => {
     const k = fold(p.name)
-    // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit; each becomes a space so it never joins two words.
-    const role = replaceJoined(
-      stripContacts(p.role),
-      /\[(?:email|handle|link|phone)\]|[[\]@]/g,
-      () => ' '
-    )
-    // Inner breaks stay, so `scrubRole` still sees a name beside one; every token goes through `names`, which drops them.
-    const collapsed = role.replace(/[\s\u200b]+/g, (m) => (/\s/.test(m) ? ' ' : m))
-    const w = { role: collapsed.replace(/^[ \u200b]+|[ \u200b]+$/g, ''), real: p.name.trim() }
+    const w: Who = { role: '', real: p.name.trim() }
     if (hasLetter(k)) who.set(k, w)
     else nameless.set(i, w)
+    return w
   })
   // Each word (2+ letters, not a particle) of a full name, with and without its apostrophe part ("o'brien", "brien"),
   // each hyphenated word written as one ("jeanpierre"), and the name without spaces ("samrivera")
@@ -434,32 +418,134 @@ function nameSwapper(profile: Profile): {
   // The walk reads the text without its breaks, so a name reads across them and the trie never sees one; a break only
   // counts as a word boundary. All breaks are gone from the result. Where one was the only boundary of a spaced key, the
   // old code leaked, and a space keeps the words apart ("Alex<ZWSP>said" -> "[Manager] said", "Alex<ZWSP>ander" -> "[Manager] ander").
-  const names = (soft: string, fn: (m: string) => string): string => {
+  // shortcut: a break, then a combining mark, then a name ("said<Z>" + U+0301 + "Alex") fails the boundary and passes; same on main, read a mark right after a break as outside the word if one shows up.
+  const walk = (soft: string): { text: string; breaks: Set<number>; found: [number, number][] } => {
     const text = soft.replaceAll(SOFT_BREAK, '')
     const breaks = new Set<number>()
     for (let i = 0, j = 0; i < soft.length; i++) {
       if (soft[i] === SOFT_BREAK) breaks.add(j)
       else j++
     }
-    let out = ''
-    let last = 0
+    const found: [number, number][] = []
     const dead: [Set<number>, Set<number>] = [new Set(), new Set()]
     for (let at = 0; at < text.length;) {
-      const e = nameEnd(text, at, dead, breaks)
+      let e = nameEnd(text, at, dead, breaks)
       if (e > at) {
-        const m = text.slice(at, e)
-        const isSpaced = !unspaced.test(m)
-        out += text.slice(last, at)
-        if (isSpaced && breaks.has(at) && sticky(before, text, at) < 0 && !out.endsWith(' ')) {
-          out += ' '
+        // Read across a break, a name can stop inside another that starts at the break ("srivera<Z>2 cool" with alias "2 cool"). The break then ends the first.
+        // Only the last break in the name is tried, so this costs one more walk per name, not one per break.
+        let b = e - 1
+        while (b > at && !breaks.has(b)) b--
+        if (b > at && hasLetter(text[b - 1]) && hasLetter(text[b])) {
+          if (nameEnd(text, b, dead, breaks) > e) e = b
         }
-        out += fn(m)
-        if (isSpaced && breaks.has(e) && sticky(after, text, e) < 0) out += ' '
-        last = at = e
+        found.push([at, e])
+        at = e
       } else at += text.codePointAt(at)! > 0xffff ? 2 : 1
+    }
+    return { text, breaks, found }
+  }
+  const names = (soft: string, fn: (m: string) => string): string => {
+    const { text, breaks, found } = walk(soft)
+    let out = ''
+    let last = 0
+    for (const [at, e] of found) {
+      const m = text.slice(at, e)
+      const isSpaced = !unspaced.test(m)
+      out += text.slice(last, at)
+      if (isSpaced && breaks.has(at) && sticky(before, text, at) < 0 && !out.endsWith(' ')) {
+        out += ' '
+      }
+      out += fn(m)
+      if (isSpaced && breaks.has(e) && sticky(after, text, e) < 0) out += ' '
+      last = e
     }
     return out + text.slice(last)
   }
+  // Where the names in soft-broken text sit in it, as [start, end) offsets.
+  const nameSpans = (soft: string): { a: number; b: number }[] => {
+    const at: number[] = [] // where each character of the walked text sits in `soft`
+    for (let i = 0; i < soft.length; i++) if (soft[i] !== SOFT_BREAK) at.push(i)
+    return walk(soft).found.map(([s, e]) => ({ a: at[s], b: at[e - 1] + 1 }))
+  }
+  // Where a name or contact could sit in soft-broken text.
+  type Span = { a: number; b: number; digits?: boolean }
+  const sevenDigits = (s: string): boolean => s.replace(/\D/g, '').length >= 7
+  const spansIn = (soft: string): Span[] => [
+    ...nameSpans(soft),
+    ...[EMAIL, HANDLE, URL_RE, PHONE].flatMap((re) =>
+      [...soft.matchAll(re)].map((m): Span => ({
+        a: m.index,
+        b: m.index + m[0].length,
+        digits: re === PHONE
+      }))
+    )
+  ]
+  // `text.replace(re, fn)`, except where a match crosses or touches a break. There it may have taken part of its neighbour,
+  // which the plain text would have kept apart ("boss man<Z>john@acme.com": the email takes "man"; "555 123 4567<Z>john@acme.com":
+  // it takes "4567"; "@john<Z>https://a.io": the handle takes "https"), and what is left no longer matches anything.
+  // So such a match takes the whole neighbour too: over-scrubbing beside a contact is accepted, part of a name or contact leaving is not.
+  const swapContact = (
+    text: string,
+    re: RegExp,
+    fn: (match: string, group?: string) => string
+  ): string => {
+    if (!text.includes(SOFT_BREAK)) return text.replace(re, fn)
+    let spans: Span[] | undefined
+    let out = ''
+    let last = 0
+    for (const match of text.matchAll(re)) {
+      const m = match[0]
+      const swapped = fn(m, match[1])
+      let start = match.index
+      let end = start + m.length
+      if (swapped === m || end <= last) continue
+      if (m.includes(SOFT_BREAK) || text[start - 1] === SOFT_BREAK || text[end] === SOFT_BREAK) {
+        const all = (spans ??= spansIn(text))
+        // What a match leaves of a phone reading is still a phone, or a date, if it has 7+ digits and nothing else takes its end. The PHONE pass reads it.
+        const stands = ({ b, digits }: Span): boolean | undefined =>
+          digits && sevenDigits(text.slice(end, b)) && !all.some((o) => o.a < b && o.b > b)
+        for (let grew = true; grew;) {
+          grew = false
+          for (const s of all) {
+            if (s.a < start && s.b > start) [start, grew] = [s.a, true]
+            if (s.a < end && s.b > end && !stands(s)) [end, grew] = [s.b, true]
+          }
+        }
+      }
+      out += text.slice(last, Math.max(start, last)) + swapped
+      last = end
+    }
+    return out + text.slice(last)
+  }
+  /**
+   * Soft-broken text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs.
+   * A handle whose folded text is in `keep` is kept, so the name swap turns it into its person's token.
+   * The result still holds soft breaks: `names` reads and drops them.
+   */
+  const contacts = (text: string, keep: Set<string> = new Set()): string => {
+    const noEmails = swapContact(softBreaks(text), EMAIL, () => '[email]')
+    const noHandles = swapContact(noEmails, HANDLE, (m) =>
+      keep.has(fold(m.slice(1))) ? m : '[handle]'
+    )
+    return swapContact(
+      swapContact(noHandles, URL_RE, () => '[link]'),
+      PHONE,
+      phone
+    )
+  }
+  const ROLE_NOISE = new RegExp(
+    `\\[${Z}(?:${['email', 'handle', 'link', 'phone'].map(loose).join('|')})${Z}\\]|[[\\]@]`,
+    'g'
+  )
+  const EDGE = new RegExp(`^[ ${B}]+|[ ${B}]+$`, 'g')
+  const SPACE_RUN = new RegExp(`[\\s${B}]+`, 'g')
+  profile.people.forEach((p, i) => {
+    // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit; each becomes a space so it never joins two words.
+    const role = contacts(p.role).replace(ROLE_NOISE, () => ' ')
+    // Inner breaks stay, so `scrubRole` still sees a name beside one; every token goes through `names`, which drops them.
+    const collapsed = role.replace(SPACE_RUN, (m) => (/\s/.test(m) ? ' ' : m))
+    persons[i].role = collapsed.replace(EDGE, '')
+  })
   // Looked up without apostrophes, since the pattern lets "OBrien" match "O'Brien".
   const bare = new Map([...all].map(([k, w]) => [k.replace(/'/g, ''), w]))
   const find = (m: string): Who => bare.get(fold(m).replace(/^@|'/g, '')) ?? someone
@@ -497,14 +583,14 @@ function nameSwapper(profile: Profile): {
   const swap = (text: string): string => names(text, (m) => token.get(find(m))!)
   // A kept alias handle the swap missed (a mark outside MARKS after it) still never leaves; tokens never hold "@" + letter.
   const clean = (text: string): string =>
-    swap(stripContacts(text, aliases)).replace(HANDLE, () => '[handle]')
-  return { clean, scrubRole, owner, restoreMap }
+    swap(contacts(text, aliases)).replace(HANDLE, () => '[handle]')
+  return { clean, scrubRole, contacts, owner, restoreMap }
 }
 
 /** Claude-ready text. Names become [Role], contacts are removed; pending entries are never included. */
 export function buildProfileContext(profile: Profile): string {
-  const { clean, scrubRole, owner } = nameSwapper(profile)
-  const lines: string[] = [`[Me], ${scrubRole(stripContacts(profile.role), owner, 'Me')}`]
+  const { clean, scrubRole, contacts, owner } = nameSwapper(profile)
+  const lines: string[] = [`[Me], ${scrubRole(contacts(profile.role), owner, 'Me')}`]
   for (const section of SECTIONS) {
     const entries = profile.sections[section]
     if (!entries?.length) continue

@@ -1263,9 +1263,13 @@ describe('trie matcher against the old one-big-regex matcher', () => {
       for (let m = 0; m < 6; m++) scrubForModel(msg(), p)
     }
   })
-  // Criterion 7. The same generator with Cf taken out, then Cf put back only where it cannot act as a word boundary.
+  // Criterion 7, and what these tests prove of it. Byte identity with the reference holds for: text with no Cf (generated corpora
+  // below, and wide and tight above); Cf away from letters and away from a contact's edge (generated, no aliases); and Cf inside
+  // whole real-shaped names and contacts with two aliases (the last test). It says nothing about a break at the edge of a name
+  // or a contact, where the reference leaks and the new scrubber must not: the "soft breaks" tests pin those outputs.
   // The steps above overflow a double, so their low bits die and those corpora never pick a Cf; these need real coverage (mulberry32).
-  const fairDice = (start: number): void => {
+  const withFairDice = (start: number, run: () => void): void => {
+    const before = rnd
     let s = start
     rnd = (n) => {
       s = (s + 0x6d2b79f5) | 0
@@ -1273,17 +1277,31 @@ describe('trie matcher against the old one-big-regex matcher', () => {
       x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x
       return ((x ^ (x >>> 14)) >>> 0) % n
     }
+    try {
+      run()
+    } finally {
+      rnd = before
+    }
   }
   const FORMAT = ['​', '⁠', '­', '﻿', '‍', '‮']
   const edgeChar = /[\p{L}\p{M}]/u
+  const NO_ONE: Profile = { ...(sam as Profile), name: '', aliases: [], people: [] }
+  const contactsOf = (s: string): string => reference.scrubForModel(s, NO_ONE).text
+  // A break at a contact's edge is a boundary case (criterion 7): the reference reads the text joined, the new scrubber also
+  // with the break as a boundary. So a place counts as an edge when the reference finds other contacts with a real separator
+  // there, or a contact right beside it. "<" is that separator: no contact pattern takes it, and it is no word character.
+  const atContactEdge = (left: string, right: string): boolean => {
+    const split = contactsOf(`${left}<${right}`)
+    return /\]<|<\[/.test(split) || split.replace('<', '') !== contactsOf(left + right)
+  }
   const breakAwayFromLetters = (s: string): string => {
     const cs = [...s]
     return cs
-      .map((c, i) =>
-        !edgeChar.test(c) && !(cs[i + 1] && edgeChar.test(cs[i + 1])) && !rnd(3)
-          ? c + pick(FORMAT)
-          : c
-      )
+      .map((c, i) => {
+        if (edgeChar.test(c) || (cs[i + 1] && edgeChar.test(cs[i + 1])) || rnd(3)) return c
+        const f = pick(FORMAT)
+        return atContactEdge(cs.slice(0, i + 1).join(''), cs.slice(i + 1).join('')) ? c : c + f
+      })
       .join('')
   }
   // No aliases: with fair dice the matcher already differs from the older reference on bent, odd or shared aliases, Cf or not.
@@ -1321,51 +1339,59 @@ describe('trie matcher against the old one-big-regex matcher', () => {
     ['wide', noFormat(wide)],
     ['tight', noFormat(tight)]
   ])('stays byte-identical on a %s corpus with no Cf', (_, chars) => {
-    fairDice(101)
-    bits = chars
-    generated((s) => s)
+    withFairDice(101, () => {
+      bits = chars
+      generated((s) => s)
+    })
   })
   it.each([
     ['wide', noFormat(wide)],
     ['tight', noFormat(tight)]
-  ])('stays byte-identical on a %s corpus with Cf next to no letter or mark', (_, chars) => {
-    fairDice(202)
-    bits = chars
-    generated(breakAwayFromLetters)
-  })
+  ])(
+    'stays byte-identical on a %s corpus with Cf next to no letter or mark, and at no contact edge',
+    (_, chars) => {
+      withFairDice(202, () => {
+        bits = chars
+        generated(breakAwayFromLetters)
+      })
+    }
+  )
   it('stays byte-identical with Cf anywhere inside whole real-shaped names and contacts', () => {
-    fairDice(303)
-    const p: Profile = {
-      ...(sam as Profile),
-      name: 'Sam Rivera',
-      people: [
-        { name: 'Alex Morgan', role: 'Manager', aliases: ['@alexm'] },
-        { name: 'Al Ng', role: 'Peer' },
-        { name: "Sean O'Brien", role: 'Buddy' },
-        { name: 'Marco D’Angelo', role: 'Teammate' },
-        { name: 'Jean-Pierre Núñez', role: 'Director', aliases: ['jp_nunez'] },
-        { name: 'Ana María de la Cruz', role: 'Coach' },
-        { name: '田中 太郎', role: 'Mentor' }
+    withFairDice(303, () => {
+      const p: Profile = {
+        ...(sam as Profile),
+        name: 'Sam Rivera',
+        people: [
+          { name: 'Alex Morgan', role: 'Manager', aliases: ['@alexm'] },
+          { name: 'Al Ng', role: 'Peer' },
+          { name: "Sean O'Brien", role: 'Buddy' },
+          { name: 'Marco D’Angelo', role: 'Teammate' },
+          { name: 'Jean-Pierre Núñez', role: 'Director', aliases: ['jp_nunez'] },
+          { name: 'Ana María de la Cruz', role: 'Coach' },
+          { name: '田中 太郎', role: 'Mentor' }
+        ]
+      }
+      const whole = [
+        ...['Alex', 'Alex Morgan', 'Al', 'Ng', 'Sean', "Sean O'Brien", 'O’Brien', 'OBrien'],
+        ...['Marco', 'D’Angelo', 'Jean-Pierre', 'Jean Pierre', 'JeanPierre', 'Núñez', 'Nunez'],
+        ...['Ana María', 'María', 'ANA MARIA DE LA CRUZ', '田中', '太郎', '田中 太郎'],
+        ...['@alexm', 'alexm', 'jp_nunez', '@jp_nunez', 'Sam', 'Sam Rivera', 'SamRivera'],
+        ...['john.smith@acme.com', 'https://intranet.acme.internal/people/2291', 'acme.com'],
+        ...['dana+x@mail.acme.co', 'www.acme.internal/x', 'ftp://acme.io/a', 'hr.acme.org/p?q=1'],
+        ...['@john', '@zoe.k', '+52 55 1234 5678', '555-123-4567', '555 123 4567'],
+        ...['(555) 123-4567', '2026-11-01', '2026-11-01 10:30']
       ]
-    }
-    const whole = [
-      ...['Alex', 'Alex Morgan', 'Al', 'Ng', 'Sean', "Sean O'Brien", 'O’Brien', 'OBrien', 'Marco'],
-      ...['D’Angelo', 'Jean-Pierre', 'Jean Pierre', 'JeanPierre', 'Núñez', 'Nunez', 'Ana María'],
-      ...['María', 'ANA MARIA DE LA CRUZ', '田中', '太郎', '田中 太郎', '@alexm', 'alexm'],
-      ...['jp_nunez', '@jp_nunez', 'Sam', 'Sam Rivera', 'SamRivera'],
-      ...['john.smith@acme.com', 'https://intranet.acme.internal/people/2291', 'acme.com'],
-      ...['@john', '+52 55 1234 5678', '555-123-4567', '2026-11-01 10:30']
-    ]
-    for (let n = 0; n < 3000; n++) {
-      const text = Array.from({ length: 1 + rnd(5) }, () => {
-        const w = [...pick(whole)]
-        // Between two characters of the piece, never at its edge.
-        for (let k = rnd(3); k >= 0; k--)
-          w.splice(1 + rnd(Math.max(w.length - 1, 1)), 0, pick(FORMAT))
-        return w.join('')
-      }).join(pick([' ', ', ', '. ', ' and ', '\n']))
-      scrubForModel(text, p)
-    }
+      for (let n = 0; n < 3000; n++) {
+        const text = Array.from({ length: 1 + rnd(5) }, () => {
+          const w = [...pick(whole)]
+          // Between two characters of the piece, never at its edge.
+          for (let k = rnd(3); k >= 0; k--)
+            w.splice(1 + rnd(Math.max(w.length - 1, 1)), 0, pick(FORMAT))
+          return w.join('')
+        }).join(pick([' ', ', ', '. ', ' and ', '\n']))
+        scrubForModel(text, p)
+      }
+    })
   })
 })
 
@@ -1515,6 +1541,198 @@ describe('soft breaks: invisible characters and wrapper tags', () => {
     }
   })
 
+  // A break at a contact's edge is a boundary, as it is for a name, and the same break inside a contact is not.
+  describe('a break at the edge of a contact', () => {
+    const FORMS: [string, string][] = [
+      ...BREAKS,
+      ['U+FEFF', String.fromCharCode(0xfeff)],
+      ['U+202E', String.fromCharCode(0x202e)],
+      ['U+E0041', String.fromCodePoint(0xe0041)],
+      ['a run', String.fromCharCode(0x200b, 0x2060, 0xad)],
+      ['<said>', '<said>'],
+      ['<message>', '<message>'],
+      ['</known>', '</known>'],
+      ['fullwidth', '＜correction＞'],
+      ['attributes', '<answers a="1">'],
+      ['a control inside', '<\u0001facts>'],
+      ['nested', '<sa<said>id>']
+    ]
+    const aliased: Profile = {
+      ...profile,
+      people: [
+        ...profile.people,
+        {
+          name: 'Kit Vale',
+          role: 'Coach',
+          aliases: ['squint8675309', 'boss man', 'Ally2', 'AJ-7']
+        },
+        { name: 'Ana María', role: 'Guide', aliases: ['@alexr'] }
+      ]
+    }
+    describe.each(FORMS)('with %s', (_, z) => {
+      it.each([
+        ['call 555-123-4567Znow', 'call [phone]now'],
+        ['call 555 123 4567Znow', 'call [phone]now'],
+        ['call +52 55 1234 5678Znow', 'call [phone]now'],
+        ['saidZhttps://intranet.acme.internal/p', 'said[link]'],
+        ['saidZwww.acme.internal/x', 'said[link]'],
+        ['_Zacme.com', '_[link]'],
+        ['pingZ@john', 'ping[handle]'],
+        ['1+Z555-123-4567', '1+[phone]'],
+        ['see acme.comZok', 'see [link]ok'],
+        ['squint8675309Zok', '[Coach] ok'],
+        // An inner break and an edge break together: no single reading sees the whole contact.
+        ['call 555-12Z3-4567Znow', 'call [phone]now'],
+        ['acZme.comZsaid', '[link]said'],
+        ['acZme.cZomZsaid', '[link]said'],
+        ['saidZhtZtps://acme.internal/pZ', 'said[link]']
+      ])('leaves no part of the contact in %s', (input, want) => {
+        expect(scrubNew(withBreak(input, z), aliased).text).toBe(want)
+      })
+
+      it.each([
+        ['2026-1Z1-01', '2026-11-01'],
+        ['on 2026-11-01Z 10:30', 'on 2026-11-01 10:30'],
+        ['due 2026-11-01Znow', 'due 2026-11-01now']
+      ])('keeps the date in %s', (input, want) => {
+        expect(scrubNew(withBreak(input, z), aliased).text).toBe(want)
+      })
+
+      it.each([
+        ['ask @sriZvera', 'ask [Director]'],
+        ['ask @alZexr', 'ask [Guide]'],
+        ['pingZ@srivera', 'ping [Director]'],
+        // What a contact would eat from a name beside it: the name must not come out in part.
+        ['boss manZjohn@acme.com', '[email]'],
+        ['boss man.Zjohn@acme.com', '[email]'],
+        ['john@acme.comZboss man', '[email]'],
+        ['https://acme.internal/pZboss man', '[link]'],
+        ['Ally2Z555-123-4567', '[phone]'],
+        ['AJ-7Z555-123-4567', '[phone]'],
+        ['555-123-4567ZAJ-7', '[phone][Coach]'],
+        ['MaríaZacme.com', '[link]']
+      ])('gives no part of a name in %s', (input, want) => {
+        expect(scrubNew(withBreak(input, z), aliased).text).toBe(want)
+      })
+
+      it('keeps a contact out of a role, so it cannot reach a token', () => {
+        const p: Profile = {
+          ...profile,
+          people: [{ name: 'Alex Morgan', role: withBreak('555-123-4567Zsaid', z) }]
+        }
+        const { text, restore } = scrubNew('Alex', p)
+        expect(text).toBe('[said]')
+        expect(restore(text)).toBe('Alex Morgan')
+      })
+    })
+  })
+
+  // The reference has no tags to read, so for tag inputs the comparison is what the flows used to send: the reference followed
+  // by the old tag strip. What that hid, the new scrubber must hide too. The tag then sits as the only separator between two pieces.
+  describe('generated tag inputs against the reference and the old tag strip', () => {
+    const oldStrip = (text: string, tag: string): string => {
+      const re = new RegExp(`<\\s*\\/?\\s*${tag}\\b[^>]*>`, 'gi')
+      for (let prev = ''; prev !== text;) {
+        prev = text
+        text = text.replace(re, () => '')
+      }
+      return text
+    }
+    const p: Profile = {
+      ...(sam as Profile),
+      name: 'Sam Rivera',
+      aliases: ['@samr', 'samr99'],
+      people: [
+        { name: 'Alex Morgan', role: 'Manager', aliases: ['@alexr', 'Ally2', 'AJ-7'] },
+        { name: "Sean O'Brien", role: 'Buddy', aliases: ['boss man', 'dl.park', 'r2d2'] },
+        { name: 'Ana María', role: 'Guide', aliases: ['squint8675309', 'squint', '007', '7up'] },
+        {
+          name: 'Lee Vale',
+          role: 'Director',
+          aliases: ['srivera', 'srivera2', '2 cool', 'kit-99']
+        },
+        { name: '田中 太郎', role: 'Mentor' }
+      ]
+    }
+    const pieces = [
+      ...['Alex', 'Alex Morgan', 'Morgan', 'Sean', "O'Brien", "Sean O'Brien", 'María', 'Ana María'],
+      ...['Lee', 'Lee Vale', 'Sam', 'Rivera', 'Sam Rivera', '田中', '田中 太郎', '@alexr', 'alexr'],
+      ...['Ally2', 'AJ-7', 'boss man', 'dl.park', 'r2d2', 'squint8675309', 'squint', '007', '7up'],
+      ...['2 cool', 'srivera', '@srivera', 'srivera2', 'kit-99', '@samr', 'samr99'],
+      ...['john.smith@acme.com', 'jo+x@mail.acme.co', 'https://intranet.acme.internal/people/2291'],
+      ...['http://acme.io', 'ftp://acme.io/a', 'www.acme.internal/x', 'acme.com'],
+      ...['hr.acme.org/p?q=1', '@john', '@zoe.k', '555-123-4567', '555 123 4567'],
+      ...['+52 55 1234 5678', '(555) 123-4567', '5551234567', 'said', 'now', 'ok', 'x', '_', '1+'],
+      ...['-', '.', ',', ':', "'", '2026-11-01', '2026-11-01 10:30', '10:30', 'é']
+    ]
+    const SEPARATORS = ['', ' ', ' ', ', ', '. ', '-', '.', '_', '\n', '/', ':']
+    const TAGS = ['message', 'said', 'known', 'correction', 'answers', 'facts']
+    // Every piece of a name or contact that may not come out. Tokens are taken out first: "[Manager]" holds no name.
+    const SENSITIVE =
+      /john|smith|acme|intranet|people|2291|555|4567|5678|1234|zoe|8675309|alex|morgan|ally|aj-|sean|brien|boss|park|r2|squint|007|7up|cool|maría|maria|lee|vale|srivera|kit|99|sam|rivera|田|太/gi
+    const sensitiveIn = (t: string): string[] =>
+      t
+        .replace(/\[[^\]]*\]/g, ' ')
+        .match(SENSITIVE)
+        ?.map((x) => x.toLowerCase()) ?? []
+
+    it.each([11, 12, 13])('hides all the old flows hid, seed %i', (seed) => {
+      let s = seed
+      const rnd = (n: number): number => {
+        s = (s + 0x6d2b79f5) | 0
+        let x = Math.imul(s ^ (s >>> 15), 1 | s)
+        x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x
+        return ((x ^ (x >>> 14)) >>> 0) % n
+      }
+      const pick = <T>(xs: T[]): T => xs[rnd(xs.length)]
+      for (let n = 0; n < 5000; n++) {
+        const t = pick(TAGS)
+        const tag = (): string =>
+          pick([
+            `<${t}>`,
+            `</${t}>`,
+            `<${t} a="1">`,
+            `<${t.toUpperCase()}>`,
+            `＜${t}＞`,
+            `< ${t} >`
+          ])
+        const text = Array.from({ length: 1 + rnd(4) }, () => {
+          const cs = [...pick(pieces)]
+          if (!rnd(3)) cs.splice(rnd(cs.length + 1), 0, tag())
+          return cs.join('')
+        }).reduce((a, b) => a + (rnd(2) ? tag() : pick(SEPARATORS)) + b)
+        const old = oldStrip(reference.scrubForModel(text, p).text, t).toLowerCase()
+        const fresh = scrubNew(text, p).text
+        const leaked = sensitiveIn(fresh).filter((x) => !old.includes(x))
+        expect(leaked, `${text} -> old: ${old} -> new: ${fresh}`).toEqual([])
+      }
+    })
+  })
+
+  it('reads a digit-ending alias where it is whole, and leaves what PHONE eats as the reference does', () => {
+    const p: Profile = {
+      ...profile,
+      people: [{ name: 'Kit Vale', role: 'Coach', aliases: ['Ally2'] }]
+    }
+    expect(scrubForModel('ask Ally2 now', p).text).toBe('ask [Coach] now')
+    expect(scrubForModel('Ally2. 555-123-4567', p).text).toBe('Ally[phone]')
+    const z = String.fromCharCode(0x200b)
+    expect(scrubForModel(`ask Al${z}ly2 now`, p).text).toBe('ask [Coach] now')
+    expect(scrubNew(`Ally2${z}555-123-4567`, p).text).toBe('[phone]')
+    // A shorter key stops at the break, as a word boundary: this errs toward privacy.
+    const short: Profile = { ...p, people: [{ name: 'Al Ng', role: 'Peer' }] }
+    expect(scrubNew(`Al${z}ly`, short).text).toBe('[Peer] ly')
+    expect(scrubNew(`Alex${z}ander`, profile).text).toBe('[Manager] ander')
+  })
+
+  it('reads a tag name as `\\b` does, so an accent after it does not hide the tag', () => {
+    expect(scrub('Al<saidé>ex')).toBe('[Manager]')
+    expect(scrub('Al<factsé>ex')).toBe('[Manager]')
+    expect(scrub('Al<facts٣>ex')).toBe('[Manager]')
+    expect(scrub('Al<saidx>ex')).toBe(reference.scrubForModel('Al<saidx>ex', profile).text)
+    expect(scrub('Al<said_x>ex')).toBe(reference.scrubForModel('Al<said_x>ex', profile).text)
+  })
+
   it('softBreaks gives one break per run of invisible characters or tags, and is stable', () => {
     expect(softBreaks('a​⁠­b')).toBe(`a${SOFT_BREAK}b`)
     expect(softBreaks('a<said>​</said>b')).toBe(`a${SOFT_BREAK}b`)
@@ -1541,11 +1759,48 @@ describe('soft breaks: invisible characters and wrapper tags', () => {
       ['one opener, many closers', '<said' + '>'.repeat(MAX_CHARS)],
       ['controls inside openers', '<\u0001\u0001'.repeat(MAX_CHARS / 3) + '>'],
       ['controls before closers', '\u0001'.repeat(MAX_CHARS / 2) + '>'.repeat(MAX_CHARS / 2)],
-      ['spaces inside openers', '< '.repeat(MAX_CHARS / 2) + 'said>']
+      ['spaces inside openers', '< '.repeat(MAX_CHARS / 2) + 'said>'],
+      // Each of these makes a contact match cross or touch a break, which looks for what it may have cut.
+      ['emails with a break', 'a​b@c.de '.repeat(MAX_CHARS / 9)],
+      ['emails glued by breaks', 'a@b.de​'.repeat(MAX_CHARS / 7)],
+      ['handles after a break', 'x​@john '.repeat(MAX_CHARS / 8)],
+      ['domains with a break', 'ac​me.com '.repeat(MAX_CHARS / 10)],
+      ['domains glued by breaks', 'a.io​'.repeat(MAX_CHARS / 5)],
+      ['links with a break', 'www.a​b '.repeat(MAX_CHARS / 8)],
+      ['phones with a break', '555-1​23-4567 '.repeat(MAX_CHARS / 14)],
+      ['phones glued by breaks', '1234567​x'.repeat(MAX_CHARS / 9)],
+      ['digits and breaks', '1​'.repeat(MAX_CHARS / 2)],
+      ['a chain of overlapping readings', '1 a@b.de​1 '.repeat(MAX_CHARS / 11)],
+      ['one long label with breaks', 'a​'.repeat(MAX_CHARS / 2) + '.com'],
+      ['a long local part with breaks', 'a​'.repeat(MAX_CHARS / 2) + '@'],
+      ['a long domain with no dot', 'a@' + 'b​'.repeat(MAX_CHARS / 2)],
+      ['names beside contacts', 'Alex​a@b.de '.repeat(MAX_CHARS / 12)],
+      ['names read across breaks', 'Al​ex​Rivera '.repeat(MAX_CHARS / 12)]
     ]
     it.each(hostile)('stays under 1 s on %s', (_, text) => {
       const start = performance.now()
       scrub(text)
+      expect(performance.now() - start).toBeLessThan(1000)
+    })
+    it.each(hostile)('stays under 1 s on %s with 200 people', (_, text) => {
+      const crowd: Profile = {
+        ...profile,
+        people: Array.from({ length: 200 }, (_, i) => ({
+          name: `Name${i} Family${i}`,
+          role: `Role ${i}`,
+          aliases: [`a${i}`, `1 a${i}`]
+        }))
+      }
+      const swapper = scrubNew('', crowd) // building the profile is not what is timed here
+      expect(swapper.text).toBe('')
+      const start = performance.now()
+      scrubNew(text, crowd)
+      expect(performance.now() - start).toBeLessThan(1000)
+    })
+    it('stays under 1 s on breaks through one long name', () => {
+      const p: Profile = { ...profile, people: [{ name: 'a'.repeat(4000), role: 'Lead' }] }
+      const start = performance.now()
+      scrubNew('a​'.repeat(MAX_CHARS / 2), p)
       expect(performance.now() - start).toBeLessThan(1000)
     })
   })

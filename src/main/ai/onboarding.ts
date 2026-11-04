@@ -60,10 +60,11 @@ export function createProfileDrafter({ claude }: { claude: ClaudeJsonClient }): 
     let body = answered
       .map((k) => `Q: ${QUESTIONS[k]}\nA: ${scrubForModel(parsed.data[k]!, profile).text}`)
       .join('\n\n')
-    // Stripped until stable, so "</ans</answers>wers>" cannot rebuild the tag.
+    // Stripped until stable, so "</ans</answers>wers>" cannot rebuild the tag. The scrubber took every closed tag; what is left is
+    // unterminated and can span two answers, and a space keeps it from rejoining the text around it into a name.
     for (let prev = ''; prev !== body;) {
       prev = body
-      body = body.replace(/<\s*\/?\s*answers\b[^>]*>?/gi, () => '')
+      body = body.replace(/<\s*\/?\s*answers\b[^>]*>?/gi, () => ' ')
     }
 
     const raw = await claude.ask({

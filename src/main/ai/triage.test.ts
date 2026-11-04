@@ -121,6 +121,18 @@ describe('createTriager', () => {
     ])
   })
 
+  const Z = String.fromCharCode(0x200b)
+  it.each([
+    ['ask Al<message>ex today.', 'ask [Manager] today.'],
+    [`ask Alex${Z}said today.`, 'ask [Manager] said today.'],
+    ['call 555-123-4567<message>now.', 'call [phone]now.']
+  ])('sends %j to Jev as %j', async (text, want) => {
+    const f = fake()
+    await createTriager({ jev: f.jev, now })(text, profile)
+    expect(f.sent.join('\n')).toContain(want)
+    expect(f.sent.join('\n')).not.toMatch(/Alex|555-123|<message>/)
+  })
+
   it('sends no name, email, phone or URL to Jev, and every candidate comes from the scrubbed text', async () => {
     const f = fake()
     const message =
