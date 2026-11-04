@@ -5,6 +5,7 @@ import {
   Achievement,
   ChangeEvent,
   CheckIn,
+  Reminder,
   SECTIONS,
   type Lesson,
   type Profile
@@ -39,6 +40,7 @@ export function openStorage(): {
   achievements: ReturnType<typeof createLogStore<Achievement>>
   events: ReturnType<typeof createEventStore>
   lessons: ReturnType<typeof createLogStore<Lesson>>
+  reminders: ReturnType<typeof createLogStore<Reminder>>
 } {
   const data = (name: string): string => join(app.getPath('userData'), name)
   const demo = process.env.PIP_DEMO === '1'
@@ -52,7 +54,8 @@ export function openStorage(): {
     changes: createLogStore(data('changes.json'), ChangeEvent, seed(changesJson)),
     achievements: createLogStore(data('achievements.json'), Achievement, seed(achievementsJson)),
     events: createEventStore(data('events.json'), seed(eventsJson)),
-    lessons: createLogStore(data('lessons.json'), StoredLesson)
+    lessons: createLogStore(data('lessons.json'), StoredLesson),
+    reminders: createLogStore(data('reminders.json'), Reminder)
   }
 }
 

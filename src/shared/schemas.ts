@@ -511,6 +511,36 @@ export const NoteResolution = z.object({
 })
 export type NoteResolution = z.infer<typeof NoteResolution>
 
+// ---------- Reminders ("Not now" / "Remind me later") ----------
+
+export const REMINDER_DELAYS = ['5m', '15m', '30m', '1h', 'tomorrow'] as const
+export const ReminderDelay = z.enum(REMINDER_DELAYS)
+export type ReminderDelay = z.infer<typeof ReminderDelay>
+
+/** After a reminder fires and gets no answer, Pip shows it again this many times (5, 10, 15 min), then parks it. */
+export const REMINDER_NUDGES = 3
+
+export const REMINDER_SOURCE_MAX = 4000
+
+/** What the renderer asks main to remind about. `source` is the selected text a steps card was made from. */
+export const NewReminder = z.object({
+  kind: z.enum(['steps', 'checkin']),
+  title: z.string().max(300),
+  why: z.string().max(600).optional(),
+  source: z.string().max(REMINDER_SOURCE_MAX).optional()
+})
+export type NewReminder = z.infer<typeof NewReminder>
+
+export const Reminder = NewReminder.extend({
+  id: z.string().min(1),
+  dueAt: z.iso.datetime({ offset: true }),
+  /** How many times it was shown again without an answer. */
+  nudges: z.number().int().min(0).max(REMINDER_NUDGES),
+  /** Out of nudges: it waits on Home until the person shows or finishes it. */
+  parked: z.boolean()
+})
+export type Reminder = z.infer<typeof Reminder>
+
 export const Settings = z.object({
   checkIns: z
     .array(CheckInTime)
@@ -519,6 +549,8 @@ export const Settings = z.object({
     .refine((ts) => new Set(ts.map((t) => t.id)).size === ts.length, 'Check-in ids must differ'),
   language: z.enum(['en', 'es']),
   calmMotion: z.boolean(),
+  /** Start Pip when the person logs in, so reminders still arrive. On when missing (packaged app only). */
+  launchAtLogin: z.boolean().optional(),
   /** Missing until onboarding starts. In demo mode main reports it done. */
   onboarding: Onboarding.optional(),
   /** Last source picked; Microphone when missing. */

@@ -20,6 +20,7 @@ import { captureSelection } from './capture'
 import { isSafeExternalUrl } from './external-links'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers, warmUpTranscriber } from './mock'
+import { startReminders } from './reminders'
 import { openStorage } from './storage'
 
 // Explicit Control: `CommandOrControl` would become ⌘ on Mac (docs/DECISIONS.md, notes for A).
@@ -401,11 +402,31 @@ app.whenReady().then(() => {
   const storage = openStorage()
   // Until onboarding reaches its practice step, the hotkey and check-ins stay quiet (demo: always on).
   const ready = (): boolean => storage.demo || hotkeyReady(storage.settings.load().onboarding)
+  // Reminders from "Not now": shown on the overlay without taking focus, like a check-in.
+  const reminders = startReminders({
+    store: storage.reminders,
+    onDue: (reminder, missed) => {
+      const win = overlay
+      if (!win) return
+      win.showInactive()
+      win.webContents.send(IPC.reminderDue, reminder, missed)
+    }
+  })
+  // Launch at login keeps reminders alive after a reboot. Packaged app only: in dev it would register Electron itself.
+  const applyLogin = (): void => {
+    if (!app.isPackaged) return
+    const on = ready() && (storage.settings.load().launchAtLogin ?? true)
+    app.setLoginItemSettings({ openAtLogin: on })
+  }
   // A saved change to the check-in times re-arms the schedule (created below) without a restart.
   registerMockHandlers(
     storage,
-    () => checkIns.reschedule(),
-    (wc) => wc === overlay?.webContents
+    () => {
+      checkIns.reschedule()
+      applyLogin()
+    },
+    (wc) => wc === overlay?.webContents,
+    reminders
   )
 
   ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
@@ -472,6 +493,11 @@ app.whenReady().then(() => {
   })
   powerMonitor.on('resume', checkIns.resume)
   app.on('will-quit', checkIns.stop)
+  powerMonitor.on('resume', reminders.resume)
+  app.on('will-quit', reminders.stop)
+  applyLogin()
+  // Give the overlay's page time to load before showing what came due while Pip was closed.
+  setTimeout(reminders.resume, 4000)
   if (
     !globalShortcut.register(HOTKEY, () => {
       if (ready()) void capture()

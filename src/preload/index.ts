@@ -40,6 +40,17 @@ const api: PipApi = {
   generateSummary: (recipient, period) =>
     ipcRenderer.invoke(IPC.summaryGenerate, recipient, period),
   exportSummaryPdf: () => ipcRenderer.invoke(IPC.summaryExportPdf),
+  addReminder: (reminder, delay) => ipcRenderer.invoke(IPC.reminderAdd, reminder, delay),
+  rescheduleReminder: (id, delay) => ipcRenderer.invoke(IPC.reminderReschedule, id, delay),
+  finishReminder: (id) => ipcRenderer.invoke(IPC.reminderFinish, id),
+  showReminder: (id) => ipcRenderer.invoke(IPC.reminderShow, id),
+  listReminders: () => ipcRenderer.invoke(IPC.reminderList),
+  onReminderDue: (cb) => {
+    const listener = (_: IpcRendererEvent, reminder: unknown, missed: boolean): void =>
+      cb(reminder as Parameters<typeof cb>[0], missed)
+    ipcRenderer.on(IPC.reminderDue, listener)
+    return () => ipcRenderer.removeListener(IPC.reminderDue, listener)
+  },
   openHome: () => ipcRenderer.send(IPC.homeOpen),
   setOverlayInteractive: (interactive) => ipcRenderer.send(IPC.overlayInteractive, interactive),
   setOverlayBounds: (bounds) => ipcRenderer.send(IPC.overlayBounds, bounds),

@@ -11,10 +11,13 @@ import {
   LoggableEvent,
   type Lesson,
   Expansion,
+  NewReminder,
   OnboardingAnswers,
   type PendingEntry,
   Profile,
   Recipient,
+  type Reminder,
+  ReminderDelay,
   SummaryPeriod,
   UsageEvent,
   Settings,
@@ -36,6 +39,7 @@ export function createMockApi(): PipApi {
   // Parsing up front doubles as the fixture self-check: a bad fixture fails loudly on startup.
   let profile = Profile.parse(samJson)
   let settings = DEFAULT_SETTINGS
+  let reminders: Reminder[] = []
   const decoded = Decoded.parse(decodedJson)
   const triage = Triage.parse(triageJson)
   const expansions = Object.fromEntries(
@@ -213,6 +217,26 @@ export function createMockApi(): PipApi {
       ]
     }),
     exportSummaryPdf: async () => null,
+    // A plain browser keeps the list but never fires: timers need main (src/main/reminders.ts).
+    addReminder: async (r, delay) => {
+      const added: Reminder = {
+        ...NewReminder.parse(r),
+        id: crypto.randomUUID(),
+        dueAt: new Date().toISOString(),
+        nudges: 0,
+        parked: false
+      }
+      ReminderDelay.parse(delay)
+      reminders = [...reminders, added]
+      return added
+    },
+    rescheduleReminder: async () => {},
+    finishReminder: async (id) => {
+      reminders = reminders.filter((r) => r.id !== id)
+    },
+    showReminder: async () => {},
+    listReminders: async () => reminders,
+    onReminderDue: () => () => {},
     openHome: () => {},
     setOverlayInteractive: () => {},
     setOverlayBounds: () => {},

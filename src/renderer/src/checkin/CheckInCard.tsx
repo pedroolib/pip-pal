@@ -1,7 +1,8 @@
 // Energy check-in (faces, inspired by spoon theory): 1–5, tap once to answer. Gentle, skippable, never scolding.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LOW_SPOONS } from '@shared/schemas'
+import { LOW_SPOONS, type ReminderDelay } from '@shared/schemas'
+import { SnoozePicker } from '@renderer/reminder/SnoozePicker'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Pip } from '@renderer/pip/Pip'
@@ -13,10 +14,12 @@ export function CheckInCard({
   onSnooze
 }: {
   onAnswer: (spoons: number) => void
-  onSnooze: () => void
+  /** "Not now" with the time the person picked. */
+  onSnooze: (delay: ReminderDelay) => void
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [picked, setPicked] = useState<number | null>(null)
+  const [picking, setPicking] = useState(false)
 
   if (picked !== null) {
     const low = picked <= LOW_SPOONS
@@ -63,9 +66,13 @@ export function CheckInCard({
           </div>
         ))}
       </div>
-      <Button variant="ghost" className="self-start text-primary" onClick={onSnooze}>
-        {t('checkIn.notNow')}
-      </Button>
+      {picking ? (
+        <SnoozePicker onPick={onSnooze} onCancel={() => setPicking(false)} />
+      ) : (
+        <Button variant="ghost" className="self-start text-primary" onClick={() => setPicking(true)}>
+          {t('checkIn.notNow')}
+        </Button>
+      )}
     </Card>
   )
 }

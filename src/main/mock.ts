@@ -3,7 +3,16 @@ import { join } from 'path'
 import { app, ipcMain, systemPreferences } from 'electron'
 import { IPC } from '@shared/ipc'
 import { createMockApi } from '@shared/mock-api'
-import { LEARN_WINDOW_DAYS, NoteMerge, NoteResolution, type Profile } from '@shared/schemas'
+import { z } from 'zod'
+import {
+  LEARN_WINDOW_DAYS,
+  NewReminder,
+  NoteMerge,
+  NoteResolution,
+  ReminderDelay,
+  type Profile
+} from '@shared/schemas'
+import type { Reminders } from './reminders'
 import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
 import { createExpander } from './ai/expand'
@@ -27,7 +36,8 @@ export function registerMockHandlers(
   { demo, profiles, settings, checkIns, changes, achievements, events, lessons }: Storage,
   onSettingsSaved: () => void,
   /** Only the overlay records, so only it may transcribe. */
-  isOverlay: (sender: Electron.WebContents) => boolean
+  isOverlay: (sender: Electron.WebContents) => boolean,
+  reminders: Reminders
 ): void {
   const api = createMockApi()
   const decoder = process.env.ANTHROPIC_API_KEY
@@ -101,12 +111,24 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.checkInList, () => checkIns.list())
   ipcMain.handle(IPC.checkInSave, (_, c) => {
     checkIns.add(c)
+    reminders.finishKind('checkin') // answered, so a waiting "ask me later" is moot
     try {
       learn()
     } catch {
       console.log('Pattern detection failed after a check-in.') // the check-in is saved either way
     }
   })
+  // The renderer is untrusted input: every argument is checked before it reaches the store.
+  const id = (v: unknown): string => z.string().min(1).parse(v)
+  ipcMain.handle(IPC.reminderAdd, (_, r, delay) =>
+    reminders.add(NewReminder.parse(r), ReminderDelay.parse(delay))
+  )
+  ipcMain.handle(IPC.reminderReschedule, (_, i, delay) =>
+    reminders.reschedule(id(i), ReminderDelay.parse(delay))
+  )
+  ipcMain.handle(IPC.reminderFinish, (_, i) => reminders.finish(id(i)))
+  ipcMain.handle(IPC.reminderShow, (_, i) => reminders.show(id(i)))
+  ipcMain.handle(IPC.reminderList, () => reminders.list())
   ipcMain.handle(IPC.changeList, () => changes.list())
   ipcMain.handle(IPC.changeSave, (_, c) => changes.add(c))
   ipcMain.handle(IPC.achievementList, () => achievements.list())
