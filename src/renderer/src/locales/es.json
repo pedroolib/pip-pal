@@ -476,6 +476,17 @@
     "change": "Hiciste un plan para el cambio de {{type}}",
     "changeAny": "Hiciste un plan para un cambio"
   },
+  "dictate": {
+    "start": "Hablar",
+    "stop": "Listo",
+    "listening": "Escuchando… pulsa Listo cuando termines.",
+    "writing": "Escribiéndolo…",
+    "denied": "Pip todavía no puede usar el micrófono. Puedes permitirlo en los ajustes de privacidad de tu equipo, o escribir.",
+    "noMic": "No encuentro un micrófono. Puedes escribir.",
+    "empty": "No oí ninguna palabra. Puedes intentarlo otra vez.",
+    "noModel": "El modelo de voz todavía no está instalado. Puedes escribir.",
+    "error": "No pude escribirlo. Puedes intentarlo otra vez o escribir."
+  },
   "record": {
     "sourceTitle": "¿Qué debo escuchar?",
     "sourceSub": "Solo escucho después de que pulses Empezar.",

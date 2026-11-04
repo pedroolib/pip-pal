@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Info, Lock, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Recipient, type Origin, type PendingEntry } from '@shared/schemas'
@@ -17,6 +17,7 @@ import {
 import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Textarea } from '@renderer/components/ui/textarea'
+import { DictateButton } from '@renderer/record/DictateButton'
 import { AliasField } from './AliasField'
 import { aliasesToSave } from './model'
 
@@ -159,6 +160,7 @@ export function Editor(props: {
   const [error, setError] = useState<'text' | 'minutes' | 'pair' | null>(null)
   const [failed, setFailed] = useState(false)
   const [pending, setPending] = useState('')
+  const field = useRef<HTMLTextAreaElement>(null)
   const set = (p: Partial<Draft>): void => setD((x) => ({ ...x, ...p }))
   const minutes = Number(d.minutes)
 
@@ -255,6 +257,7 @@ export function Editor(props: {
           <div className="grid min-w-0 gap-2">
             <Label htmlFor={`${uid}-t`}>{t('manual.editor.entry')}</Label>
             <Textarea
+              ref={field}
               id={`${uid}-t`}
               autoFocus
               className="min-h-24 bg-background text-[17px] leading-[1.6]"
@@ -262,6 +265,7 @@ export function Editor(props: {
               onChange={(e) => set({ text: e.target.value })}
               {...err('text')}
             />
+            <DictateButton field={field} onText={(v) => set({ text: v })} />
           </div>
         )}
         {(props.kind === 'person' || props.kind === 'owner') && (
@@ -366,6 +370,7 @@ export function PendingCard(props: {
   const uid = useId()
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const field = useRef<HTMLTextAreaElement>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const run = async (id: string, go: () => Promise<boolean>): Promise<void> => {
     const ok = await go()
@@ -393,6 +398,7 @@ export function PendingCard(props: {
               <div className="mt-3 grid gap-2">
                 <Label htmlFor={`${uid}-${p.id}`}>{t('manual.editor.entry')}</Label>
                 <Textarea
+                  ref={field}
                   id={`${uid}-${p.id}`}
                   autoFocus
                   className="min-h-24 bg-background text-[17px] leading-[1.6]"
@@ -400,6 +406,7 @@ export function PendingCard(props: {
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                 />
+                <DictateButton field={field} onText={setDraft} />
               </div>
             ) : (
               <p className="mt-2 max-w-[62ch] text-[17px] leading-[1.6]">

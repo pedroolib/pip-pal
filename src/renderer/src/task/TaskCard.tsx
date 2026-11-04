@@ -1,5 +1,5 @@
 // The task card: one step at a time, like the reference in docs/design/task-card-reference.png.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, Clock, MessageSquarePlus, Minus } from 'lucide-react'
 import { CORRECTION_MAX } from '@shared/ipc'
@@ -7,6 +7,7 @@ import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
+import { DictateButton } from '@renderer/record/DictateButton'
 import { segments } from '@renderer/decode/model'
 import { PeekingPip } from '@renderer/pip/PeekingPip'
 import { Pip, type Mood } from '@renderer/pip/Pip'
@@ -28,6 +29,7 @@ export function Correct({
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
+  const field = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
     if (!open) return
     api.setOverlayFocus(true)
@@ -48,6 +50,7 @@ export function Correct({
   return (
     <div className="flex flex-col gap-2">
       <Textarea
+        ref={field}
         autoFocus
         value={text}
         maxLength={CORRECTION_MAX}
@@ -62,6 +65,7 @@ export function Correct({
         <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
           {t('card.correct.cancel')}
         </Button>
+        <DictateButton field={field} onText={setText} />
       </div>
     </div>
   )
