@@ -33,9 +33,10 @@ for ($i = 0; $i -lt 100 -and (& $held); $i++) { Start-Sleep -Milliseconds 10 }
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 export interface Capture {
+  /** Empty when nothing was selected. */
   text: string
-  /** false when the selection couldn't be read and this is the last copied text instead. */
-  fromSelection: boolean
+  /** The simulated copy threw, so an empty `text` says nothing about the selection. */
+  copyFailed: boolean
   /** Mac only: the app ⌘C went to. If it is Pip (Electron while developing), Pip was in front. */
   app?: string
 }
@@ -43,9 +44,20 @@ export interface Capture {
 export async function captureSelection(): Promise<Capture> {
   if (process.platform === 'darwin') return captureMac()
   if (process.platform === 'linux') {
-    return { text: await readPrimaryLinux(), fromSelection: true }
+    const { text, last } = unseenPrimary(await readPrimaryLinux(), lastPrimary)
+    lastPrimary = last
+    return { text, copyFailed: false }
   }
   return captureWindows()
+}
+
+// shortcut: Linux keeps the primary selection after deselecting, so unchanged text counts as nothing selected and
+// pressing twice on one selection opens the menu the second time; upgrade if compositors expose whether text is selected.
+let lastPrimary = ''
+
+/** What a press should read and what to remember for the next one: unchanged text is skipped once, then read again. */
+export function unseenPrimary(current: string, last: string): { text: string; last: string } {
+  return current === last ? { text: '', last: '' } : { text: current, last: current }
 }
 
 // On native Wayland Electron reads the primary selection as empty, so ask wl-paste; fall back to
@@ -68,7 +80,7 @@ function captureMac(): Promise<Capture> {
   return captureByCopy(
     async () =>
       (await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])).stdout.trim(),
-    'Could not simulate ⌘C; using the last copied text. Allow Accessibility for Terminal (dev) or Pip.'
+    'Could not simulate ⌘C, so the selection could not be read. Allow Accessibility for Terminal (dev) or Pip.'
   )
 }
 
@@ -81,7 +93,7 @@ function captureWindows(): Promise<Capture> {
       timeout: 5000
     })
     return undefined
-  }, 'Could not simulate Ctrl+C; using the last copied text.')
+  }, 'Could not simulate Ctrl+C, so the selection could not be read.')
 }
 
 // `copy` presses the copy keys in the app in front and may return that app's name.
@@ -90,18 +102,13 @@ async function captureByCopy(
   failure: string
 ): Promise<Capture> {
   const saved = await saveClipboard()
-  const lastCopied = await clipboard.readText()
   clipboard.clear()
   try {
     const app = await copy()
-    const text = await waitForText(500)
-    // Empty clipboard: nothing was selected, so fall back to what the person copied last.
-    return text
-      ? { text, fromSelection: true, app }
-      : { text: lastCopied, fromSelection: false, app }
+    return { text: await waitForText(500), copyFailed: false, app }
   } catch (err) {
     console.warn(`[capture] ${failure}`, err instanceof Error ? err.message : err)
-    return { text: lastCopied, fromSelection: false }
+    return { text: '', copyFailed: true }
   } finally {
     await restoreClipboard(saved)
   }

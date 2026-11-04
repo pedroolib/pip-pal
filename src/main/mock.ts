@@ -13,6 +13,7 @@ import { createSummarizer } from './ai/summary'
 import { createTriager } from './ai/triage'
 import { createAiHandlers } from './ai/index'
 import { detectPatterns, mergeLearned } from './insights'
+import { deleteReminder, saveReminder } from './reminders'
 import type { Storage } from './storage'
 import { createTranscriber, type Transcriber } from './transcribe'
 
@@ -24,10 +25,11 @@ export function warmUpTranscriber(): Promise<void> {
 }
 
 export function registerMockHandlers(
-  { demo, profiles, settings, checkIns, changes, achievements, events, lessons }: Storage,
+  { demo, profiles, settings, checkIns, changes, achievements, events, lessons, reminders }: Storage,
   onSettingsSaved: () => void,
   /** Only the overlay records, so only it may transcribe. */
-  isOverlay: (sender: Electron.WebContents) => boolean
+  isOverlay: (sender: Electron.WebContents) => boolean,
+  onRemindersChanged: () => void
 ): void {
   const api = createMockApi()
   const decoder = process.env.ANTHROPIC_API_KEY
@@ -128,6 +130,15 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.noteApplyMerge, (_, merge) =>
     applyMerge(lessons, NoteMerge.parse(merge), new Date().toISOString())
   )
+  ipcMain.handle(IPC.reminderList, () => reminders.list())
+  ipcMain.handle(IPC.reminderSave, (_, r) => {
+    saveReminder(reminders, r)
+    onRemindersChanged()
+  })
+  ipcMain.handle(IPC.reminderDelete, (_, id) => {
+    deleteReminder(reminders, id)
+    onRemindersChanged()
+  })
   ipcMain.handle(IPC.learnedRefresh, () => learn())
   ipcMain.handle(IPC.summaryGenerate, (_, r, p) => ai.generateSummary(r, p))
   ipcMain.handle(IPC.onboardingDraft, (_, a) => ai.draftProfile(a))
