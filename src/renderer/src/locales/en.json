@@ -16,10 +16,10 @@
     "close": "Close"
   },
   "checkIn": {
-    "title": "How many spoons do you have right now?",
-    "hint": "Spoons are your energy. There's no wrong answer.",
-    "spoons_one": "{{count}} spoon",
-    "spoons_other": "{{count}} spoons",
+    "title": "Which face matches your energy right now?",
+    "hint": "From a tired face (1) to a bright one (5). There's no wrong answer.",
+    "spoons_one": "Energy face {{count}} of 5",
+    "spoons_other": "Energy face {{count}} of 5",
     "notNow": "Not now",
     "low": "Thanks for telling me. I'll keep today's plans short.",
     "thanks": "Thanks. Good to know.",
@@ -301,7 +301,6 @@
     "home": {
       "today": "Today",
       "energy": "Your energy",
-      "spoonsOf": "{{count}} of 5 spoons",
       "slot": {
         "morning": "Morning check-in, {{time}}",
         "midday": "Midday check-in, {{time}}",
@@ -363,18 +362,18 @@
       }
     },
     "connections": {
-      "intro": "Later, Pip could use these to suggest your spoons. Nothing is connected now, and nothing is stored.",
+      "intro": "Later, Pip could use these to suggest your energy face. Nothing is connected now, and nothing is stored.",
       "local": "Stays on your computer. Never sent anywhere.",
       "soon": "Coming soon",
       "now": "Planned first",
       "later": "Later",
       "appleWatch": {
         "name": "Apple Watch",
-        "body": "Sleep and heart-rate variability, to suggest how many spoons you may have today."
+        "body": "Sleep and heart-rate variability, to suggest how much energy you may have today."
       },
       "whoop": {
         "name": "Whoop",
-        "body": "Sleep and recovery, to suggest how many spoons you may have today."
+        "body": "Sleep and recovery, to suggest how much energy you may have today."
       },
       "email": {
         "name": "Email",
@@ -422,7 +421,7 @@
       },
       "checkIns": {
         "title": "Check-in times",
-        "body": "Pip asks how many spoons you have at these times. Change, add or turn off any you like.",
+        "body": "Pip asks which face matches your energy at these times. Change, add or turn off any you like.",
         "morning": "Morning",
         "midday": "Midday",
         "afternoon": "Afternoon",
@@ -493,7 +492,7 @@
         "Tell me who you work with",
         "Answer 6 short questions about how you work best",
         "Check your suggested profile",
-        "Learn about spoons and do your first check-in",
+        "Learn about energy faces and do your first check-in",
         "Try me on a practice message"
       ],
       "time": "It takes about 5 minutes. You can skip any step, or stop and come back later.",
@@ -603,8 +602,8 @@
       "keptByChoice": "I saved your answers as you wrote them. You can change them in My profile."
     },
     "spoons": {
-      "title": "Spoons",
-      "body": "Spoons are a way to count your energy: 1 is almost empty, 5 is full. When you have few spoons, I show fewer steps and say what can wait.",
+      "title": "Energy faces",
+      "body": "Pip's check-ins are inspired by spoon theory, where many autistic people count their energy in spoons. Instead of counting spoons, you pick a face: 1 is a very tired face, 5 is a bright one. Tap the one that fits, no explaining needed. When your face is a tired one, I show fewer steps and say what can wait.",
       "times": "I'll ask at {{times}}. You can change the times in Settings.",
       "noTimes": "Check-ins are off. You can turn them on in Settings.",
       "first": "Let's do your first one now.",

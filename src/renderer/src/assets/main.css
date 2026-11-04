@@ -125,6 +125,16 @@ html.house-page ::-webkit-scrollbar {
   display: none;
 }
 
+/* Cards in the overlay hide their scroll bars too; wheel, trackpad and keys still scroll. */
+[data-slot='card'],
+[data-slot='card'] * {
+  scrollbar-width: none;
+}
+[data-slot='card']::-webkit-scrollbar,
+[data-slot='card'] ::-webkit-scrollbar {
+  display: none;
+}
+
 /* The overlay scales as one piece with its window: every size is in rem, so the root font size grows
    and shrinks text, spacing, buttons and Pip together. With a card open, useFitFont
    (src/renderer/src/overlay/useFitFont.ts) sets it to fit the card exactly; this rough window-based

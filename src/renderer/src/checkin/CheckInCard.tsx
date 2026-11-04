@@ -1,20 +1,12 @@
-// Spoons check-in: 1–5, tap once to answer. Gentle, skippable, never scolding.
+// Energy check-in (faces, inspired by spoon theory): 1–5, tap once to answer. Gentle, skippable, never scolding.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LOW_SPOONS } from '@shared/schemas'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Pip } from '@renderer/pip/Pip'
+import { Face } from './Face'
 import { slotFor } from './model'
-
-function Spoon(): React.JSX.Element {
-  return (
-    <svg viewBox="0 0 16 32" className="-ml-1 h-6 w-3 first:ml-0" aria-hidden>
-      <ellipse cx={8} cy={8} rx={6} ry={7} fill="var(--primary)" />
-      <rect x={6.75} y={14} width={2.5} height={16} rx={1.25} fill="var(--primary)" />
-    </svg>
-  )
-}
 
 export function CheckInCard({
   onAnswer,
@@ -29,10 +21,10 @@ export function CheckInCard({
   if (picked !== null) {
     const low = picked <= LOW_SPOONS
     return (
-      <Card className="min-h-0 w-full overflow-y-auto gap-3 p-5 shadow-lg">
-        <div className="flex items-center gap-3">
-          <Pip mood={low ? 'gentle' : 'happy'} size={44} />
-          <p className="font-bold" role="status">
+      <Card className="@container min-h-0 w-full justify-center overflow-y-auto gap-4 p-5 shadow-lg">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <Pip mood={low ? 'gentle' : 'happy'} className="h-auto w-1/3 min-w-16" />
+          <p className="text-[clamp(1.125rem,5cqw,1.75rem)] leading-snug font-bold" role="status">
             {low ? t('checkIn.low') : t('checkIn.thanks')}
           </p>
         </div>
@@ -56,20 +48,19 @@ export function CheckInCard({
       </div>
       <div role="group" aria-label={t('checkIn.title')} className="grid grid-cols-5 gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
-          <Button
-            key={n}
-            variant="outline"
-            aria-label={t('checkIn.spoons', { count: n })}
-            onClick={() => setPicked(n)}
-            className="h-auto flex-col gap-1 px-1 py-2"
-          >
-            <span className="flex h-6 items-end">
-              {Array.from({ length: n }, (_, i) => (
-                <Spoon key={i} />
-              ))}
+          <div key={n} className="flex flex-col items-center gap-1">
+            <button
+              type="button"
+              aria-label={t('checkIn.spoons', { count: n })}
+              onClick={() => setPicked(n)}
+              className="w-full rounded-2xl p-1 transition-transform hover:scale-105 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              <Face level={n} className="h-auto w-full" />
+            </button>
+            <span aria-hidden className="text-sm font-bold">
+              {n}
             </span>
-            <span className="text-sm font-bold">{n}</span>
-          </Button>
+          </div>
         ))}
       </div>
       <Button variant="ghost" className="self-start text-primary" onClick={onSnooze}>

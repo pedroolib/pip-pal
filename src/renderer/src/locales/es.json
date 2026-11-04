@@ -17,10 +17,10 @@
     "close": "Cerrar"
   },
   "checkIn": {
-    "title": "¿Cuántas cucharas tienes ahora?",
-    "hint": "Las cucharas son tu energía. No hay respuesta incorrecta.",
-    "spoons_one": "{{count}} cuchara",
-    "spoons_other": "{{count}} cucharas",
+    "title": "¿Qué carita se parece a tu energía ahora?",
+    "hint": "De una carita cansada (1) a una radiante (5). No hay respuesta incorrecta.",
+    "spoons_one": "Carita de energía {{count}} de 5",
+    "spoons_other": "Carita de energía {{count}} de 5",
     "notNow": "Ahora no",
     "low": "Gracias por decírmelo. Hoy haré planes cortos.",
     "thanks": "Gracias. Es bueno saberlo.",
@@ -294,7 +294,6 @@
     "home": {
       "today": "Hoy",
       "energy": "Tu energía",
-      "spoonsOf": "{{count}} de 5 cucharas",
       "slot": {
         "morning": "Check-in de la mañana, {{time}}",
         "midday": "Check-in del mediodía, {{time}}",
@@ -344,18 +343,18 @@
       }
     },
     "connections": {
-      "intro": "Más adelante, Pip podría usar esto para sugerir tus cucharas. Ahora no hay nada conectado y no se guarda nada.",
+      "intro": "Más adelante, Pip podría usar esto para sugerir tu carita de energía. Ahora no hay nada conectado y no se guarda nada.",
       "local": "Se queda en tu computadora. Nunca se envía.",
       "soon": "Próximamente",
       "now": "Primero en la lista",
       "later": "Más adelante",
       "appleWatch": {
         "name": "Apple Watch",
-        "body": "Sueño y variabilidad del ritmo cardiaco, para sugerir cuántas cucharas podrías tener hoy."
+        "body": "Sueño y variabilidad del ritmo cardiaco, para sugerir cuánta energía podrías tener hoy."
       },
       "whoop": {
         "name": "Whoop",
-        "body": "Sueño y recuperación, para sugerir cuántas cucharas podrías tener hoy."
+        "body": "Sueño y recuperación, para sugerir cuánta energía podrías tener hoy."
       },
       "email": {
         "name": "Correo",
@@ -374,7 +373,7 @@
       "retry": "Intentar de nuevo",
       "checkIns": {
         "title": "Horas de check-in",
-        "body": "Pip te pregunta cuántas cucharas tienes a estas horas. Cambia, agrega o apaga las que quieras.",
+        "body": "Pip te pregunta qué carita se parece a tu energía a estas horas. Cambia, agrega o apaga las que quieras.",
         "morning": "Mañana",
         "midday": "Mediodía",
         "afternoon": "Tarde",
