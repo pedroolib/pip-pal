@@ -3,10 +3,11 @@ import { join } from 'path'
 import { app, ipcMain, systemPreferences } from 'electron'
 import { IPC } from '@shared/ipc'
 import { createMockApi } from '@shared/mock-api'
-import { LEARN_WINDOW_DAYS, type Profile } from '@shared/schemas'
+import { LEARN_WINDOW_DAYS, NoteMerge, NoteResolution, type Profile } from '@shared/schemas'
 import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
 import { createExpander } from './ai/expand'
+import { applyMerge, applyNote, createMerger, createRememberer } from './ai/lessons'
 import { createProfileDrafter } from './ai/onboarding'
 import { createSummarizer } from './ai/summary'
 import { createTriager } from './ai/triage'
@@ -23,7 +24,7 @@ export function warmUpTranscriber(): Promise<void> {
 }
 
 export function registerMockHandlers(
-  { demo, profiles, settings, checkIns, changes, achievements, events }: Storage,
+  { demo, profiles, settings, checkIns, changes, achievements, events, lessons }: Storage,
   onSettingsSaved: () => void,
   /** Only the overlay records, so only it may transcribe. */
   isOverlay: (sender: Electron.WebContents) => boolean
@@ -57,7 +58,20 @@ export function registerMockHandlers(
     load: () => profiles.load(),
     save: (p) => profiles.save(p),
     makeTriager: () => createTriager({ jev: createTriageJevClient() }),
-    makeExpander: () => createExpander({ claude: createClaudeClient() }),
+    makeExpander: () => createExpander({ claude: createClaudeClient(), lessons }),
+    makeRememberer: () =>
+      createRememberer({
+        claude: createClaudeClient(),
+        lessons,
+        load: () => profiles.load(),
+        save: (p) => profiles.save(p)
+      }),
+    makeMerger: () =>
+      createMerger({
+        claude: createClaudeClient(),
+        lessons,
+        load: () => profiles.load()
+      }),
     makeSummarizer: () => createSummarizer({ claude: createClaudeClient() }),
     makeDrafter: () => createProfileDrafter({ claude: createClaudeClient() }),
     summaryData: () => ({
@@ -68,8 +82,8 @@ export function registerMockHandlers(
     logEvent: (e) => events.add(e)
   })
   ipcMain.handle(IPC.triage, (_, text) => ai.triage(text))
-  ipcMain.handle(IPC.expand, (_, text, kind, spoons, unclear) =>
-    ai.expand(text, kind, spoons, unclear)
+  ipcMain.handle(IPC.expand, (_, text, kind, spoons, unclear, correction) =>
+    ai.expand(text, kind, spoons, unclear, correction)
   )
   ipcMain.handle(IPC.profileGet, () => profiles.load())
   ipcMain.handle(IPC.profileSave, (_, p) => profiles.save(p))
@@ -101,6 +115,19 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.eventList, () => events.list())
   ipcMain.handle(IPC.eventDelete, (_, id) => events.remove(id))
   ipcMain.handle(IPC.eventClear, () => events.clear())
+  ipcMain.handle(IPC.lessonList, () => lessons.list())
+  ipcMain.handle(IPC.lessonDelete, (_, id) => {
+    if (typeof id !== 'string') throw new Error('A lesson is identified by its id.')
+    lessons.replace(lessons.list().filter((l) => l.id !== id))
+  })
+  ipcMain.handle(IPC.noteRemember, (_, text, correction) => ai.rememberCorrection(text, correction))
+  ipcMain.handle(IPC.noteResolve, (_, resolution) =>
+    applyNote(lessons, NoteResolution.parse(resolution), new Date().toISOString())
+  )
+  ipcMain.handle(IPC.noteProposeMerges, () => ai.proposeMerges())
+  ipcMain.handle(IPC.noteApplyMerge, (_, merge) =>
+    applyMerge(lessons, NoteMerge.parse(merge), new Date().toISOString())
+  )
   ipcMain.handle(IPC.learnedRefresh, () => learn())
   ipcMain.handle(IPC.summaryGenerate, (_, r, p) => ai.generateSummary(r, p))
   ipcMain.handle(IPC.onboardingDraft, (_, a) => ai.draftProfile(a))

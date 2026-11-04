@@ -1,4 +1,20 @@
 {
+  "note": {
+    "add": "Pip va a recordar:",
+    "update": "Pip va a actualizar una nota:",
+    "profile": "Pip agregó una sugerencia a Mi perfil:",
+    "none": "Se usó solo para esta tarea:",
+    "was": "Antes:",
+    "keep": "Conservar",
+    "edit": "Editar",
+    "skip": "Omitir",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "rememberIt": "Recordarlo",
+    "gotIt": "Entendido",
+    "editLabel": "¿Qué debe recordar Pip?",
+    "failed": "No se guardó. Intenta de nuevo."
+  },
   "card": {
     "now": "Ahora",
     "stepOf": "Paso {{current}} de {{total}}",
@@ -14,7 +30,15 @@
     "allDoneBody": "Terminaste todos los pasos. Buen trabajo, con calma.",
     "restWaiting_one": "{{count}} paso más puede esperar a otro momento.",
     "restWaiting_other": "{{count}} pasos más pueden esperar a otro momento.",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "correct": {
+      "open": "Esto no es correcto",
+      "label": "¿Qué le falta o qué entiende mal Pip?",
+      "placeholder": "Por ejemplo: \"El paquete de soporte 35 es nuestro paquete mensual de actualización. Se instala desde el portal de administración.\"",
+      "send": "Rehacer los pasos",
+      "sendAsk": "Hacer los pasos",
+      "cancel": "Cancelar"
+    }
   },
   "checkIn": {
     "title": "¿Qué carita se parece a tu energía ahora?",
@@ -148,6 +172,28 @@
     }
   },
   "manual": {
+    "lessons": {
+      "title": "Lo que le enseñaste a Pip",
+      "body": "Cuando le dices a Pip que se equivocó, guarda una nota en esta computadora. Tus notas más nuevas van con cada solicitud, sin nombres, para que Pip las use. Borra lo que esté mal o desactualizado.",
+      "empty": "Todavía no le has enseñado nada.",
+      "loadFailed": "La lista no cargó.",
+      "deleteFailed": "No se borró. Intenta de nuevo.",
+      "deleteOne": "Borrar: {{what}}",
+      "meter": "La memoria de Pip está {{percent}}% llena.",
+      "unused": "Pip no está usando esta nota.",
+      "full_one": "{{count}} nota antigua no se está usando porque la memoria de Pip está llena. Borra o une notas para hacer espacio.",
+      "full_other": "{{count}} notas antiguas no se están usando porque la memoria de Pip está llena. Borra o une notas para hacer espacio.",
+      "merge": "Pedirle a Pip que una notas",
+      "merging": "Pip está leyendo tus notas…",
+      "mergeNote": "Esto envía tus notas a Claude, sin nombres. Nada cambia hasta que presiones Conservar.",
+      "mergeNone": "Pip no encontró notas para unir.",
+      "mergeFailed": "Pip no pudo hacerlo. Intenta de nuevo en un momento.",
+      "mergeTitle": "Pip puede unir estas en una sola nota:",
+      "becomes": "Nota nueva:",
+      "keep": "Conservar",
+      "skip": "Omitir",
+      "saveFailed": "No se guardó. Intenta de nuevo."
+    },
     "title": "Mi manual",
     "subtitle": "{{name}}, {{role}}",
     "intro": "Pip lee esto para explicarte los mensajes de la forma que te funciona. Cada entrada dice quién puede verla. Una entrada sin nadie marcado queda privada.",
@@ -404,13 +450,15 @@
       },
       "privacy": {
         "title": "Privacidad",
-        "selected": "Solo el texto que seleccionas sale de tu computadora, y solo después de cambiar los nombres por roles como [Manager].",
+        "selected": "Solo salen de tu computadora el texto que seleccionas, lo que escribes para corregir o enseñar a Pip y lo que ya le enseñaste, y solo después de cambiar los nombres por roles como [Manager].",
         "manual": "Los resúmenes nunca se envían solos. Tú los copias o los exportas."
       }
     }
   },
   "expand": {
+    "usedLessons": "Usé lo que me enseñaste",
     "working": "Pip está en eso. Tarda unos segundos.",
+    "needsContext": "Pip necesita un poco más de contexto antes de hacer los pasos:",
     "error": "Pip no pudo con este. Inténtalo de nuevo en un momento.",
     "close": "Cerrar",
     "stepsTitle": "Tus pasos",

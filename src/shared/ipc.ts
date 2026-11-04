@@ -8,6 +8,10 @@ import type {
   OnboardingAnswers,
   ActionKind,
   Expansion,
+  Lesson,
+  NoteMerge,
+  NoteProposal,
+  NoteResolution,
   Triage,
   Profile,
   Recipient,
@@ -39,6 +43,8 @@ export interface CornerPip {
 /** Smallest overlay window: a card stays readable (includes the transparent p-8 around it). */
 export const OVERLAY_MIN = { width: 320, height: 240 }
 
+export const CORRECTION_MAX = 1000
+
 export const IPC = {
   /** main → overlay: text the person selected and sent with the hotkey. */
   captured: 'pip:captured',
@@ -61,6 +67,12 @@ export const IPC = {
   eventList: 'event:list',
   eventDelete: 'event:delete',
   eventClear: 'event:clear',
+  lessonList: 'lesson:list',
+  lessonDelete: 'lesson:delete',
+  noteRemember: 'note:remember',
+  noteResolve: 'note:resolve',
+  noteProposeMerges: 'note:propose-merges',
+  noteApplyMerge: 'note:apply-merge',
   learnedRefresh: 'learned:refresh',
   onboardingDraft: 'onboarding:draft',
   accessibility: 'system:accessibility',
@@ -105,7 +117,9 @@ export interface PipApi {
     text: string,
     kind: ActionKind,
     spoons: number | null,
-    unclear?: UnclearPart[]
+    unclear?: UnclearPart[],
+    /** What the person typed after a wrong answer (scrubbed like the text, at most CORRECTION_MAX characters). */
+    correction?: string
   ): Promise<Expansion>
   getProfile(): Promise<Profile>
   saveProfile(profile: Profile): Promise<void>
@@ -123,6 +137,18 @@ export interface PipApi {
   listEvents(): Promise<UsageEvent[]>
   deleteEvent(id: string): Promise<void>
   clearEvents(): Promise<void>
+  /** What the person taught Pip by correcting its answers (Settings shows it). */
+  listLessons(): Promise<Lesson[]>
+  deleteLesson(id: string): Promise<void>
+  /**
+   * After steps built on a correction: saves the person's words as a note, then one Claude call proposes what to
+   * do with them. Null when there is nothing to show. Rejects with bad input.
+   */
+  rememberCorrection(text: string, correction: string): Promise<NoteProposal | null>
+  resolveNote(resolution: NoteResolution): Promise<void>
+  /** One Claude call, only when the person asks: which notes could become one. Changes nothing. */
+  proposeMerges(): Promise<NoteMerge[]>
+  applyMerge(merge: NoteMerge): Promise<void>
   /** Runs pattern detection; returns the profile with any new pending entries. */
   refreshLearned(): Promise<Profile>
   /**

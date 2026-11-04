@@ -9,11 +9,19 @@ import {
   Check,
   ChevronRight,
   HelpCircle,
+  Lightbulb,
   Minus,
   RotateCcw,
   X
 } from 'lucide-react'
-import type { ActionKind, CalmingStrategy, Expansion, QuestionTopic, Triage } from '@shared/schemas'
+import type {
+  ActionKind,
+  CalmingStrategy,
+  Expansion,
+  NoteProposal,
+  QuestionTopic,
+  Triage
+} from '@shared/schemas'
 import { api } from '@renderer/api'
 import { CalmingCard } from '@renderer/calm/CalmingCard'
 import { Button } from '@renderer/components/ui/button'
@@ -24,13 +32,13 @@ import {
   CollapsibleTrigger
 } from '@renderer/components/ui/collapsible'
 import { CopyQuestion, StepNumber } from '@renderer/decode/DecodeCard'
+import { RememberNote } from '@renderer/expand/RememberNote'
 import { planSteps } from '@renderer/decode/model'
 import { PeekingPip } from '@renderer/pip/PeekingPip'
 import { Pip, type Mood } from '@renderer/pip/Pip'
-import { TaskCard } from '@renderer/task/TaskCard'
+import { Correct, TaskCard } from '@renderer/task/TaskCard'
 import { formatDue } from '@renderer/triage/model'
 
-type ProfileUsed = Expansion['profileUsed']
 type CopiedHandler = (what: string, question: string, topic: QuestionTopic) => void
 
 // The bubble says "Due Fri, Nov 6"; the card puts it after the step count, in lower case.
@@ -113,9 +121,16 @@ function Placeholder(): React.JSX.Element {
 }
 
 // Closed at first and with no animation: this much text at once overstimulates (DECISIONS §4).
-function UsedManual({ used }: { used: ProfileUsed }): React.JSX.Element | null {
-  const { t } = useTranslation()
-  if (used.length === 0) return null
+function Used({
+  label,
+  Icon,
+  items
+}: {
+  label: string
+  Icon: typeof BookOpen
+  items: string[]
+}): React.JSX.Element | null {
+  if (items.length === 0) return null
   return (
     <Collapsible className="flex flex-col gap-1 border-t pt-2 text-sm">
       <h2>
@@ -124,18 +139,33 @@ function UsedManual({ used }: { used: ProfileUsed }): React.JSX.Element | null {
             className="size-4 shrink-0 text-primary group-data-[state=open]:rotate-90"
             aria-hidden
           />
-          <BookOpen className="size-4 shrink-0 text-primary" aria-hidden />
-          {t('expand.usedManual')}
+          <Icon className="size-4 shrink-0 text-primary" aria-hidden />
+          {label}
         </CollapsibleTrigger>
       </h2>
       <CollapsibleContent>
         <ul className="flex flex-col gap-1 text-body">
-          {used.map((p, i) => (
-            <li key={i}>{p.how}</li>
+          {items.map((item, i) => (
+            <li key={i}>{item}</li>
           ))}
         </ul>
       </CollapsibleContent>
     </Collapsible>
+  )
+}
+
+/** What shaped this answer: the person's manual and what they taught Pip. */
+function UsedBy({ expansion }: { expansion: Expansion }): React.JSX.Element {
+  const { t } = useTranslation()
+  return (
+    <>
+      <Used
+        label={t('expand.usedManual')}
+        Icon={BookOpen}
+        items={expansion.profileUsed.map((p) => p.how)}
+      />
+      <Used label={t('expand.usedLessons')} Icon={Lightbulb} items={expansion.lessonsUsed} />
+    </>
   )
 }
 
@@ -177,7 +207,7 @@ function Plan({
   planned,
   onCopied,
   onPlanned
-}: Omit<Extract<Expansion, { kind: 'transition' }>, 'kind' | 'profileUsed'> & {
+}: Omit<Extract<Expansion, { kind: 'transition' }>, 'kind' | 'profileUsed' | 'lessonsUsed'> & {
   planned: boolean
   onCopied: CopiedHandler
   onPlanned: () => void
@@ -234,6 +264,9 @@ export function ExpandView({
   onCalm,
   onStepDone,
   onLater,
+  onCorrect,
+  note,
+  onNoteDone,
   onAsk,
   onCopied,
   onPlanned,
@@ -263,6 +296,12 @@ export function ExpandView({
   onStepDone: () => void
   /** "Not now" on the steps card: tuck it away, Pip brings it back once later. */
   onLater: () => void
+  /** "That's not right" on the steps card: ask again with what the person added. */
+  onCorrect: (text: string) => void
+  /** What Pip proposes to remember from a correction, or null. */
+  note: NoteProposal | null
+  /** The person answered the proposal, so it goes away. */
+  onNoteDone: () => void
   /** "I'm stuck" with no calming strategy in the manual: ask what's unclear instead. */
   onAsk: () => void
   /** A drafted question was copied: the person is asking instead of guessing. */
@@ -312,6 +351,23 @@ export function ExpandView({
     return <CalmingCard strategy={calm} then={then} onDone={() => onCalm(null)} />
   }
 
+  // The steps hinge on something Pip can't know: it asks instead of guessing.
+  if (expansion.kind === 'steps' && expansion.needsContext) {
+    return (
+      <Shell
+        mood="thinking"
+        title={title}
+        onBack={onBack}
+        onMinimize={onMinimize}
+        onClose={onClose}
+      >
+        <p className="text-sm text-body">{t('expand.needsContext')}</p>
+        <p className="font-bold">{expansion.needsContext}</p>
+        <Correct ask onSend={onCorrect} />
+      </Shell>
+    )
+  }
+
   if (expansion.kind === 'steps') {
     const { now, later } = planSteps(expansion.steps, spoons)
     const when = deadline && formatDue(deadline, new Date(), i18n.language)
@@ -332,11 +388,13 @@ export function ExpandView({
         onDone={onStepDone}
         onStuck={stuck}
         onLater={onLater}
+        onCorrect={onCorrect}
         onBack={onBack}
         // When every step is done the card's only button is Close.
         onMinimize={step >= now.length ? onClose : onMinimize}
       >
-        <UsedManual used={expansion.profileUsed} />
+        {note && <RememberNote key={note.text} note={note} onDone={onNoteDone} />}
+        <UsedBy expansion={expansion} />
       </TaskCard>
     )
   }
@@ -360,7 +418,7 @@ export function ExpandView({
           onPlanned={onPlanned}
         />
       )}
-      <UsedManual used={expansion.profileUsed} />
+      <UsedBy expansion={expansion} />
     </Shell>
   )
 }

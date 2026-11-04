@@ -17,8 +17,12 @@ A profile entry Pip proposes and the person accepts, edits or rejects; it is nev
 _Avoid_: Pending entry (in UI text), insight
 
 **Origin**:
-Who wrote an entry's current text: `self` (the person), `onboarding` (Pip, from onboarding answers) or `learned` (Pip, from usage patterns). Editing an entry makes it `self`.
+Who wrote an entry's current text: `self` (the person), `onboarding` (Pip, from onboarding answers) or `learned` (Pip, from usage patterns or by rewriting a correction). Editing an entry makes it `self`.
 _Avoid_: Coach entry, source
+
+**Lesson**:
+A note about the person's work that Pip saves when they correct it or answer its request for context. Shown to the person as "What you taught Pip". The profile is about the person; lessons are about their work.
+_Avoid_: Memory entry, fact
 
 **Kept answer**:
 An onboarding answer saved in the profile word for word, because the person chose not to send it or Pip could not reach the model. Pip can still be asked to rewrite it.

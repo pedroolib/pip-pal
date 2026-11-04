@@ -14,6 +14,8 @@ export function createLogStore<T>(
 ): {
   list(): T[]
   add(item: T): void
+  /** Overwrites the whole list (to delete an item). */
+  replace(items: T[]): void
 } {
   const list = (): T[] => {
     let raw: string
@@ -39,6 +41,9 @@ export function createLogStore<T>(
     add(item: T): void {
       const valid = schema.parse(item) // before reading, so a bad item never touches the file
       writeJsonAtomic(file, [...list(), valid])
+    },
+    replace(items: T[]): void {
+      writeJsonAtomic(file, schema.array().parse(items))
     }
   }
 }

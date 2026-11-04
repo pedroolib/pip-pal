@@ -1,16 +1,20 @@
 // Glue for the triage, expand, summary and onboarding IPC handlers: validates what the untrusted renderer sends, then picks the
 // real pipeline (its key is set) or the fixture. Free of electron so it can be tested; mock.ts passes the real parts in.
 import { ActionKind, Recipient, SummaryPeriod, UnclearPart, type Profile } from '@shared/schemas'
-import type { PipApi } from '@shared/ipc'
+import { CORRECTION_MAX, type PipApi } from '@shared/ipc'
 import type { NewEvent } from '../event-store'
 import { MAX_CHARS } from './decoder'
 import type { Expand } from './expand'
+import type { ProposeMerges, RememberCorrection } from './lessons'
 import type { DraftProfile } from './onboarding'
 import type { Summarize, SummaryData } from './summary'
 import type { TriageFn } from './triage'
 
 type Env = Record<string, string | undefined>
-type Handlers = Pick<PipApi, 'triage' | 'expand' | 'generateSummary' | 'draftProfile'>
+type Handlers = Pick<
+  PipApi,
+  'triage' | 'expand' | 'rememberCorrection' | 'proposeMerges' | 'generateSummary' | 'draftProfile'
+>
 
 const UnclearHints = UnclearPart.array()
   .max(UnclearPart.options.length)
@@ -47,6 +51,8 @@ export function createAiHandlers({
   save,
   makeTriager,
   makeExpander,
+  makeRememberer,
+  makeMerger,
   makeSummarizer,
   makeDrafter,
   summaryData,
@@ -60,6 +66,8 @@ export function createAiHandlers({
   save: (profile: Profile) => void
   makeTriager: () => TriageFn
   makeExpander: () => Expand
+  makeRememberer: () => RememberCorrection
+  makeMerger: () => ProposeMerges
   makeSummarizer: () => Summarize
   makeDrafter: () => DraftProfile
   /** The live check-ins, events and achievements, read on every summary. */
@@ -70,6 +78,8 @@ export function createAiHandlers({
 }): Handlers {
   const triager = env.TYPESAFE_API_KEY ? makeTriager() : null
   const expander = env.ANTHROPIC_API_KEY ? makeExpander() : null
+  const rememberer = env.ANTHROPIC_API_KEY ? makeRememberer() : null
+  const merger = env.ANTHROPIC_API_KEY ? makeMerger() : null
   const summarizer = env.ANTHROPIC_API_KEY ? makeSummarizer() : null
   const drafter = env.ANTHROPIC_API_KEY ? makeDrafter() : null
   if (!triager) log('TYPESAFE_API_KEY not set: triage uses the demo fixture.')
@@ -107,21 +117,40 @@ export function createAiHandlers({
         return t
       })
     },
-    async expand(text, kind, spoons, unclear) {
+    async expand(text, kind, spoons, unclear, correction) {
       checkText(text)
+      if (
+        correction !== undefined &&
+        (typeof correction !== 'string' || correction.length > CORRECTION_MAX)
+      )
+        throw new Error(`The correction must be text of at most ${CORRECTION_MAX} characters.`)
       if (!ActionKind.safeParse(kind).success) throw new Error('Unknown action kind.')
       if (spoons !== null && !(Number.isInteger(spoons) && spoons >= 1 && spoons <= 5))
         throw new Error('Spoons must be null or a whole number from 1 to 5.')
       if (unclear !== undefined && !UnclearHints.safeParse(unclear).success)
         throw new Error('Unclear hints must be a list of distinct parts: deadline, what_or_who.')
       const hints = [...(unclear ?? [])].sort().join(',')
-      return oneAtATime(expanding, kind, `${spoons}:${hints}:${text}`, async () => {
-        const e = await (expander
-          ? expander(text, kind, spoons, load(), unclear)
-          : api.expand(text, kind, spoons, unclear))
-        record(() => ({ kind: 'action', action: kind }))
-        return e
-      })
+      return oneAtATime(
+        expanding,
+        kind,
+        `${spoons}:${hints}:${correction ?? ''}:${text}`,
+        async () => {
+          const e = await (expander
+            ? expander(text, kind, spoons, load(), unclear, correction)
+            : api.expand(text, kind, spoons, unclear, correction))
+          record(() => ({ kind: 'action', action: kind }))
+          return e
+        }
+      )
+    },
+    async rememberCorrection(text, correction) {
+      checkText(text)
+      if (typeof correction !== 'string' || correction.length > CORRECTION_MAX)
+        throw new Error(`The correction must be text of at most ${CORRECTION_MAX} characters.`)
+      return rememberer ? rememberer(text, correction) : api.rememberCorrection(text, correction)
+    },
+    async proposeMerges() {
+      return merger ? merger() : api.proposeMerges()
     },
     async generateSummary(recipient, period) {
       if (!Recipient.safeParse(recipient).success) throw new Error('Unknown recipient.')

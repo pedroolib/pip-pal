@@ -1,9 +1,12 @@
 // The task card: one step at a time, like the reference in docs/design/task-card-reference.png.
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, Clock, Minus } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Clock, MessageSquarePlus, Minus } from 'lucide-react'
+import { CORRECTION_MAX } from '@shared/ipc'
+import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
+import { Textarea } from '@renderer/components/ui/textarea'
 import { segments } from '@renderer/decode/model'
 import { PeekingPip } from '@renderer/pip/PeekingPip'
 import { Pip, type Mood } from '@renderer/pip/Pip'
@@ -11,6 +14,55 @@ import { cn } from '@renderer/lib/utils'
 import { WithKeys } from './KeyCaps'
 
 type Step = { text: string; why: string | null }
+
+// "That's not right": the person tells Pip what it was missing and gets new steps. The overlay
+// is never focused, so it takes the keyboard while the field is open.
+// `ask`: Pip is asking for context, so the field starts open and can't be cancelled.
+export function Correct({
+  onSend,
+  ask = false
+}: {
+  onSend: (text: string) => void
+  ask?: boolean
+}): React.JSX.Element {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(ask)
+  const [text, setText] = useState('')
+  useEffect(() => {
+    if (!open) return
+    api.setOverlayFocus(true)
+    return () => api.setOverlayFocus(false)
+  }, [open])
+  if (!open)
+    return (
+      <Button variant="ghost" size="sm" className="self-start" onClick={() => setOpen(true)}>
+        <MessageSquarePlus aria-hidden />
+        {t('card.correct.open')}
+      </Button>
+    )
+  return (
+    <div className="flex flex-col gap-2">
+      <Textarea
+        autoFocus
+        value={text}
+        maxLength={CORRECTION_MAX}
+        aria-label={t('card.correct.label')}
+        placeholder={t('card.correct.placeholder')}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="flex gap-2">
+        <Button size="sm" disabled={!text.trim()} onClick={() => onSend(text.trim())}>
+          {t(ask ? 'card.correct.sendAsk' : 'card.correct.send')}
+        </Button>
+        {!ask && (
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            {t('card.correct.cancel')}
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // Pip smiles for a moment after each step, then settles. Keyed by step, so each step starts fresh.
 function StepPip({ finished, cheer }: { finished: boolean; cheer: boolean }): React.JSX.Element {
@@ -32,6 +84,7 @@ export function TaskCard({
   onDone,
   onStuck,
   onLater,
+  onCorrect,
   onBack,
   onMinimize,
   children
@@ -49,6 +102,8 @@ export function TaskCard({
   onStuck: () => void
   /** "Not now": tuck the card away and bring it back once, a little later. */
   onLater?: () => void
+  /** "That's not right": new steps from what the person typed. */
+  onCorrect?: (text: string) => void
   /** Back to the other options, when there are any. */
   onBack?: () => void
   onMinimize: () => void
@@ -174,6 +229,7 @@ export function TaskCard({
             <span className="line-clamp-1">{t('card.then', { step: next.text })}</span>
           </p>
         )}
+        {onCorrect && <Correct onSend={onCorrect} />}
         {children}
       </Card>
     </PeekingPip>

@@ -9,6 +9,7 @@ import {
   DEFAULT_SETTINGS,
   Decoded,
   LoggableEvent,
+  type Lesson,
   Expansion,
   OnboardingAnswers,
   type PendingEntry,
@@ -44,13 +45,25 @@ export function createMockApi(): PipApi {
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
   let events = UsageEvent.array().parse(eventsJson)
+  let lessons: Lesson[] = [
+    {
+      id: 'lesson-package-35',
+      text: 'Support package 35 is our monthly update bundle, installed from the admin portal.',
+      origin: 'self',
+      at: '2026-11-02T09:00:00.000Z'
+    }
+  ]
 
   return {
     onCaptured: () => () => {},
     onCheckInDue: () => () => {},
     decode: async () => decoded,
     triage: async () => triage,
-    expand: async (_text, kind) => expansions[kind],
+    // Only after a correction: without an API key the real app uses these fixtures too, and its demo has no notes.
+    expand: async (_text, kind, _spoons, _unclear, correction) => ({
+      ...expansions[kind],
+      lessonsUsed: correction ? lessons.map((l) => l.text) : []
+    }),
     getSettings: async () => settings,
     saveSettings: async (s) => void (settings = Settings.parse(s)),
     getProfile: async () => profile,
@@ -73,6 +86,48 @@ export function createMockApi(): PipApi {
     listEvents: async () => [...events],
     deleteEvent: async (id) => void (events = events.filter((e) => e.id !== id)),
     clearEvents: async () => void (events = []),
+    listLessons: async () => [...lessons],
+    deleteLesson: async (id) => void (lessons = lessons.filter((l) => l.id !== id)),
+    rememberCorrection: async (_text, correction) => {
+      const note: Lesson = {
+        id: crypto.randomUUID(),
+        text: correction,
+        origin: 'self',
+        at: new Date().toISOString()
+      }
+      lessons = [...lessons, note]
+      return {
+        kind: 'add',
+        noteId: note.id,
+        targetId: null,
+        oldText: null,
+        text: `Pip's cleaner version: ${correction}`,
+        why: null
+      }
+    },
+    resolveNote: async ({ noteId, text, edited }) => {
+      const origin = edited ? 'self' : 'learned'
+      lessons = lessons.map((l) => (l.id === noteId ? { ...l, text, origin } : l))
+    },
+    proposeMerges: async () =>
+      lessons.length < 2
+        ? []
+        : [
+            {
+              ids: lessons.slice(0, 2).map((l) => l.id),
+              text: 'A shorter note that holds what those two said.',
+              why: 'You wrote these about the same thing.'
+            }
+          ],
+    applyMerge: async ({ ids, text }) => {
+      const merged: Lesson = {
+        id: crypto.randomUUID(),
+        text,
+        origin: 'learned',
+        at: new Date().toISOString()
+      }
+      lessons = [...lessons.filter((l) => !ids.includes(l.id)), merged]
+    },
     refreshLearned: async () => {
       const text = 'Midday is often your lowest-energy time.'
       const known =
