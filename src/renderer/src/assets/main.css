@@ -247,6 +247,10 @@ html:has([data-overlay-root]) {
 [data-overlay-root][data-flip-y] [data-slot='card'] {
   --rise: -6px;
 }
+/* Cards that open into a window still sized for the previous view wait for it to grow before rising in. */
+[data-overlay-root] [data-hold] [data-slot='card'] {
+  animation-delay: 80ms;
+}
 /* A new step, a calm offer or a switched card's content fades across. */
 .motion-swap {
   animation: rise-in var(--motion-base) var(--ease-out) both;

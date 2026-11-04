@@ -2,7 +2,7 @@
 // call still keeps them, and "Try again" asks again for that note. A rejected call saved nothing: the words stay in the box.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { LoaderCircle, RotateCcw, X } from 'lucide-react'
+import { ArrowLeft, LoaderCircle, RotateCcw } from 'lucide-react'
 import { CORRECTION_MAX } from '@shared/ipc'
 import type { TellAnswer } from '@shared/schemas'
 import { api } from '@renderer/api'
@@ -97,7 +97,7 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
           <p className="text-sm text-body">{t('tell.hint')}</p>
         </div>
         <Button variant="ghost" size="icon-sm" aria-label={t('tell.close')} onClick={onClose}>
-          <X aria-hidden />
+          <ArrowLeft aria-hidden />
         </Button>
       </div>
 
@@ -129,7 +129,7 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
           <Button size="lg" disabled={!text.trim()} onClick={send}>
             {t('tell.send')}
           </Button>
-          <DictateButton field={field} onText={setText} />
+          <DictateButton field={field} onText={setText} size="lg" />
         </div>
       )}
       {phase === 'sending' && (

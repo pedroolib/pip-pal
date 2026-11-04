@@ -236,6 +236,7 @@ export function createMockApi(): PipApi {
     onCornerOpen: () => () => {},
     onRecordHotkey: () => () => {},
     onCommand: () => () => {},
+    onCommandStart: () => () => {},
     setRecordingActive: () => {},
     overlayReady: () => {},
     refuseSelection: () => {},

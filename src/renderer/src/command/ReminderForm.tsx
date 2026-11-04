@@ -1,7 +1,7 @@
 // The reminder form: what to remember and when. Used as an overlay card and, inline, inside the House.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Info, X } from 'lucide-react'
+import { ArrowLeft, Check, Info } from 'lucide-react'
 import { REMINDER_TEXT_MAX, hasVisibleText, type Reminder } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
@@ -107,7 +107,7 @@ export function ReminderForm({
             aria-label={t('reminder.close')}
             onClick={onCancel}
           >
-            <X aria-hidden />
+            <ArrowLeft aria-hidden />
           </Button>
         )}
       </div>

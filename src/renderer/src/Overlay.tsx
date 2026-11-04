@@ -59,6 +59,8 @@ function spoonsOverride(): number | null {
 type View = 'checkIn' | 'triage' | 'task' | 'record' | 'menu' | 'tell' | 'remind' | 'due' | 'hidden'
 // These open next to the cursor at their design size, with the window fitted to them.
 const FITTED: (View | null)[] = ['triage', 'task', 'record', 'menu', 'tell', 'remind', 'due']
+// Cards that open into a window still sized for the previous view (the triage bubble reserves its room up front).
+const HIDE_WHILE_FITTING: (View | null)[] = ['task', 'record', 'tell', 'remind', 'due']
 // Esc closes these. Not the due card: it stays until answered.
 const ESCAPES: (View | null)[] = ['triage', 'task', 'menu', 'tell', 'remind']
 // A scheduled check-in or a corner click would throw these away: a recording, or what the person is writing.
@@ -115,7 +117,7 @@ const PAD = 32
 // How far the bubble opens from the cursor; keep in step with capture() in src/main/index.ts.
 const CURSOR_GAP = 12
 // The check-in's window; keep in step with OVERLAY in src/main/index.ts.
-const CHECKIN_SIZE = { width: 448, height: 400 }
+const CHECKIN_SIZE = { width: 576, height: 340 }
 
 // Window bounds that keep `anchor`'s edges still (right/bottom when flipped). After a drag there is
 // no anchor, so the same edges stay wherever the person left the window.
@@ -158,6 +160,10 @@ function Overlay(): React.JSX.Element {
   // Tell the subscribe-once handlers what is open.
   const viewNow = useRef<View | null>(null)
   const onDemandNow = useRef(false)
+  // The menu opened on the press, before Pip knows there is no selection (see onCommandStart).
+  const [menuPending, setMenuPending] = useState(false)
+  // An early press's read is in flight: its onCommand or onCaptured is still to come.
+  const pressEarly = useRef(false)
   useEffect(() => {
     viewNow.current = view
     onDemandNow.current = onDemand
@@ -180,8 +186,11 @@ function Overlay(): React.JSX.Element {
   useLayoutEffect(() => {
     if (!FITTED.includes(view)) return
     document.documentElement.style.fontSize = '16px'
+    // The window is resized to a new card a moment after it renders; the page must not flash a scrollbar meanwhile.
+    document.documentElement.style.overflow = 'hidden'
     return () => {
       document.documentElement.style.fontSize = ''
+      document.documentElement.style.overflow = ''
     }
   }, [view])
 
@@ -213,6 +222,8 @@ function Overlay(): React.JSX.Element {
   // `here`: text from the record flow opens where that flow already sits.
   const capture = (selected: string, here = false): void => {
     if (!here && hasTyped()) return api.refuseSelection() // what they typed would be lost
+    setMenuPending(false)
+    pressEarly.current = false
     refreshSettings()
     const id = ++request.current
     text.current = selected
@@ -249,6 +260,7 @@ function Overlay(): React.JSX.Element {
     )
   }
   const openMenu = (failed: boolean): void => {
+    setMenuPending(false)
     refreshSettings()
     setCopyFailed(failed)
     openAtCursor()
@@ -258,10 +270,29 @@ function Overlay(): React.JSX.Element {
   const onCommand = ({ copyFailed: failed }: { copyFailed: boolean }): void => {
     const now = viewNow.current
     if (now === 'record') return // RecordFlow listens too
+    if (pressEarly.current) {
+      // The read of an early press: if the person already picked or closed, it has nothing left to open.
+      pressEarly.current = false
+      if (now === 'menu') {
+        setCopyFailed(failed)
+        setMenuPending(false)
+      }
+      return
+    }
     if (now === 'menu') return setView('hidden')
     if (hasTyped()) return
     if (now === 'checkIn' && !onDemandNow.current) setCheckInWaits(true)
     openMenu(failed)
+  }
+  // The press, while Pip still reads the selection: the menu is already up, without the keyboard. Text then
+  // replaces it (capture); nothing selected settles it (onCommand).
+  const onCommandStart = (): void => {
+    const now = viewNow.current
+    if (now === 'record' || now === 'menu' || hasTyped()) return
+    if (now === 'checkIn' && !onDemandNow.current) setCheckInWaits(true)
+    openMenu(false)
+    setMenuPending(true)
+    pressEarly.current = true
   }
   // `pip-pal --record` opens the source card at the cursor; once open, RecordFlow handles it.
   const openRecord = (): void => {
@@ -363,6 +394,7 @@ function Overlay(): React.JSX.Element {
     const offCorner = api.onCornerOpen(swap)
     const offRecord = api.onRecordHotkey(openRecord)
     const offCommand = api.onCommand(onCommand)
+    const offCommandStart = api.onCommandStart(onCommandStart)
     const offReminderDue = api.onReminderDue((r) => setDueQueue((q) => addDue(q, r)))
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
@@ -380,6 +412,7 @@ function Overlay(): React.JSX.Element {
       offCorner()
       offRecord()
       offCommand()
+      offCommandStart()
       offReminderDue()
       offDue()
       window.removeEventListener('focus', refreshSettings)
@@ -562,6 +595,11 @@ function Overlay(): React.JSX.Element {
     }
     setView('hidden')
   }
+  // The general menu is view 'menu' (CommandMenu); its cards come back to it instead of closing Pip.
+  const backToMenu = (): void => {
+    setMenuPending(false)
+    setView('menu')
+  }
   const pick = (item: CommandItem): void => {
     if (item === 'home') {
       api.openHome()
@@ -647,6 +685,8 @@ function Overlay(): React.JSX.Element {
           drag.onPointerDown(e)
         }}
         ref={frame}
+        // The card's rise-in starts once the window has grown to it (main.css), so it plays whole instead of cut off.
+        data-hold={HIDE_WHILE_FITTING.includes(view) || undefined}
         className={cn(
           'relative flex flex-col select-none',
           corner ? 'max-h-full w-full items-end' : 'w-fit max-w-full',
@@ -662,14 +702,14 @@ function Overlay(): React.JSX.Element {
           />
         )}
         {view === 'menu' && (
-          <CommandMenu copyFailed={copyFailed} onPick={pick} onClose={() => setView('hidden')} />
+          <CommandMenu pending={menuPending} copyFailed={copyFailed} onPick={pick} onClose={() => setView('hidden')} />
         )}
-        {view === 'tell' && <TellCard onClose={() => setView('hidden')} />}
+        {view === 'tell' && <TellCard onClose={backToMenu} />}
         {view === 'remind' && (
           <ReminderForm
             initialText={fromStep ?? ''}
             onSaved={reminderSaved}
-            onCancel={() => setView(fromStep !== null ? 'task' : 'hidden')}
+            onCancel={() => (fromStep !== null ? setView('task') : backToMenu())}
           />
         )}
         {view === 'due' && dueQueue[0] && (

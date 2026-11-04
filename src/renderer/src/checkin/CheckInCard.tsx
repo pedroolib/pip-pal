@@ -17,13 +17,15 @@ export function CheckInCard({
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [picked, setPicked] = useState<number | null>(null)
+  // The energy level being pointed at or focused: the face by the title shows it.
+  const [looking, setLooking] = useState<number | null>(null)
 
   if (picked !== null) {
     const low = picked <= LOW_SPOONS
     return (
       <Card className="@container min-h-0 w-full justify-center overflow-y-auto gap-4 p-5 shadow-lg">
         <div className="flex flex-col items-center gap-3 text-center">
-          <Pip mood={low ? 'gentle' : 'happy'} className="h-auto w-1/3 min-w-16" />
+          <Pip mood={low ? 'gentle' : 'happy'} className="h-auto w-20" />
           <p className="text-[clamp(1.125rem,5cqw,1.75rem)] leading-snug font-bold" role="status">
             {low ? t('checkIn.low') : t('checkIn.thanks')}
           </p>
@@ -38,34 +40,43 @@ export function CheckInCard({
   // The afternoon check-in closes the day, so Pip winds down; earlier ones stay gentle.
   const winding = slotFor(new Date()) === 'afternoon'
   return (
-    <Card className="min-h-0 w-full overflow-y-auto gap-4 p-5 shadow-lg">
-      <div className="flex items-center gap-3">
-        <Pip mood={winding ? 'sleepy' : 'gentle'} size={44} />
-        <div>
-          <h1 className="font-bold">{t('checkIn.title')}</h1>
-          <p className="text-sm text-body">{t('checkIn.hint')}</p>
-        </div>
+    <Card className="min-h-0 w-full justify-between overflow-y-auto gap-4 p-5 shadow-lg">
+      <div className="flex items-center gap-4">
+        <span className="grid size-14 shrink-0 place-items-center">
+          {looking ? (
+            <Face level={looking} size={56} />
+          ) : (
+            <Pip mood={winding ? 'sleepy' : 'gentle'} size={56} />
+          )}
+        </span>
+        <h1 className="text-lg leading-snug font-bold">{t('checkIn.title')}</h1>
       </div>
-      <div role="group" aria-label={t('checkIn.title')} className="grid grid-cols-5 gap-2">
+      <div role="group" aria-label={t('checkIn.title')} className="grid grid-cols-5 gap-3">
         {[1, 2, 3, 4, 5].map((n) => (
-          <div key={n} className="flex flex-col items-center gap-1">
-            <button
-              type="button"
-              aria-label={t('checkIn.spoons', { count: n })}
-              onClick={() => setPicked(n)}
-              className="w-full rounded-2xl p-1 transition-transform hover:scale-105 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <Face level={n} className="h-auto w-full" />
-            </button>
+          <button
+            key={n}
+            type="button"
+            aria-label={t('checkIn.spoons', { count: n })}
+            onClick={() => setPicked(n)}
+            onMouseEnter={() => setLooking(n)}
+            onMouseLeave={() => setLooking(null)}
+            onFocus={() => setLooking(n)}
+            onBlur={() => setLooking(null)}
+            className="flex flex-col items-center gap-1.5 rounded-2xl border bg-white/60 px-2 pt-3 pb-2 transition-colors hover:border-primary hover:bg-secondary focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <Face level={n} className="h-auto w-full max-w-16" />
             <span aria-hidden className="text-sm font-bold">
               {n}
             </span>
-          </div>
+          </button>
         ))}
       </div>
-      <Button variant="ghost" className="self-start text-primary" onClick={onSnooze}>
-        {t('checkIn.notNow')}
-      </Button>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-body">{t('checkIn.hint')}</p>
+        <Button variant="ghost" className="shrink-0 text-primary" onClick={onSnooze}>
+          {t('checkIn.notNow')}
+        </Button>
+      </div>
     </Card>
   )
 }
