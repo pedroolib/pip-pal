@@ -3,12 +3,26 @@
 // drafted questions are only copied. The calming offer lives with the task in the overlay, so
 // tucking the card away doesn't offer it twice.
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, BookOpen, Check, HelpCircle, Minus, RotateCcw, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  BookOpen,
+  Check,
+  ChevronRight,
+  HelpCircle,
+  Minus,
+  RotateCcw,
+  X
+} from 'lucide-react'
 import type { ActionKind, CalmingStrategy, Expansion, QuestionTopic, Triage } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { CalmingCard } from '@renderer/calm/CalmingCard'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from '@renderer/components/ui/collapsible'
 import { CopyQuestion, StepNumber } from '@renderer/decode/DecodeCard'
 import { planSteps } from '@renderer/decode/model'
 import { PeekingPip } from '@renderer/pip/PeekingPip'
@@ -98,21 +112,30 @@ function Placeholder(): React.JSX.Element {
   )
 }
 
+// Closed at first and with no animation: this much text at once overstimulates (DECISIONS §4).
 function UsedManual({ used }: { used: ProfileUsed }): React.JSX.Element | null {
   const { t } = useTranslation()
   if (used.length === 0) return null
   return (
-    <section className="flex flex-col gap-1 border-t pt-3 text-sm">
-      <h2 className="flex items-center gap-2 font-bold">
-        <BookOpen className="size-4 text-primary" aria-hidden />
-        {t('expand.usedManual')}
+    <Collapsible className="flex flex-col gap-1 border-t pt-2 text-sm">
+      <h2>
+        <CollapsibleTrigger className="group flex min-h-8 w-full items-center gap-2 rounded-sm text-left font-bold focus-visible:outline-3 focus-visible:outline-solid">
+          <ChevronRight
+            className="size-4 shrink-0 text-primary group-data-[state=open]:rotate-90"
+            aria-hidden
+          />
+          <BookOpen className="size-4 shrink-0 text-primary" aria-hidden />
+          {t('expand.usedManual')}
+        </CollapsibleTrigger>
       </h2>
-      <ul className="flex flex-col gap-1 text-body">
-        {used.map((p, i) => (
-          <li key={i}>{p.how}</li>
-        ))}
-      </ul>
-    </section>
+      <CollapsibleContent>
+        <ul className="flex flex-col gap-1 text-body">
+          {used.map((p, i) => (
+            <li key={i}>{p.how}</li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 

@@ -78,7 +78,7 @@ El esquema exacto está en `src/shared/schemas.ts`.
 | 0:00–0:10 | Check-in de la mañana: Sam toca 2 cucharas; Pip "gentle". |
 | 0:10–0:20 | Un compañero manda en Slack (también se manda antes, por si se cae el wifi): *"Hey Sam, heads up, we're moving you to the Q1 forecasting project starting Monday. Can you wrap up the dashboard stuff and sync with Dana when you get a chance? Thx"* |
 | 0:20–0:25 | Sam selecciona el texto y presiona ⌃⇧Space. En menos de 1 s, Jev muestra la burbuja: "Monday (inferred)", "Just confirm", "Friendly" y "Change: project" (la urgencia no sale porque ya hay fecha; ver [DECISIONS.md §4](DECISIONS.md)). |
-| 0:25–0:50 | Tarjeta: qué piden; para cuándo ("before Monday, inferred"); qué se espera con porqué; 3 pasos por las 2 cucharas y "the rest can wait"; "Used your manual: you prefer written instructions". |
+| 0:25–0:50 | Tarjeta: qué piden; para cuándo ("before Monday, inferred"); qué se espera con porqué; 3 pasos por las 2 cucharas y "the rest can wait"; Sam abre "Used your manual" (empieza cerrado): "you prefer written instructions". |
 | 0:50–1:05 | "Ask, don't guess" sobre "when you get a chance", con la pregunta redactada; Sam la copia y responde. |
 | 1:05–1:15 | Estrategia de calma ("Your manual says calm music helps. 10 min, then step 1?"); Sam la salta. |
 | 1:15–1:45 | Casa de Pip → Mi resumen: versiones Coach y Psychologist, desmarca una viñeta y la copia (exportar PDF todavía es "Coming soon"). |
