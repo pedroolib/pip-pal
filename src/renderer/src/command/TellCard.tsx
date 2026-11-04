@@ -10,14 +10,23 @@ import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { RememberNote } from '@renderer/expand/RememberNote'
-import { Pip, type Mood } from '@renderer/pip/Pip'
+import type { Mood } from '@renderer/pip/Pip'
+import type { Flip } from '@renderer/triage/model'
+import { MOOD } from './moods'
+import { WithPip } from './WithPip'
 import { DictateButton } from '@renderer/record/DictateButton'
 import { CARD_WIDTH } from '@renderer/triage/model'
 import { noteToShow } from './tellModel'
 
 type Phase = 'write' | 'sending' | 'answered' | 'failed'
 
-export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Element {
+export function TellCard({
+  flip,
+  onClose
+}: {
+  flip?: Flip
+  onClose: () => void
+}): React.JSX.Element {
   const { t } = useTranslation()
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<Phase>('write')
@@ -82,91 +91,102 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
         ? 'thanks'
         : phase === 'failed'
           ? 'gentle'
-          : 'calm'
+          : MOOD.tell
   const note = noteToShow(answer, noteDone)
   return (
-    <Card
-      className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
-      style={{ width: CARD_WIDTH, maxWidth: '100%' }}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
-    >
-      <div className="flex items-center gap-3">
-        <Pip mood={mood} size={44} />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-bold">{t('tell.title')}</h1>
-          <p className="text-sm text-body">{t('tell.hint')}</p>
-        </div>
-        <Button variant="ghost" size="icon-sm" aria-label={t('tell.close')} onClick={onClose}>
-          <ArrowLeft aria-hidden />
-        </Button>
-      </div>
-
-      {phase === 'answered' || phase === 'failed' ? (
-        <div className="flex flex-col gap-1 rounded-lg bg-muted p-3 text-sm text-body">
-          <span className="text-xs text-muted-foreground">{t('tell.youSaid')}</span>
-          <span className="break-words whitespace-pre-wrap">{text.trim()}</span>
-        </div>
-      ) : (
-        <Textarea
-          ref={field}
-          autoFocus
-          value={text}
-          readOnly={phase === 'sending'}
-          maxLength={CORRECTION_MAX}
-          aria-label={t('tell.label')}
-          placeholder={t('tell.placeholder')}
-          onChange={(e) => setText(e.target.value)}
-        />
-      )}
-
-      {rejected && phase === 'write' && (
-        <p role="alert" className="text-sm text-body">
-          {t('tell.rejected')}
-        </p>
-      )}
-      {phase === 'write' && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="lg" disabled={!text.trim()} onClick={send}>
-            {t('tell.send')}
-          </Button>
-          <DictateButton field={field} onText={setText} size="lg" />
-        </div>
-      )}
-      {phase === 'sending' && (
-        <p role="status" className="flex items-center gap-2 text-sm text-body">
-          <LoaderCircle aria-hidden className="size-4 motion-safe:animate-spin" />
-          {t('tell.sending')}
-        </p>
-      )}
-      {phase === 'answered' && answer?.reply && (
-        <div ref={replied} tabIndex={-1} className="flex flex-col gap-2 outline-none" role="status">
-          <p className="text-base leading-snug">{answer.reply}</p>
-          {answer.why && (
-            <p className="text-sm text-body">
-              <span className="font-bold">{t('tell.why')}</span> {answer.why}
-            </p>
-          )}
-        </div>
-      )}
-      {phase === 'failed' && (
-        <div className="flex flex-col gap-2" role="status">
-          <p className="font-bold">{t('tell.failedTitle')}</p>
-          <p className="text-sm text-body">{t('tell.failedBody')}</p>
-          <Button ref={retry} variant="outline" size="sm" className="self-start" onClick={send}>
-            <RotateCcw aria-hidden />
-            {t('tell.tryAgain')}
+    <WithPip mood={mood} flip={flip}>
+      <Card
+        className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
+        style={{ width: CARD_WIDTH, maxWidth: '100%' }}
+        onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      >
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-bold">{t('tell.title')}</h1>
+            <p className="text-sm text-body">{t('tell.hint')}</p>
+          </div>
+          <Button variant="ghost" size="icon-sm" aria-label={t('tell.close')} onClick={onClose}>
+            <ArrowLeft aria-hidden />
           </Button>
         </div>
-      )}
 
-      {note && (
-        <RememberNote key={note.text} note={note} holdsKeyboard onDone={() => setNoteDone(true)} />
-      )}
-      {(phase === 'answered' || phase === 'failed') && (
-        <Button ref={next} variant="ghost" className="self-start text-primary" onClick={another}>
-          {t('tell.another')}
-        </Button>
-      )}
-    </Card>
+        {phase === 'answered' || phase === 'failed' ? (
+          <div className="flex flex-col gap-1 rounded-lg bg-muted p-3 text-sm text-body">
+            <span className="text-xs text-muted-foreground">{t('tell.youSaid')}</span>
+            <span className="break-words whitespace-pre-wrap">{text.trim()}</span>
+          </div>
+        ) : (
+          <Textarea
+            ref={field}
+            autoFocus
+            value={text}
+            readOnly={phase === 'sending'}
+            maxLength={CORRECTION_MAX}
+            aria-label={t('tell.label')}
+            placeholder={t('tell.placeholder')}
+            onChange={(e) => setText(e.target.value)}
+          />
+        )}
+
+        {rejected && phase === 'write' && (
+          <p role="alert" className="text-sm text-body">
+            {t('tell.rejected')}
+          </p>
+        )}
+        {phase === 'write' && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="lg" disabled={!text.trim()} onClick={send}>
+              {t('tell.send')}
+            </Button>
+            <DictateButton field={field} onText={setText} size="lg" />
+          </div>
+        )}
+        {phase === 'sending' && (
+          <p role="status" className="flex items-center gap-2 text-sm text-body">
+            <LoaderCircle aria-hidden className="size-4 motion-safe:animate-spin" />
+            {t('tell.sending')}
+          </p>
+        )}
+        {phase === 'answered' && answer?.reply && (
+          <div
+            ref={replied}
+            tabIndex={-1}
+            className="flex flex-col gap-2 outline-none"
+            role="status"
+          >
+            <p className="text-base leading-snug">{answer.reply}</p>
+            {answer.why && (
+              <p className="text-sm text-body">
+                <span className="font-bold">{t('tell.why')}</span> {answer.why}
+              </p>
+            )}
+          </div>
+        )}
+        {phase === 'failed' && (
+          <div className="flex flex-col gap-2" role="status">
+            <p className="font-bold">{t('tell.failedTitle')}</p>
+            <p className="text-sm text-body">{t('tell.failedBody')}</p>
+            <Button ref={retry} variant="outline" size="sm" className="self-start" onClick={send}>
+              <RotateCcw aria-hidden />
+              {t('tell.tryAgain')}
+            </Button>
+          </div>
+        )}
+
+        {note && (
+          <RememberNote
+            key={note.text}
+            note={note}
+            holdsKeyboard
+            onDone={() => setNoteDone(true)}
+          />
+        )}
+        {(phase === 'answered' || phase === 'failed') && (
+          <Button ref={next} variant="ghost" className="self-start text-primary" onClick={another}>
+            {t('tell.another')}
+          </Button>
+        )}
+      </Card>
+    </WithPip>
   )
 }

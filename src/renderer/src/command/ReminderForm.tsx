@@ -12,7 +12,9 @@ import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { DictateButton } from '@renderer/record/DictateButton'
 import { cn } from '@renderer/lib/utils'
-import { CARD_WIDTH } from '@renderer/triage/model'
+import { CARD_WIDTH, type Flip } from '@renderer/triage/model'
+import { MOOD } from './moods'
+import { WithPip } from './WithPip'
 import { errorFor, type FormError } from './formError'
 import {
   customAt,
@@ -36,12 +38,15 @@ export function ReminderForm({
   initialText = '',
   initial,
   inline = false,
+  flip,
   onSaved,
   onCancel
 }: {
   initialText?: string
   initial?: Reminder
   inline?: boolean
+  /** Overlay card only: which side of the cursor Pip stands on. */
+  flip?: Flip
   onSaved: (reminder: Reminder) => void
   onCancel: () => void
 }): React.JSX.Element {
@@ -205,12 +210,14 @@ export function ReminderForm({
 
   if (inline) return <div className="flex max-w-md flex-col gap-4 py-1">{body}</div>
   return (
-    <Card
-      className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
-      style={{ width: CARD_WIDTH, maxWidth: '100%' }}
-      onKeyDown={(e) => e.key === 'Escape' && onCancel()}
-    >
-      {body}
-    </Card>
+    <WithPip mood={saving ? 'thanks' : MOOD.remind} flip={flip}>
+      <Card
+        className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
+        style={{ width: CARD_WIDTH, maxWidth: '100%' }}
+        onKeyDown={(e) => e.key === 'Escape' && onCancel()}
+      >
+        {body}
+      </Card>
+    </WithPip>
   )
 }

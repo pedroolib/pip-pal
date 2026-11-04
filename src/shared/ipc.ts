@@ -89,6 +89,10 @@ export const IPC = {
   dismiss: 'pip:dismiss',
   /** overlay → main: whether the triage bubble is open; Esc is a global shortcut only while it is. */
   bubbleOpen: 'overlay:bubble-open',
+  /** overlay → main: the command menu is open, so main catches its keys (Windows may refuse the overlay the keyboard). */
+  menuKeysWanted: 'overlay:menu-keys-wanted',
+  /** main → overlay: a menu key (ArrowUp, ArrowDown, Home, End, Enter, Tab, Shift+Tab) main caught. */
+  menuKey: 'pip:menu-key',
   /** overlay → main: let the overlay take the keyboard while a record card that needs typing or Enter is open. */
   overlayFocus: 'overlay:focus',
   /** overlay → main: show the corner Pip holding this, or hide it (null). */
@@ -102,7 +106,7 @@ export const IPC = {
   recordHotkey: 'pip:record-hotkey',
   /** main → overlay: the command shortcut was pressed. */
   command: 'pip:command',
-  /** main → overlay: the command shortcut was pressed and Pip is still reading the selection. */
+  /** main → overlay: the command shortcut was pressed on a closed overlay and Pip is still reading the selection. */
   commandStart: 'pip:command-start',
   /** overlay → main: whether a recording is running, so the shortcut can tell. */
   recordingActive: 'overlay:recording-active',
@@ -190,6 +194,10 @@ export interface PipApi {
   onDismiss(cb: () => void): () => void
   /** Overlay only: tell main the bubble opened or closed; ignored from other windows. */
   setBubbleOpen(open: boolean): void
+  /** Overlay only: the command menu is open, so main catches the menu keys; the OS may give the overlay no keyboard. */
+  setMenuKeysWanted(wanted: boolean): void
+  /** Menu keys main caught for the open command menu (see `setMenuKeysWanted`). Returns an unsubscribe function. */
+  onMenuKey(cb: (key: string) => void): () => void
   /** Overlay only: ignored from other windows. */
   setOverlayFocus(on: boolean): void
   /** Overlay only: show the corner Pip holding this, or hide it (null); ignored from other windows. */
@@ -212,8 +220,9 @@ export interface PipApi {
    */
   onCommand(cb: (e: { copyFailed: boolean }) => void): () => void
   /**
-   * The command shortcut was pressed on a closed overlay, before the selection is read: the overlay shows the menu
-   * at once, and `onCommand` (nothing selected) or `onCaptured` (text) then settles it. Returns an unsubscribe function.
+   * The command shortcut was pressed on a closed overlay, before the selection is read: the overlay shows Pip reading
+   * at once, as for a triage, and `onCaptured` (text) or `onCommand` (nothing selected) then shows the bubble or the menu.
+   * Returns an unsubscribe function.
    */
   onCommandStart(cb: () => void): () => void
   /** Overlay only: whether a recording is running; ignored from other windows. */

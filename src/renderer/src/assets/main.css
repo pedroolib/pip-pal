@@ -251,6 +251,16 @@ html:has([data-overlay-root]) {
 [data-overlay-root] [data-hold] [data-slot='card'] {
   animation-delay: 80ms;
 }
+/* Pip appears where the window is first shown, then the window moves to the side of the cursor with room for
+   it (Overlay's fit); stay invisible until it has, so Pip does not jump. The overlay frame mounts at each appearance. */
+@keyframes place-hold {
+  from {
+    opacity: 0;
+  }
+}
+.place-hold {
+  animation: place-hold 1ms 90ms backwards;
+}
 /* A new step, a calm offer or a switched card's content fades across. */
 .motion-swap {
   animation: rise-in var(--motion-base) var(--ease-out) both;
