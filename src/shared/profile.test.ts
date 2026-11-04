@@ -9,7 +9,9 @@ import {
   ensureIds,
   forRecipient,
   restoreDecoded,
-  scrubForModel as scrubNew
+  scrubForModel as scrubNew,
+  SOFT_BREAK,
+  softBreaks
 } from './profile'
 import * as reference from './__reference/profile'
 
@@ -1147,7 +1149,7 @@ describe('alias cap at 100 with a pathological profile', () => {
 
 describe('trie matcher against the old one-big-regex matcher', () => {
   let seed = 7
-  const rnd = (n: number): number => {
+  let rnd = (n: number): number => {
     seed = (seed * 1103515245 + 12345) % 2 ** 31
     return seed % n
   }
@@ -1260,5 +1262,291 @@ describe('trie matcher against the old one-big-regex matcher', () => {
       buildProfileContext(p)
       for (let m = 0; m < 6; m++) scrubForModel(msg(), p)
     }
+  })
+  // Criterion 7. The same generator with Cf taken out, then Cf put back only where it cannot act as a word boundary.
+  // The steps above overflow a double, so their low bits die and those corpora never pick a Cf; these need real coverage (mulberry32).
+  const fairDice = (start: number): void => {
+    let s = start
+    rnd = (n) => {
+      s = (s + 0x6d2b79f5) | 0
+      let x = Math.imul(s ^ (s >>> 15), 1 | s)
+      x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x
+      return ((x ^ (x >>> 14)) >>> 0) % n
+    }
+  }
+  const FORMAT = ['​', '⁠', '­', '﻿', '‍', '‮']
+  const edgeChar = /[\p{L}\p{M}]/u
+  const breakAwayFromLetters = (s: string): string => {
+    const cs = [...s]
+    return cs
+      .map((c, i) =>
+        !edgeChar.test(c) && !(cs[i + 1] && edgeChar.test(cs[i + 1])) && !rnd(3)
+          ? c + pick(FORMAT)
+          : c
+      )
+      .join('')
+  }
+  // No aliases: with fair dice the matcher already differs from the older reference on bent, odd or shared aliases, Cf or not.
+  // Aliases against the reference are in the real-shaped test below. Unique roles for the same reason: fold-equal names count differently.
+  const generated = (cf: (s: string) => string): void => {
+    for (let n = 0; n < 200; n++) {
+      const people = Array.from({ length: 1 + rnd(5) }, (_, i) => ({
+        name: name(),
+        role: cf(
+          `${pick(['Manager', 'Lead', 'Role', 'lead@ops', '[x] dev', 'Me', '', 'a@b.com'])} ${i}`
+        )
+      }))
+      const owner = name()
+      const all = [owner, ...people.map((p) => p.name)]
+      const msg = (): string =>
+        cf(
+          Array.from({ length: 2 + rnd(12) }, () => (rnd(2) ? bend(pick(all)) : pick(filler))).join(
+            pick(['', ' ', ' ', '-'])
+          )
+        )
+      const p: Profile = {
+        name: owner,
+        role: 'Analyst ' + msg(),
+        people: people.filter((x) => /[\p{L}\p{N}]/u.test(x.name)),
+        sections: sections({ feedback: [{ text: msg(), origin: 'onboarding', visibleTo: [] }] }),
+        calmingStrategies: [{ label: msg(), minutes: 5, origin: 'self', visibleTo: [] }]
+      }
+      buildProfileContext(p)
+      for (let m = 0; m < 6; m++) scrubForModel(msg(), p)
+    }
+  }
+  const noFormat = (chars: string[]): string[] =>
+    chars.map((c) => c.replace(/\p{Cf}/gu, '')).filter(Boolean)
+  it.each([
+    ['wide', noFormat(wide)],
+    ['tight', noFormat(tight)]
+  ])('stays byte-identical on a %s corpus with no Cf', (_, chars) => {
+    fairDice(101)
+    bits = chars
+    generated((s) => s)
+  })
+  it.each([
+    ['wide', noFormat(wide)],
+    ['tight', noFormat(tight)]
+  ])('stays byte-identical on a %s corpus with Cf next to no letter or mark', (_, chars) => {
+    fairDice(202)
+    bits = chars
+    generated(breakAwayFromLetters)
+  })
+  it('stays byte-identical with Cf anywhere inside whole real-shaped names and contacts', () => {
+    fairDice(303)
+    const p: Profile = {
+      ...(sam as Profile),
+      name: 'Sam Rivera',
+      people: [
+        { name: 'Alex Morgan', role: 'Manager', aliases: ['@alexm'] },
+        { name: 'Al Ng', role: 'Peer' },
+        { name: "Sean O'Brien", role: 'Buddy' },
+        { name: 'Marco D’Angelo', role: 'Teammate' },
+        { name: 'Jean-Pierre Núñez', role: 'Director', aliases: ['jp_nunez'] },
+        { name: 'Ana María de la Cruz', role: 'Coach' },
+        { name: '田中 太郎', role: 'Mentor' }
+      ]
+    }
+    const whole = [
+      ...['Alex', 'Alex Morgan', 'Al', 'Ng', 'Sean', "Sean O'Brien", 'O’Brien', 'OBrien', 'Marco'],
+      ...['D’Angelo', 'Jean-Pierre', 'Jean Pierre', 'JeanPierre', 'Núñez', 'Nunez', 'Ana María'],
+      ...['María', 'ANA MARIA DE LA CRUZ', '田中', '太郎', '田中 太郎', '@alexm', 'alexm'],
+      ...['jp_nunez', '@jp_nunez', 'Sam', 'Sam Rivera', 'SamRivera'],
+      ...['john.smith@acme.com', 'https://intranet.acme.internal/people/2291', 'acme.com'],
+      ...['@john', '+52 55 1234 5678', '555-123-4567', '2026-11-01 10:30']
+    ]
+    for (let n = 0; n < 3000; n++) {
+      const text = Array.from({ length: 1 + rnd(5) }, () => {
+        const w = [...pick(whole)]
+        // Between two characters of the piece, never at its edge.
+        for (let k = rnd(3); k >= 0; k--)
+          w.splice(1 + rnd(Math.max(w.length - 1, 1)), 0, pick(FORMAT))
+        return w.join('')
+      }).join(pick([' ', ', ', '. ', ' and ', '\n']))
+      scrubForModel(text, p)
+    }
+  })
+})
+
+// Every test here calls the new scrubber directly: a soft break is where it is meant to differ from the old one.
+describe('soft breaks: invisible characters and wrapper tags', () => {
+  const profile: Profile = {
+    ...(sam as Profile),
+    people: [
+      ...(sam as Profile).people,
+      { name: "Sean O'Brien", role: 'Buddy' },
+      { name: "Marco D'Angelo", role: 'Teammate' },
+      { name: 'Lee Rivera', role: 'Director', aliases: ['srivera'] },
+      { name: '田中 太郎', role: 'Mentor' }
+    ]
+  }
+  const scrub = (s: string): string => scrubNew(s, profile).text
+  const BREAKS: [string, string][] = [
+    ['U+200B', '​'],
+    ['U+2060', '⁠'],
+    ['soft hyphen', '­']
+  ]
+  const withBreak = (s: string, z: string): string => s.replaceAll('Z', z)
+
+  describe.each(BREAKS)('with %s', (_, z) => {
+    it.each([
+      ['AlexZsaid', '[Manager] said'],
+      ['saidZAlex', 'said [Manager]'],
+      ['AlexZRivera', '[Manager] [Director]'],
+      ['AlZexZsaid', '[Manager] said'],
+      ['田Z中さん', '[Mentor]さん']
+    ])('catches the word break in %s', (input, want) => {
+      expect(scrub(withBreak(input, z))).toBe(want)
+    })
+
+    it.each([
+      ['AlZex', '[Manager]'],
+      ['AlZex2', '[Manager]2'],
+      ['AlZexさん', '[Manager]さん'],
+      ['LeZeRivera', '[Director]'],
+      ['LeeZRiZvera', '[Director]'],
+      ['OBZrien', '[Buddy 2]'],
+      ['OZBrien', '[Buddy 2]'],
+      ['sriZvera2', '[Director]2']
+    ])('reads %s as if the break were absent', (input, want) => {
+      const text = withBreak(input, z)
+      expect(scrub(text)).toBe(want)
+      expect(scrub(text)).toBe(reference.scrubForModel(text, profile).text)
+    })
+
+    it.each([
+      ['john.smith@acZme.com', '[email]'],
+      ['john.smith@Zacme.com', '[email]'],
+      ['john.smithZ@acme.com', '[email]'],
+      ['john.smZith@acme.com', '[email]'],
+      ['johnZsmith@acme.com', '[email]'],
+      ['https://intranet.acme.internal/peZople/payroll/2291', '[link]'],
+      ['@joZhn', '[handle]'],
+      ['call +52 55 12Z34 5678 today', 'call [phone] today'],
+      ['on 2026-1Z1-01 10:Z30', 'on 2026-11-01 10:30']
+    ])('catches the contact in %s', (input, want) => {
+      expect(scrub(withBreak(input, z))).toBe(want)
+    })
+
+    it('keeps a kept alias handle whole, then swaps it', () => {
+      expect(scrub(withBreak('ask @sriZvera', z))).toBe('ask [Director]')
+    })
+
+    it('reaches profile context entries and the profile role', () => {
+      const context = contextNew({
+        ...profile,
+        role: withBreak('Analyst for AlexZsaid', z),
+        sections: sections({
+          feedback: [
+            { text: withBreak('AlZexZsaid no', z), origin: 'onboarding', visibleTo: [] },
+            { text: withBreak('mail john.smZith@acme.com', z), origin: 'self', visibleTo: [] }
+          ]
+        })
+      })
+      expect(context).toContain('[Me], Analyst for Manager said')
+      expect(context).toContain('- [Manager] said no (onboarding)')
+      expect(context).toContain('- mail [email] (self)')
+      expect(context).not.toContain(z)
+    })
+
+    it('never puts a break in a token, and restore still gives the name back', () => {
+      const p: Profile = {
+        ...profile,
+        people: [
+          { name: 'Alex Morgan', role: withBreak('ManZager', z) },
+          { name: 'Dana Lee', role: withBreak('Le<said>ad Z', z) },
+          { name: 'Rui Costa', role: withBreak('[emZail] coach @Zops', z) },
+          { name: 'Kim Soto', role: withBreak('Alex<said>helper', z) },
+          { name: 'Jo Paz', role: 'A$& boss' }
+        ]
+      }
+      const { text, restore } = scrubNew('Alex, Dana, Rui, Kim, Jo', p)
+      expect(text).toBe('[Manager], [Lead], [coach], [Manager helper], [A$& boss]')
+      expect(restore(text)).toBe('Alex Morgan, Dana Lee, Rui Costa, Kim Soto, Jo Paz')
+    })
+  })
+
+  it.each([
+    ['Al<said>ex', '[Manager]'],
+    ['Al<message>ex', '[Manager]'],
+    ['Al<correction>ex', '[Manager]'],
+    ['Al<known>ex', '[Manager]'],
+    ['Al<answers>ex', '[Manager]'],
+    ['Al<facts>ex', '[Manager]'],
+    ['Al＜message＞ex', '[Manager]'],
+    ['Al</said>ex', '[Manager]'],
+    ['Alex<said>said', '[Manager] said'],
+    ['said<said>Alex', 'said [Manager]'],
+    ['john@ac<said>me.com', '[email]'],
+    ['Lee<said>Rivera', '[Director]'],
+    ['Al<said foo="1">ex', '[Manager]'],
+    ['Al< SAID >ex', '[Manager]'],
+    ['Al</ message >ex', '[Manager]'],
+    ['Al<\n said>ex', '[Manager]']
+  ])('scrubs through the tag in %j', (input, want) => {
+    expect(scrub(input)).toBe(want)
+  })
+
+  it.each([
+    '<cor<said>rection>',
+    '<mes​sage>',
+    '<mes⁠sage>',
+    '<mes­sage>',
+    '<\u0001correction>',
+    '<\u0001/correction\u0001>',
+    '</mes</message>sage>',
+    '<said <message>>',
+    '＜message＞',
+    '<<said>said>',
+    '<sa<sa<said>id>id>'
+  ])('leaves no tag from %j', (input) => {
+    expect(scrub(input)).toBe('')
+  })
+
+  it('removes only the tags and keeps what they wrap', () => {
+    expect(scrub('fact <correction>x</correction> end')).toBe('fact x end')
+    expect(scrub('fact </known><message>x</message> end')).toBe('fact x end')
+  })
+
+  it('leaves other angle brackets and tag-like words alone', () => {
+    for (const s of ['a < b > c', '<b>bold</b>', '<saidx>', '<said', 'said>', '<mes sage>', '<>']) {
+      expect(scrub(s)).toBe(reference.scrubForModel(s, profile).text)
+    }
+  })
+
+  it('softBreaks gives one break per run of invisible characters or tags, and is stable', () => {
+    expect(softBreaks('a​⁠­b')).toBe(`a${SOFT_BREAK}b`)
+    expect(softBreaks('a<said>​</said>b')).toBe(`a${SOFT_BREAK}b`)
+    expect(softBreaks('fact <cor<said>rection>x end')).toBe(`fact ${SOFT_BREAK}x end`)
+    expect(softBreaks('Al＜message＞ex')).toBe(`Al${SOFT_BREAK}ex`)
+    expect(softBreaks(softBreaks('a<said>b⁠c'))).toBe(`a${SOFT_BREAK}b${SOFT_BREAK}c`)
+    expect(softBreaks('plain text, a < b')).toBe('plain text, a < b')
+    // A saved form scrubs like the original.
+    expect(scrub(softBreaks('Al­ex and Alex<said>said'))).toBe('[Manager] and [Manager] said')
+  })
+
+  describe('timing on hostile text at MAX_CHARS', () => {
+    const MAX_CHARS = 8000 // decoder.ts, main-process code, so not imported here
+    const hostile: [string, string][] = [
+      ['a run of breaks', '​'.repeat(MAX_CHARS)],
+      ['breaks between letters', 'a​'.repeat(MAX_CHARS / 2)],
+      ['breaks inside a name', 'Al​ex​'.repeat(MAX_CHARS / 6)],
+      ['breaks between marks', 'a' + '̲​'.repeat(MAX_CHARS / 2)],
+      ['breaks in an address', 'a​.'.repeat(MAX_CHARS / 3) + '@acme.com'],
+      ['nested tags', '<sa'.repeat(1300) + '<said>' + 'id>'.repeat(1300)],
+      ['nested closing tags', '</mes'.repeat(800) + '</message>' + 'sage>'.repeat(800)],
+      ['a chain of tags', '<said>'.repeat(MAX_CHARS / 6)],
+      ['openers before tags', '<a'.repeat(MAX_CHARS / 4) + '<said>'.repeat(MAX_CHARS / 12)],
+      ['one opener, many closers', '<said' + '>'.repeat(MAX_CHARS)],
+      ['controls inside openers', '<\u0001\u0001'.repeat(MAX_CHARS / 3) + '>'],
+      ['controls before closers', '\u0001'.repeat(MAX_CHARS / 2) + '>'.repeat(MAX_CHARS / 2)],
+      ['spaces inside openers', '< '.repeat(MAX_CHARS / 2) + 'said>']
+    ]
+    it.each(hostile)('stays under 1 s on %s', (_, text) => {
+      const start = performance.now()
+      scrub(text)
+      expect(performance.now() - start).toBeLessThan(1000)
+    })
   })
 })

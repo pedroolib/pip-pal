@@ -54,26 +54,92 @@ const PHONE =
 const phone = (m: string, date?: string): string =>
   date || m.replace(/\D/g, '').length < 7 ? m : '[phone]'
 
-// NFKC turns fullwidth letters into plain ones; format characters (zero-width, soft hyphen) hide names.
+// NFKC turns fullwidth letters into plain ones. Format characters (zero-width, soft hyphen) hide names: `fold` deletes them from keys, `softBreaks` keeps them in text as breaks.
 // A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
 // shortcut: NFKC also rewrites the text Claude sees ("½" -> "1⁄2", "x²" -> "x2", "℃" -> "°C"); apply it only for matching if decodes suffer.
 // shortcut: Cyrillic look-alikes ("Dаna" with U+0430) are not folded to Latin; add a small skeleton map if one shows up.
-const normalize = (s: string): string =>
-  s
-    .replace(/´/g, "'")
-    .normalize('NFKC')
-    .replace(/\p{Cf}/gu, '')
+const compatible = (s: string): string => s.replace(/´/g, "'").normalize('NFKC')
+const normalize = (s: string): string => compatible(s).replace(/\p{Cf}/gu, '')
 
 /**
- * Normalized text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs.
+ * The one mark left for a soft break (a run of invisible characters or wrapper tags). It is Cf, so `fold` deletes it
+ * and keys never hold it, every Cf in the input becomes it so nothing can forge another, and it is no letter or mark.
+ */
+export const SOFT_BREAK = '\u200b'
+// Every wrapper a prompt in src/main/ai uses. The lookahead stands for the `\b` after a tag name; a tag may go on with attributes.
+const WRAPPER = /^\/?(?:message|said|known|correction|answers|facts)(?![\p{L}\p{N}_])/iu
+const WRAPPER_HEAD = 12 // "/correction" plus the character after it
+const IN_TAG = /[\p{Cc}\u200b]/u
+// Whether the "<" at chars[open] starts a wrapper tag. Reads no further than the next "<".
+const opensWrapper = (chars: string[], open: number): boolean => {
+  let head = ''
+  for (let i = open + 1; i < chars.length && chars[i] !== '<' && head.length < WRAPPER_HEAD; i++) {
+    if (IN_TAG.test(chars[i])) continue
+    if (/\s/.test(chars[i]) && (head === '' || head === '/')) continue
+    head += chars[i]
+  }
+  return WRAPPER.test(head)
+}
+/**
+ * NFKC text where each run of invisible characters or wrapper tags is one SOFT_BREAK, nested tags included: what a
+ * removed tag left can complete an outer one. Idempotent, and deleting the breaks gives what `normalize` gives on tag-free text.
+ */
+export function softBreaks(text: string): string {
+  const t = compatible(text).replace(/\p{Cf}+/gu, SOFT_BREAK)
+  if (!t.includes('<')) return t
+  // One pass with a stack, not a regex until stable, which is quadratic on deep nesting. A walk back either removes all
+  // it read or leaves a ">" that stops the next walk, so each character is read a bounded number of times.
+  const out: string[] = []
+  for (const c of t.split('')) {
+    out.push(c)
+    if (c !== '>') continue
+    for (let i = out.length - 2; i >= 0 && out[i] !== '>'; i--) {
+      if (out[i] === '<' && opensWrapper(out, i)) {
+        out.length = i
+        out.push(SOFT_BREAK)
+        break
+      }
+    }
+  }
+  return out.join('').replaceAll(/\u200b+/g, SOFT_BREAK)
+}
+
+// `text.replace(re, fn)` on the text read without its breaks. Breaks inside a replaced match go with it; all others stay.
+function replaceJoined(
+  text: string,
+  re: RegExp,
+  fn: (match: string, group?: string) => string
+): string {
+  if (!text.includes(SOFT_BREAK)) return text.replace(re, fn)
+  const at: number[] = [] // where each joined character sits in `text`
+  for (let i = 0; i < text.length; i++) if (text[i] !== SOFT_BREAK) at.push(i)
+  let out = ''
+  let last = 0
+  for (const match of text.replaceAll(SOFT_BREAK, '').matchAll(re)) {
+    const m = match[0]
+    const swapped = fn(m, match[1])
+    if (swapped === m) continue
+    out += text.slice(last, at[match.index]) + swapped
+    last = at[match.index + m.length - 1] + 1
+  }
+  return out + text.slice(last)
+}
+
+/**
+ * Soft-broken text with emails, handles, links and phone numbers removed. Emails first: they may sit inside URLs.
  * A handle whose folded text is in `aliases` is kept, so the name swap turns it into its person's token.
+ * The result still holds soft breaks: `names` reads and drops them.
  */
 function stripContacts(text: string, aliases: Set<string> = new Set()): string {
-  return normalize(text)
-    .replace(EMAIL, () => '[email]')
-    .replace(HANDLE, (m) => (aliases.has(fold(m.slice(1))) ? m : '[handle]'))
-    .replace(URL_RE, () => '[link]')
-    .replace(PHONE, phone)
+  const noEmails = replaceJoined(softBreaks(text), EMAIL, () => '[email]')
+  const noHandles = replaceJoined(noEmails, HANDLE, (m) =>
+    aliases.has(fold(m.slice(1))) ? m : '[handle]'
+  )
+  return replaceJoined(
+    replaceJoined(noHandles, URL_RE, () => '[link]'),
+    PHONE,
+    phone
+  )
 }
 
 // Case, accents, apostrophes, hyphens and spacing folded, so "JOSE", "O’Brien" / "O'Brien", "Dana-Lee" / "Dana Lee","José" and "José" share one key.
@@ -282,8 +348,14 @@ function nameSwapper(profile: Profile): {
   profile.people.forEach((p, i) => {
     const k = fold(p.name)
     // A role holds no brackets, "@" or contact tokens, so its [token] stays one restorable unit; each becomes a space so it never joins two words.
-    const role = stripContacts(p.role).replace(/\[(?:email|handle|link|phone)\]|[[\]@]/g, ' ')
-    const w = { role: role.replace(/\s+/g, ' ').trim(), real: p.name.trim() }
+    const role = replaceJoined(
+      stripContacts(p.role),
+      /\[(?:email|handle|link|phone)\]|[[\]@]/g,
+      () => ' '
+    )
+    // Inner breaks stay, so `scrubRole` still sees a name beside one; every token goes through `names`, which drops them.
+    const collapsed = role.replace(/[\s\u200b]+/g, (m) => (/\s/.test(m) ? ' ' : m))
+    const w = { role: collapsed.replace(/^[ \u200b]+|[ \u200b]+$/g, ''), real: p.name.trim() }
     if (hasLetter(k)) who.set(k, w)
     else nameless.set(i, w)
   })
@@ -344,24 +416,45 @@ function nameSwapper(profile: Profile): {
   const before = new RegExp(`(?<!${edge})`, 'iuy')
   const after = new RegExp(`(?!${edge})`, 'iuy')
   // Where a name starting at `at` ends, or -1: a spaced key between word boundaries (after an "@" if one fits), else a glued key.
-  const nameEnd = (text: string, at: number, dead: [Set<number>, Set<number>]): number => {
-    const bounded = (e: number): boolean => sticky(after, text, e) >= 0
+  const nameEnd = (
+    text: string,
+    at: number,
+    dead: [Set<number>, Set<number>],
+    breaks: Set<number>
+  ): number => {
+    const bounded = (e: number): boolean => breaks.has(e) || sticky(after, text, e) >= 0
     let e = -1
-    if (sticky(before, text, at) >= 0) {
+    if (breaks.has(at) || sticky(before, text, at) >= 0) {
       if (text[at] === '@') e = matchEnd(spaced, text, at + 1, bounded, dead[0])
       if (e < 0) e = matchEnd(spaced, text, at, bounded, dead[0])
     }
     return e < 0 ? matchEnd(glued, text, at, () => true, dead[1]) : e
   }
   // Same as `text.replace(oneBigRegex, fn)`: left to right, one pass, replacement text never re-scanned.
-  const names = (text: string, fn: (m: string) => string): string => {
+  // The walk reads the text without its breaks, so a name reads across them and the trie never sees one; a break only
+  // counts as a word boundary. All breaks are gone from the result. Where one was the only boundary of a spaced key, the
+  // old code leaked, and a space keeps the words apart ("Alex<ZWSP>said" -> "[Manager] said", "Alex<ZWSP>ander" -> "[Manager] ander").
+  const names = (soft: string, fn: (m: string) => string): string => {
+    const text = soft.replaceAll(SOFT_BREAK, '')
+    const breaks = new Set<number>()
+    for (let i = 0, j = 0; i < soft.length; i++) {
+      if (soft[i] === SOFT_BREAK) breaks.add(j)
+      else j++
+    }
     let out = ''
     let last = 0
     const dead: [Set<number>, Set<number>] = [new Set(), new Set()]
     for (let at = 0; at < text.length;) {
-      const e = nameEnd(text, at, dead)
+      const e = nameEnd(text, at, dead, breaks)
       if (e > at) {
-        out += text.slice(last, at) + fn(text.slice(at, e))
+        const m = text.slice(at, e)
+        const isSpaced = !unspaced.test(m)
+        out += text.slice(last, at)
+        if (isSpaced && breaks.has(at) && sticky(before, text, at) < 0 && !out.endsWith(' ')) {
+          out += ' '
+        }
+        out += fn(m)
+        if (isSpaced && breaks.has(e) && sticky(after, text, e) < 0) out += ' '
         last = at = e
       } else at += text.codePointAt(at)! > 0xffff ? 2 : 1
     }
