@@ -296,12 +296,14 @@ async function record(): Promise<void> {
   win.webContents.send(IPC.recordHotkey)
 }
 
-// Audio only, and only for the overlay: the mic through getUserMedia, computer audio through
+// Audio only, and only for the overlay and the House: the mic through getUserMedia, computer audio through
 // getDisplayMedia. Other permissions keep Electron's default (allowed); any other media is denied.
 function setMediaPermissions(): void {
   const ses = session.defaultSession
+  // The House (onboarding, My Manual) dictates into its fields with the mic too; it never gets computer audio.
   const fromOverlay = (wc: Electron.WebContents | null): boolean =>
-    !!overlay && wc === overlay.webContents
+    (!!overlay && wc === overlay.webContents) ||
+    (!!home && !home.isDestroyed() && wc === home.webContents)
   ses.setPermissionCheckHandler((wc, permission, _origin, details) => {
     if (permission !== 'media') return true
     return fromOverlay(wc) && (details as { mediaType?: string }).mediaType === 'audio'

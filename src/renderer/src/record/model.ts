@@ -36,3 +36,31 @@ export function ownsEnter(target: EventTarget | null): boolean {
 export function isCantHear(e: unknown): boolean {
   return e instanceof Error && (e.name === 'NotAllowedError' || e.name === 'NotReadableError')
 }
+
+/** Puts dictated `text` after the selection in `value`, spaced from its neighbours and cut to `max`. */
+export function insertAt(
+  value: string,
+  text: string,
+  end: number,
+  max = Infinity
+): { value: string; caret: number } {
+  const before = value.slice(0, end)
+  const after = value.slice(end)
+  const lead = before && !/\s$/.test(before) ? ' ' : ''
+  const tail = after && !/^\s/.test(after) ? ' ' : ''
+  const room = Math.max(0, max - value.length - lead.length - tail.length)
+  const add = text.trim().slice(0, room)
+  if (!add) return { value, caret: end }
+  const next = before + lead + add + tail + after
+  return { value: next, caret: before.length + lead.length + add.length }
+}
+
+export type DictateFailure = Failure | 'denied' | 'noMic'
+
+/** Why a dictation could not start or finish, for the calm line under the field. */
+export function dictateFailure(e: unknown): DictateFailure {
+  const name = e instanceof Error ? e.name : ''
+  if (name === 'NotAllowedError') return 'denied'
+  if (name === 'NotFoundError' || name === 'NotReadableError') return 'noMic'
+  return failureOf(e)
+}

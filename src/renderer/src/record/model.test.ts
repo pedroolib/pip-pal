@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { failureOf, formatElapsed, isCantHear, ownsEnter, toRead } from './model'
+import {
+  dictateFailure,
+  failureOf,
+  formatElapsed,
+  insertAt,
+  isCantHear,
+  ownsEnter,
+  toRead
+} from './model'
 
 describe('formatElapsed', () => {
   it('shows minutes and seconds, padded', () => {
@@ -47,5 +55,27 @@ describe('isCantHear', () => {
     expect(isCantHear(new DOMException('busy', 'NotReadableError'))).toBe(true)
     expect(isCantHear(new DOMException('bad', 'AbortError'))).toBe(false)
     expect(isCantHear(new Error('boom'))).toBe(false)
+  })
+})
+
+describe('insertAt', () => {
+  it('adds after the cursor, spaced, and never drops what was typed', () => {
+    expect(insertAt('Hello', 'world', 5)).toEqual({ value: 'Hello world', caret: 11 })
+    expect(insertAt('', ' hi ', 0)).toEqual({ value: 'hi', caret: 2 })
+    expect(insertAt('ab cd', 'X', 2)).toEqual({ value: 'abX cd'.replace('X', ' X'), caret: 4 })
+    expect(insertAt('Hello ', 'there', 6).value).toBe('Hello there')
+  })
+  it('cuts to the field limit and ignores empty text', () => {
+    expect(insertAt('abc', 'defgh', 3, 6).value).toBe('abc de')
+    expect(insertAt('abc', '  ', 3).value).toBe('abc')
+    expect(insertAt('abcdef', 'x', 6, 6).value).toBe('abcdef')
+  })
+})
+
+describe('dictateFailure', () => {
+  it('tells a refused or missing mic from transcription trouble', () => {
+    expect(dictateFailure(new DOMException('x', 'NotAllowedError'))).toBe('denied')
+    expect(dictateFailure(new DOMException('x', 'NotFoundError'))).toBe('noMic')
+    expect(dictateFailure(new Error("I didn't hear any words."))).toBe('empty')
   })
 })

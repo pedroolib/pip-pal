@@ -27,6 +27,7 @@ import {
   SelectValue
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
+import { DictateButton } from '@renderer/record/DictateButton'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { HouseCard } from '@renderer/house/parts'
@@ -516,6 +517,7 @@ function About({
   const [i, setI] = useState(0)
   const [answers, setAnswers] = useState(saved)
   const [writing, setWriting] = useState(false)
+  const field = useRef<HTMLTextAreaElement>(null)
   const q = QUESTIONS[i]
   const chips = t(`onboarding.about.chips.${q}`, { returnObjects: true }) as string[]
   const lastQ = i === QUESTIONS.length - 1
@@ -554,6 +556,7 @@ function About({
         ))}
       </div>
       <Textarea
+        ref={field}
         id={`${uid}-${q}`}
         className="min-h-28 bg-background text-[17px] leading-[1.6]"
         placeholder={t('onboarding.about.placeholder')}
@@ -561,6 +564,7 @@ function About({
         value={answers[q] ?? ''}
         onChange={(e) => setAnswers((a) => ({ ...a, [q]: e.target.value }))}
       />
+      <DictateButton field={field} onText={(v) => setAnswers((a) => ({ ...a, [q]: v }))} />
       <div className="flex flex-wrap gap-2">
         {i > 0 && (
           <Button variant="outline" className={pill} onClick={() => move(i - 1)}>

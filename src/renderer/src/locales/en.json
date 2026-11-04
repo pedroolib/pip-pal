@@ -693,6 +693,17 @@
       "button": "Run setup again"
     }
   },
+  "dictate": {
+    "start": "Speak",
+    "stop": "Done",
+    "listening": "Listening… press Done when you finish.",
+    "writing": "Writing it down…",
+    "denied": "Pip can't use the microphone yet. You can allow it in your computer's privacy settings, or type instead.",
+    "noMic": "I can't find a microphone. You can type instead.",
+    "empty": "I didn't hear any words. You can try again.",
+    "noModel": "The speech model isn't installed yet. You can type instead.",
+    "error": "I couldn't write that down. You can try again or type instead."
+  },
   "record": {
     "sourceTitle": "What should I listen to?",
     "sourceSub": "I only listen after you press Start.",

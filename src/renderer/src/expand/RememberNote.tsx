@@ -1,10 +1,11 @@
 // One tap on what Pip wants to remember after a correction (DECISIONS §15). The person's own words are
 // already saved, so ignoring this strip keeps them; nothing Pip wrote is used until they press Keep.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LESSON_MAX, type NoteProposal } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
+import { DictateButton } from '@renderer/record/DictateButton'
 import { Textarea } from '@renderer/components/ui/textarea'
 
 export function RememberNote({
@@ -17,6 +18,7 @@ export function RememberNote({
   const { t } = useTranslation()
   const [draft, setDraft] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const field = useRef<HTMLTextAreaElement>(null)
   const editing = draft !== null
   // The overlay is never focused, so it takes the keyboard while the field is open.
   useEffect(() => {
@@ -42,13 +44,17 @@ export function RememberNote({
         </p>
       )}
       {editing ? (
-        <Textarea
-          autoFocus
-          value={draft}
-          maxLength={LESSON_MAX}
-          aria-label={t('note.editLabel')}
-          onChange={(e) => setDraft(e.target.value)}
-        />
+        <>
+          <Textarea
+            ref={field}
+            autoFocus
+            value={draft}
+            maxLength={LESSON_MAX}
+            aria-label={t('note.editLabel')}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+          <DictateButton field={field} onText={setDraft} />
+        </>
       ) : (
         <p>{note.text}</p>
       )}
