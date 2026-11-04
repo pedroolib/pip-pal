@@ -162,13 +162,16 @@ async function waitForText(timeoutMs: number): Promise<string> {
 // Copies every format out of the clipboard, so images and rich text survive the capture too.
 async function saveClipboard(): Promise<ClipboardItem[]> {
   const items = await clipboard.read()
+  // An empty clipboard can come back as an item with no types, which ClipboardItem refuses to build.
   return Promise.all(
-    items.map(async (item) => {
-      const entries = await Promise.all(
-        item.types.map(async (type) => [type, await item.getType(type)] as const)
-      )
-      return new ClipboardItem(Object.fromEntries(entries))
-    })
+    items
+      .filter((item) => item.types.length)
+      .map(async (item) => {
+        const entries = await Promise.all(
+          item.types.map(async (type) => [type, await item.getType(type)] as const)
+        )
+        return new ClipboardItem(Object.fromEntries(entries))
+      })
   )
 }
 
