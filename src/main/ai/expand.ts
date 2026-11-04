@@ -10,10 +10,12 @@ import {
   recentLessons,
   SECTIONS,
   UnclearPart,
-  type Profile
+  type Profile,
+  type ReplyTone
 } from '@shared/schemas'
 import { describeIssues, MAX_CHARS } from './decoder'
 import type { LessonStore } from './lessons'
+import { withTone } from './tone'
 
 const [Steps, Questions, Transition] = Expansion.options
 /** The model only names notes by number; code puts the saved text in the result. */
@@ -78,8 +80,11 @@ export type Expand = (
 export function createExpander({
   claude,
   lessons,
+  tone,
   now = () => new Date()
 }: {
+  /** The person's chosen tone, read on every call. */
+  tone?: () => ReplyTone | undefined
   claude: ClaudeJsonClient
   /** What the person taught Pip before. */
   lessons?: Pick<LessonStore, 'list'>
@@ -148,7 +153,8 @@ export function createExpander({
 
     const output = OUTPUTS[kind]
     // No retry: the first invalid answer rejects, naming issue codes and paths only (never the model's output).
-    const raw = await claude.ask({ system: `${BASE}\n\n${TASKS[kind]}`, user, schema: output })
+    const system = withTone(`${BASE}\n\n${TASKS[kind]}`, tone?.())
+    const raw = await claude.ask({ system, user, schema: output })
     // free model text: the UI must render it as plain text. Re-checked: the schema cannot carry every rule.
     const parsed = output.safeParse(raw)
     if (!parsed.success)

@@ -5,6 +5,7 @@ import {
   History,
   Keyboard,
   Languages,
+  MessageCircle,
   Moon,
   Plus,
   Power,
@@ -39,6 +40,7 @@ import {
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
 import { HouseCard, Page } from './parts'
+import { TonePicker } from './TonePicker'
 import { applySettings, isMac, nextFreeTime, rowBucket, shortcutKeys, showTime } from './settings'
 import { useLoad } from './useLoad'
 
@@ -230,6 +232,13 @@ export function SettingsView({
           {fail('launch')}
         </HouseCard>
       </div>
+
+      <HouseCard>
+        <Heading Icon={MessageCircle}>{t('house.settings.tone.title')}</Heading>
+        <p className="text-sm text-muted-foreground">{t('house.settings.tone.note')}</p>
+        <TonePicker settings={settings} disabled={off} onChange={(s) => change('tone', s)} />
+        {fail('tone')}
+      </HouseCard>
 
       <HouseCard>
         <Heading Icon={ShieldCheck}>{t('house.settings.privacy.title')}</Heading>

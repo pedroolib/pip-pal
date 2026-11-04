@@ -449,6 +449,26 @@
         "title": "Abrir Pip al iniciar sesión",
         "body": "Para que tus recordatorios lleguen aunque reinicies el equipo. Funciona en la app instalada."
       },
+      "tone": {
+        "title": "¿Cómo quieres que te hable Pip?",
+        "note": "Esto cambia cómo Pip redacta sus respuestas, nunca lo que dicen. Los mensajes que envíes a otras personas siguen siendo educados.",
+        "plain": {
+          "label": "Claro y neutro",
+          "example": "Tu manager quiere el informe para el viernes. Primero, revisa la plantilla."
+        },
+        "friend": {
+          "label": "Como un amigo",
+          "example": "Vale, tu manager quiere el informe para el viernes. Para empezar fácil: abre la plantilla."
+        },
+        "boss": {
+          "label": "Como un jefe",
+          "example": "Informe para el viernes. Paso uno: abre la plantilla."
+        },
+        "raw": {
+          "label": "Como un colega, con jerga y palabrotas",
+          "example": "A ver, el informe es para el viernes, un coñazo pero se puede. Empieza con la maldita plantilla."
+        }
+      },
       "calm": {
         "title": "Movimiento más tranquilo",
         "body": "Pip se queda quieto y las pantallas se desvanecen menos. El ajuste de movimiento reducido de tu computadora siempre aplica también."

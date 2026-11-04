@@ -31,6 +31,7 @@ import { DictateButton } from '@renderer/record/DictateButton'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { HouseCard } from '@renderer/house/parts'
+import { TonePicker } from '@renderer/house/TonePicker'
 import { applySettings, isMac, shortcutKeys, showTime } from '@renderer/house/settings'
 import { addAlias, approvePending, dismissPending } from '@renderer/manual/model'
 import { PendingCard } from '@renderer/manual/parts'
@@ -304,6 +305,11 @@ function Comfort({
           checked={settings.calmMotion}
           onCheckedChange={(calmMotion) => set({ ...settings, calmMotion })}
         />
+      </div>
+      <div className="grid gap-2">
+        <p className="font-bold">{t('house.settings.tone.title')}</p>
+        <p className="text-sm text-muted-foreground">{t('house.settings.tone.note')}</p>
+        <TonePicker settings={settings} onChange={set} />
       </div>
     </>
   )

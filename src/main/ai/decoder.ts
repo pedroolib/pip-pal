@@ -2,7 +2,14 @@
 // (see clients.ts for the real ones), so nothing here touches the network or reads keys.
 import { z } from 'zod'
 import { buildProfileContext, restoreDecoded, scrubForModel } from '@shared/profile'
-import { Classification, Decoded, DecodeResult, type Profile } from '@shared/schemas'
+import {
+  Classification,
+  Decoded,
+  DecodeResult,
+  type Profile,
+  type ReplyTone
+} from '@shared/schemas'
+import { withTone } from './tone'
 
 /** Only scrubbed text ever reaches a client. Returns Claude's parsed JSON answer; the decoder validates it. */
 export interface ClaudeClient {
@@ -41,8 +48,11 @@ export type Decode = (text: string, spoons: number | null, profile: Profile) => 
 export function createDecoder({
   claude,
   jev,
+  tone,
   now = () => new Date()
 }: {
+  /** The person's chosen tone, read on every call. */
+  tone?: () => ReplyTone | undefined
   claude: ClaudeClient
   /** null when TYPESAFE_API_KEY is missing: the classification then comes from Claude. */
   jev: JevClient | null
@@ -72,7 +82,10 @@ export function createDecoder({
     ].join('\n')
 
     const jevPending = jev ? classifyWithJev(jev, scrubbed.text) : Promise.resolve(null)
-    const [jevResult, out] = await Promise.all([jevPending, askClaude(claude, user, jevPending)])
+    const [jevResult, out] = await Promise.all([
+      jevPending,
+      askClaude(claude, withTone(SYSTEM, tone?.()), user, jevPending)
+    ])
     const classification = jevResult
       ? { ...jevResult, source: 'jev' as const }
       : { ...out.classification, source: 'claude' as const }
@@ -108,10 +121,11 @@ export function describeIssues(error: z.ZodError): string {
 // No retry: the first invalid answer rejects. Claude's classification is required only when Jev gave none.
 async function askClaude(
   claude: ClaudeClient,
+  system: string,
   user: string,
   jevResult: Promise<unknown>
 ): Promise<z.infer<typeof DecodeOutput>> {
-  const raw = await claude.decode({ system: SYSTEM, user })
+  const raw = await claude.decode({ system, user })
   // Re-checked even though the schema constrains the answer: cheap, and it enforces what the schema cannot (ranges).
   const parsed = DecodeOutput.safeParse(raw)
   const invalid = (why: string): Error =>
