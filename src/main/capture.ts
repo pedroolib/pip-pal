@@ -16,12 +16,42 @@ Application('System Events').keystroke('c', { using: 'command down' })
 $.NSWorkspace.sharedWorkspace.frontmostApplication.localizedName.js
 `
 
-// PowerShell: the same for Windows. Wait up to 1 s for Shift, Ctrl and Alt to be let go (otherwise
-// the app gets Ctrl+Shift+C), then press Ctrl+C. SendKeys can't wait for keys, so call user32.
+// In a terminal Ctrl+C interrupts what is running, and with nothing selected that press is the normal way to the menu.
+// shortcut: VS Code's built-in terminal runs inside Code.exe and can't be told apart, so it still gets Ctrl+C; upgrade if a window can say what has focus inside it.
+export const TERMINALS = [
+  'WindowsTerminal',
+  'OpenConsole',
+  'conhost',
+  'cmd',
+  'powershell',
+  'pwsh',
+  'wezterm-gui',
+  'alacritty',
+  'mintty',
+  'ConEmu',
+  'ConEmu64',
+  'Hyper',
+  'Tabby'
+]
+
+/** `name`: a Windows process name, without ".exe". */
+export const isTerminal = (name: string): boolean =>
+  TERMINALS.some((t) => t.toLowerCase() === name.trim().toLowerCase())
+
+// PowerShell: the same for Windows, after printing the process in front and stopping if it is a terminal. Wait up to
+// 1 s for Shift, Ctrl and Alt to be let go (otherwise the app gets Ctrl+Shift+C), then press Ctrl+C. SendKeys can't
+// wait for keys, so call user32. A process it can't name has its keys pressed, as any other app.
 const COPY_WHEN_KEYS_RELEASED_WIN = `
 Add-Type -Namespace Pip -Name Keys -MemberDefinition '
+[DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr window, out uint process);
 [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
 [DllImport("user32.dll")] public static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);'
+$process = [uint32]0
+[void][Pip.Keys]::GetWindowThreadProcessId([Pip.Keys]::GetForegroundWindow(), [ref]$process)
+$front = try { (Get-Process -Id $process -ErrorAction Stop).ProcessName } catch { '' }
+Write-Output "front:$front"
+if (@(${TERMINALS.map((t) => `'${t}'`).join(', ')}) -contains $front) { exit 0 }
 $held = { @(0x10, 0x11, 0x12 | Where-Object { [Pip.Keys]::GetAsyncKeyState($_) -lt 0 }).Count }
 for ($i = 0; $i -lt 100 -and (& $held); $i++) { Start-Sleep -Milliseconds 10 }
 [Pip.Keys]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero)
@@ -33,9 +63,10 @@ for ($i = 0; $i -lt 100 -and (& $held); $i++) { Start-Sleep -Milliseconds 10 }
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 export interface Capture {
+  /** Empty when nothing was selected. */
   text: string
-  /** false when the selection couldn't be read and this is the last copied text instead. */
-  fromSelection: boolean
+  /** The simulated copy threw, so an empty `text` says nothing about the selection. */
+  copyFailed: boolean
   /** Mac only: the app ⌘C went to. If it is Pip (Electron while developing), Pip was in front. */
   app?: string
 }
@@ -43,9 +74,20 @@ export interface Capture {
 export async function captureSelection(): Promise<Capture> {
   if (process.platform === 'darwin') return captureMac()
   if (process.platform === 'linux') {
-    return { text: await readPrimaryLinux(), fromSelection: true }
+    const { text, last } = unseenPrimary(await readPrimaryLinux(), lastPrimary)
+    lastPrimary = last
+    return { text, copyFailed: false }
   }
   return captureWindows()
+}
+
+// shortcut: Linux keeps the primary selection after deselecting, so unchanged text counts as nothing selected until it
+// changes, and selecting the same words again opens the menu; upgrade if compositors expose whether text is selected.
+let lastPrimary = ''
+
+/** What a press should read and what to remember for the next one. Old text is never sent again, however often it is pressed. */
+export function unseenPrimary(current: string, last: string): { text: string; last: string } {
+  return { text: current === last ? '' : current, last: current }
 }
 
 // On native Wayland Electron reads the primary selection as empty, so ask wl-paste; fall back to
@@ -68,7 +110,7 @@ function captureMac(): Promise<Capture> {
   return captureByCopy(
     async () =>
       (await run('osascript', ['-l', 'JavaScript', '-e', COPY_WHEN_KEYS_RELEASED])).stdout.trim(),
-    'Could not simulate ⌘C; using the last copied text. Allow Accessibility for Terminal (dev) or Pip.'
+    'Could not simulate ⌘C, so the selection could not be read. Allow Accessibility for Terminal (dev) or Pip.'
   )
 }
 
@@ -77,33 +119,34 @@ function captureMac(): Promise<Capture> {
 function captureWindows(): Promise<Capture> {
   const encoded = Buffer.from(COPY_WHEN_KEYS_RELEASED_WIN, 'utf16le').toString('base64')
   return captureByCopy(async () => {
-    await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], {
-      timeout: 5000
-    })
-    return undefined
-  }, 'Could not simulate Ctrl+C; using the last copied text.')
+    const { stdout } = await run(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+      { timeout: 5000 }
+    )
+    return isTerminal(/^front:(.*)$/m.exec(stdout)?.[1] ?? '') ? null : undefined
+  }, 'Could not simulate Ctrl+C, so the selection could not be read.')
 }
 
-// `copy` presses the copy keys in the app in front and may return that app's name.
+// `copy` presses the copy keys in the app in front and may return that app's name; null means it pressed nothing.
 async function captureByCopy(
-  copy: () => Promise<string | undefined>,
+  copy: () => Promise<string | undefined | null>,
   failure: string
 ): Promise<Capture> {
   const saved = await saveClipboard()
-  const lastCopied = await clipboard.readText()
   clipboard.clear()
   try {
     const app = await copy()
-    const text = await waitForText(500)
-    // Empty clipboard: nothing was selected, so fall back to what the person copied last.
-    return text
-      ? { text, fromSelection: true, app }
-      : { text: lastCopied, fromSelection: false, app }
+    if (app === null) return { text: '', copyFailed: false }
+    return { text: await waitForText(500), copyFailed: false, app }
   } catch (err) {
     console.warn(`[capture] ${failure}`, err instanceof Error ? err.message : err)
-    return { text: lastCopied, fromSelection: false }
+    return { text: '', copyFailed: true }
   } finally {
-    await restoreClipboard(saved)
+    // shortcut: an app that copies after the 500 ms poll still overwrites what was restored; leave it unless it shows up in use.
+    await restoreClipboard(saved).catch((err) =>
+      console.warn('[capture] Could not restore the clipboard.', err)
+    )
   }
 }
 
