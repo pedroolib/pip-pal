@@ -40,6 +40,7 @@ export function openStorage(): {
   achievements: ReturnType<typeof createLogStore<Achievement>>
   events: ReturnType<typeof createEventStore>
   lessons: ReturnType<typeof createLogStore<Lesson>>
+  /** The person's own words, on this machine only; apart from the profile, so no summary can include them. */
   reminders: ReturnType<typeof createLogStore<Reminder>>
 } {
   const data = (name: string): string => join(app.getPath('userData'), name)

@@ -8,7 +8,13 @@ import {
   hotkeyReady,
   Profile,
   QuestionTopic,
+  REMINDER_ID_MAX,
+  REMINDER_MAX,
+  hasVisibleText,
+  REMINDER_TEXT_MAX,
+  Reminder,
   RecordSource,
+  TellAnswer,
   Settings,
   DEFAULT_SETTINGS,
   Triage,
@@ -168,5 +174,94 @@ describe('record source setting', () => {
     const api = createMockApi()
     await expect(api.transcribe(new Float32Array(0))).rejects.toThrow()
     expect(await api.transcribe(new Float32Array(10))).toMatch(/weekly numbers/)
+  })
+})
+
+describe('reminders', () => {
+  const r = { id: 'r1', text: 'Call Dana', at: '2026-11-04T09:00:00.000Z' }
+
+  it('accepts 1 to 500 characters and rejects empty or longer', () => {
+    expect(Reminder.safeParse(r).success).toBe(true)
+    expect(Reminder.safeParse({ ...r, text: 'a'.repeat(REMINDER_TEXT_MAX) }).success).toBe(true)
+    expect(Reminder.safeParse({ ...r, text: '' }).success).toBe(false)
+    expect(Reminder.safeParse({ ...r, text: 'a'.repeat(REMINDER_TEXT_MAX + 1) }).success).toBe(
+      false
+    )
+  })
+
+  it('needs an ISO time', () => {
+    expect(Reminder.safeParse({ ...r, at: 'tomorrow' }).success).toBe(false)
+  })
+
+  it('stays out of the profile', () => {
+    expect(Object.keys(Profile.shape)).not.toContain('reminders')
+  })
+
+  it('mock persists saves (create and update by id) and deletes', async () => {
+    const api = createMockApi()
+    const seeded = await api.listReminders()
+    await api.saveReminder(r)
+    await api.saveReminder({ ...r, text: 'Call Dana at 3' })
+    expect(await api.listReminders()).toEqual([...seeded, { ...r, text: 'Call Dana at 3' }])
+    await api.deleteReminder('r1')
+    expect(await api.listReminders()).toEqual(seeded)
+  })
+
+  it('mock starts with two reminders ahead, so Coming up shows in a plain browser', async () => {
+    const seeded = await createMockApi().listReminders()
+    expect(seeded).toHaveLength(2)
+    for (const reminder of seeded) {
+      expect(Reminder.parse(reminder)).toEqual(reminder)
+      expect(Date.parse(reminder.at)).toBeGreaterThan(Date.now())
+    }
+  })
+
+  it('mock refuses a reminder past the limit', async () => {
+    const api = createMockApi()
+    for (let i = 0; i < REMINDER_MAX - 2; i++) await api.saveReminder({ ...r, id: `r${i}` })
+    await expect(api.saveReminder({ ...r, id: 'extra' })).rejects.toThrow('REMINDER_FULL')
+  })
+})
+
+describe('Reminder limits', () => {
+  it('has a maximum id length', () => {
+    const r = { id: 'x'.repeat(REMINDER_ID_MAX), text: 'x', at: '2026-11-03T12:00:00.000Z' }
+    expect(Reminder.safeParse(r).success).toBe(true)
+    expect(Reminder.safeParse({ ...r, id: r.id + 'x' }).success).toBe(false)
+  })
+
+  it('tells visible text from invisible characters', () => {
+    expect(hasVisibleText('a\u200B')).toBe(true)
+    expect(hasVisibleText(' \u200B\u2060\uFEFF\n')).toBe(false)
+  })
+})
+
+describe('tellPip in the mock', () => {
+  it('rejects when the message says reject, so the card can be reviewed', async () => {
+    await expect(createMockApi().tellPip('please reject')).rejects.toThrow()
+  })
+
+  it('removes the note for a question, like main', async () => {
+    const api = createMockApi()
+    const before = await api.listLessons()
+    const a = await api.tellPip('Who approves leave?')
+    expect(a.note).toMatchObject({ kind: 'none', noteId: null })
+    expect(await api.listLessons()).toEqual(before)
+  })
+
+  it('answers with reply, why and a note it saves to the lessons', async () => {
+    const api = createMockApi()
+    const before = (await api.listLessons()).length
+    const a = TellAnswer.parse(await api.tellPip('I focus best with a plan the day before'))
+    expect(a.reply && a.why && a.note).toBeTruthy()
+    expect((await api.listLessons()).length).toBe(before + 1)
+  })
+
+  it('keeps the words and returns no reply when the message says fail', async () => {
+    const api = createMockApi()
+    const a = await api.tellPip('please fail')
+    expect(a.reply).toBeNull()
+    expect(a.note?.text).toBe('please fail')
+    expect((await api.listLessons()).some((l) => l.text === 'please fail')).toBe(true)
   })
 })

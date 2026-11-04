@@ -3,25 +3,17 @@ import { join } from 'path'
 import { app, ipcMain, systemPreferences } from 'electron'
 import { IPC } from '@shared/ipc'
 import { createMockApi } from '@shared/mock-api'
-import { z } from 'zod'
-import {
-  LEARN_WINDOW_DAYS,
-  NewReminder,
-  NoteMerge,
-  NoteResolution,
-  ReminderDelay,
-  type Profile
-} from '@shared/schemas'
-import type { Reminders } from './reminders'
+import { LEARN_WINDOW_DAYS, NoteMerge, NoteResolution, type Profile } from '@shared/schemas'
 import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
 import { createExpander } from './ai/expand'
-import { applyMerge, applyNote, createMerger, createRememberer } from './ai/lessons'
+import { applyMerge, applyNote, createMerger, createRememberer, createTeller } from './ai/lessons'
 import { createProfileDrafter } from './ai/onboarding'
 import { createSummarizer } from './ai/summary'
 import { createTriager } from './ai/triage'
 import { createAiHandlers } from './ai/index'
 import { detectPatterns, mergeLearned } from './insights'
+import { deleteReminder, saveReminder } from './reminders'
 import type { Storage } from './storage'
 import { createTranscriber, type Transcriber } from './transcribe'
 
@@ -33,11 +25,21 @@ export function warmUpTranscriber(): Promise<void> {
 }
 
 export function registerMockHandlers(
-  { demo, profiles, settings, checkIns, changes, achievements, events, lessons }: Storage,
+  {
+    demo,
+    profiles,
+    settings,
+    checkIns,
+    changes,
+    achievements,
+    events,
+    lessons,
+    reminders
+  }: Storage,
   onSettingsSaved: () => void,
-  /** Only the overlay records, so only it may transcribe. */
+  /** Only the overlay records and tells Pip, so only it may transcribe or send. */
   isOverlay: (sender: Electron.WebContents) => boolean,
-  reminders: Reminders
+  onRemindersChanged: () => void
 ): void {
   const api = createMockApi()
   const decoder = process.env.ANTHROPIC_API_KEY
@@ -72,6 +74,13 @@ export function registerMockHandlers(
     makeRememberer: () =>
       createRememberer({
         claude: createClaudeClient(),
+        lessons,
+        load: () => profiles.load(),
+        save: (p) => profiles.save(p)
+      }),
+    makeTeller: () =>
+      createTeller({
+        claude: process.env.ANTHROPIC_API_KEY ? createClaudeClient() : null,
         lessons,
         load: () => profiles.load(),
         save: (p) => profiles.save(p)
@@ -111,24 +120,12 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.checkInList, () => checkIns.list())
   ipcMain.handle(IPC.checkInSave, (_, c) => {
     checkIns.add(c)
-    reminders.finishKind('checkin') // answered, so a waiting "ask me later" is moot
     try {
       learn()
     } catch {
       console.log('Pattern detection failed after a check-in.') // the check-in is saved either way
     }
   })
-  // The renderer is untrusted input: every argument is checked before it reaches the store.
-  const id = (v: unknown): string => z.string().min(1).parse(v)
-  ipcMain.handle(IPC.reminderAdd, (_, r, delay) =>
-    reminders.add(NewReminder.parse(r), ReminderDelay.parse(delay))
-  )
-  ipcMain.handle(IPC.reminderReschedule, (_, i, delay) =>
-    reminders.reschedule(id(i), ReminderDelay.parse(delay))
-  )
-  ipcMain.handle(IPC.reminderFinish, (_, i) => reminders.finish(id(i)))
-  ipcMain.handle(IPC.reminderShow, (_, i) => reminders.show(id(i)))
-  ipcMain.handle(IPC.reminderList, () => reminders.list())
   ipcMain.handle(IPC.changeList, () => changes.list())
   ipcMain.handle(IPC.changeSave, (_, c) => changes.add(c))
   ipcMain.handle(IPC.achievementList, () => achievements.list())
@@ -143,6 +140,10 @@ export function registerMockHandlers(
     lessons.replace(lessons.list().filter((l) => l.id !== id))
   })
   ipcMain.handle(IPC.noteRemember, (_, text, correction) => ai.rememberCorrection(text, correction))
+  ipcMain.handle(IPC.tellPip, (event, message) => {
+    if (!isOverlay(event.sender)) throw new Error("Only Pip's overlay can tell Pip.")
+    return ai.tellPip(message)
+  })
   ipcMain.handle(IPC.noteResolve, (_, resolution) =>
     applyNote(lessons, NoteResolution.parse(resolution), new Date().toISOString())
   )
@@ -150,6 +151,15 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.noteApplyMerge, (_, merge) =>
     applyMerge(lessons, NoteMerge.parse(merge), new Date().toISOString())
   )
+  ipcMain.handle(IPC.reminderList, () => reminders.list())
+  ipcMain.handle(IPC.reminderSave, (_, r) => {
+    saveReminder(reminders, r)
+    onRemindersChanged()
+  })
+  ipcMain.handle(IPC.reminderDelete, (_, id) => {
+    deleteReminder(reminders, id)
+    onRemindersChanged()
+  })
   ipcMain.handle(IPC.learnedRefresh, () => learn())
   ipcMain.handle(IPC.summaryGenerate, (_, r, p) => ai.generateSummary(r, p))
   ipcMain.handle(IPC.onboardingDraft, (_, a) => ai.draftProfile(a))
