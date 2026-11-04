@@ -25,9 +25,19 @@ export function warmUpTranscriber(): Promise<void> {
 }
 
 export function registerMockHandlers(
-  { demo, profiles, settings, checkIns, changes, achievements, events, lessons, reminders }: Storage,
+  {
+    demo,
+    profiles,
+    settings,
+    checkIns,
+    changes,
+    achievements,
+    events,
+    lessons,
+    reminders
+  }: Storage,
   onSettingsSaved: () => void,
-  /** Only the overlay records, so only it may transcribe. */
+  /** Only the overlay records and tells Pip, so only it may transcribe or send. */
   isOverlay: (sender: Electron.WebContents) => boolean,
   onRemindersChanged: () => void
 ): void {
@@ -130,7 +140,10 @@ export function registerMockHandlers(
     lessons.replace(lessons.list().filter((l) => l.id !== id))
   })
   ipcMain.handle(IPC.noteRemember, (_, text, correction) => ai.rememberCorrection(text, correction))
-  ipcMain.handle(IPC.tellPip, (_, message) => ai.tellPip(message))
+  ipcMain.handle(IPC.tellPip, (event, message) => {
+    if (!isOverlay(event.sender)) throw new Error("Only Pip's overlay can tell Pip.")
+    return ai.tellPip(message)
+  })
   ipcMain.handle(IPC.noteResolve, (_, resolution) =>
     applyNote(lessons, NoteResolution.parse(resolution), new Date().toISOString())
   )

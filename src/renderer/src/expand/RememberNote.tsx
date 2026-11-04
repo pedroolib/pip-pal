@@ -10,10 +10,13 @@ import { Textarea } from '@renderer/components/ui/textarea'
 
 export function RememberNote({
   note,
-  onDone
+  onDone,
+  holdsKeyboard = false
 }: {
   note: NoteProposal
   onDone: () => void
+  /** The card around it already holds the keyboard, and keeps it when the field closes. */
+  holdsKeyboard?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [draft, setDraft] = useState<string | null>(null)
@@ -22,10 +25,10 @@ export function RememberNote({
   const editing = draft !== null
   // The overlay is never focused, so it takes the keyboard while the field is open.
   useEffect(() => {
-    if (!editing) return
+    if (!editing || holdsKeyboard) return
     api.setOverlayFocus(true)
     return () => api.setOverlayFocus(false)
-  }, [editing])
+  }, [editing, holdsKeyboard])
 
   const run = (go: Promise<void>): void => {
     setFailed(false)

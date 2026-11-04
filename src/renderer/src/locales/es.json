@@ -451,7 +451,7 @@
       },
       "privacy": {
         "title": "Privacidad",
-        "selected": "Solo salen de tu computadora el texto que seleccionas, lo que escribes para corregir o enseñar a Pip y lo que ya le enseñaste, y solo después de cambiar los nombres por roles como [Manager].",
+        "selected": "Solo salen de tu computadora el texto que seleccionas, lo que escribes para corregir o enseñar a Pip, lo que escribes o dictas en Cuéntale a Pip y envías, y tus notas guardadas, y solo después de cambiar los nombres por roles como [Manager]. Lo que le cuentas a Pip va a Claude (la IA de Anthropic). Las notas guardadas vuelven a salir con mensajes posteriores, sin que pulses Enviar otra vez.",
         "manual": "Los resúmenes nunca se envían solos. Tú los copias o los exportas."
       }
     }
@@ -494,7 +494,7 @@
   },
   "tell": {
     "title": "Cuéntale a Pip",
-    "hint": "No se envía nada hasta que pulses Enviar.",
+    "hint": "Va a Claude (la IA de Anthropic) solo al pulsar Enviar, sin nombres. Las notas que guardes vuelven a salir después.",
     "label": "Tu mensaje para Pip",
     "placeholder": "Escribe o habla. Por ejemplo: Me concentro mejor cuando recibo un plan el día anterior.",
     "send": "Enviar",
@@ -505,6 +505,7 @@
     "another": "Cuéntale otra cosa a Pip",
     "failedTitle": "Pip no pudo responder",
     "failedBody": "Tus palabras quedaron guardadas como nota. No se pierde nada.",
+    "rejected": "Pip no pudo recibir esto. Tus palabras siguen en el cuadro, así que puedes intentar de nuevo.",
     "tryAgain": "Intentar de nuevo"
   },
   "reminder": {
@@ -521,6 +522,7 @@
     "summary": "Pip te lo recordará {{when}}.",
     "errorPast": "Elige una hora en el futuro.",
     "errorLong": "Los recordatorios pueden tener hasta 500 caracteres.",
+    "errorGeneric": "Pip no pudo guardar esto. Inténtalo de nuevo.",
     "errorFull": "Pip guarda hasta 200 recordatorios. Borra uno para añadir otro.",
     "fromStep": "Viene de tu paso. Puedes cambiarlo.",
     "tuckStep": "Al guardar, Pip aparta este paso hasta entonces.",

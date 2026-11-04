@@ -18,6 +18,16 @@ export function customAt(date: string, time: string): Date | null {
   return new Date(+d[1], +d[2] - 1, +d[3], +t[1], +t[2])
 }
 
+const pad = (n: number): string => String(n).padStart(2, '0')
+/** What the native date and time inputs hold for a moment, in local time. */
+export const dateField = (d: Date): string =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const timeField = (d: Date): string => `${pad(d.getHours())}:${pad(d.getMinutes())}`
+
+/** Whether the fields still show the stored time, which may hold seconds they can't. */
+export const sameMoment = (at: string, date: string, time: string): boolean =>
+  dateField(new Date(at)) === date && timeField(new Date(at)) === time
+
 const dayStart = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 
 /** "tomorrow, Wed, Nov 4, 9:00 AM": the exact moment, with today or tomorrow in words. */

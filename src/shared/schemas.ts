@@ -513,12 +513,21 @@ export type NoteResolution = z.infer<typeof NoteResolution>
 
 export const REMINDER_TEXT_MAX = 500
 export const REMINDER_MAX = 200
+export const REMINDER_ID_MAX = 100
+/** Stable codes that start main's rejection messages: IPC keeps only the message, and its wording may change. */
+export const REMINDER_ERROR = {
+  past: 'REMINDER_PAST',
+  long: 'REMINDER_LONG',
+  full: 'REMINDER_FULL'
+} as const
+/** False for text that would fire a blank card: nothing left once invisible characters go. */
+export const hasVisibleText = (text: string): boolean => text.replace(/\p{Cf}/gu, '').trim() !== ''
 /**
  * Something the person asked Pip to remind them of, at a time. Kept on this machine and apart from `Profile`,
  * so a summary cannot include it.
  */
 export const Reminder = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).max(REMINDER_ID_MAX),
   text: z.string().min(1).max(REMINDER_TEXT_MAX),
   at: z.iso.datetime({ offset: true })
 })

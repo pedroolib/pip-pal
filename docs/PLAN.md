@@ -43,7 +43,7 @@ Decisiones cerradas el 1 de noviembre de 2026. Los porqués y las notas técnica
 11. Blindaje del demo: respaldo en caché, tecla de repetición, video de respaldo.
 12. Pruebas con usuarios (ya hay una persona en contacto); `es.json` para ellas.
 13. **Onboarding** (subió del nivel 2 el 3 de noviembre; ver [DECISIONS.md §13](DECISIONS.md)): la primera vez sin `PIP_DEMO=1`, Pip hace preguntas, una llamada a Claude convierte las respuestas en sugerencias para el perfil, y la persona practica el atajo con un mensaje de ejemplo. Fuera del demo en vivo; en el pitch va un clip grabado.
-14. **Captura de voz** (subió del nivel 3 el 3 de noviembre; ver [DECISIONS.md §14](DECISIONS.md)): ⌃⇧Enter graba el micrófono, el audio de la computadora o ambos (hasta 10 min), Pip transcribe en la máquina, la persona revisa y elige el texto, y sigue el triage de siempre. En el demo en vivo, solo micrófono. En `main` con las correcciones de la ronda 1; falta probarla en Electron real y empaquetada (sección 8).
+14. **Captura de voz** (subió del nivel 3 el 3 de noviembre; ver [DECISIONS.md §14](DECISIONS.md)): "Let Pip listen", en el menú del atajo, graba el micrófono, el audio de la computadora o ambos (hasta 10 min), Pip transcribe en la máquina, la persona revisa y elige el texto, y sigue el triage de siempre. En el demo en vivo, solo micrófono. En `main` con las correcciones de la ronda 1; falta probarla en Electron real y empaquetada (sección 8).
 
 **Nivel 1, si sobra antes de la entrega:** responder con el porqué; versión corta del manual para el jefe ("how I work best").
 
@@ -82,7 +82,7 @@ El esquema exacto está en `src/shared/schemas.ts`.
 | 0:50–1:05 | "Ask, don't guess" sobre "when you get a chance", con la pregunta redactada; Sam la copia y responde. |
 | 1:05–1:15 | Estrategia de calma ("Your manual says calm music helps. 10 min, then step 1?"); Sam la salta. |
 | 1:15–1:45 | Casa de Pip → Mi resumen: versiones Coach y Psychologist, desmarca una viñeta y la copia (exportar PDF todavía es "Coming soon"). |
-| 1:45–2:15 | Voz (reemplaza a Logros): Sam presiona ⌃⇧Enter y elige Microphone; un compañero dice *"Sam, can you send the weekly numbers to Dana before tomorrow's standup, and loop in Alex if anything looks off?"*; Sam detiene, revisa la transcripción y pulsa "Read this with Pip": burbuja y luego pasos. |
+| 1:45–2:15 | Voz (reemplaza a Logros): Sam presiona ⌃⇧Space sin selección, elige Let Pip listen y luego Microphone; un compañero dice *"Sam, can you send the weekly numbers to Dana before tomorrow's standup, and loop in Alex if anything looks off?"*; Sam detiene, revisa la transcripción y pulsa "Read this with Pip": burbuja y luego pasos. |
 
 ## 6. Equipo
 
@@ -113,7 +113,7 @@ Revisado contra el código el 3 de noviembre. Las preguntas sin decidir siguen e
 
 | Quién | Qué | Por qué |
 |---|---|---|
-| A | Voz en la Mac del demo: ⌃⇧Enter abre y detiene, aviso del micrófono, permiso "System Audio Recording", tarjeta "can't hear" | Solo se probó en un navegador con dispositivos falsos. |
+| A | Voz en la Mac del demo: Let Pip listen abre, ⌃⇧Space detiene, aviso del micrófono, permiso "System Audio Recording", tarjeta "can't hear" | Solo se probó en un navegador con dispositivos falsos. |
 | A | Mac: ⌃⇧Space con la tarjeta de revisión abierta lee la app de atrás, no la caja de Pip | En Mac, `blur()` podría no devolverle el foco a la otra app. Si falla, probar `app.hide()`. |
 | A | Windows, Electron real: audio de la computadora (loopback), Esc mientras escribe, ⌃⇧Space con la tarjeta de revisión abierta | El Esc de main y el foco no existen en la vista de navegador. |
 | A | App empaquetada: `npm run fetch:whisper`, construir y transcribir de verdad | Solo se comprobó que los binarios y el modelo quedan en `app.asar.unpacked`; nunca se transcribió empaquetado. |

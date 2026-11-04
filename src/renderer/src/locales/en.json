@@ -499,7 +499,7 @@
       },
       "privacy": {
         "title": "Privacy",
-        "selected": "Only text you select, what you type to correct or teach Pip, and what you taught Pip before leave your computer, and only after names are swapped for roles like [Manager].",
+        "selected": "Only text you select, what you type to correct or teach Pip, what you type or dictate to Tell Pip and send, and your kept notes leave your computer, and only after names are swapped for roles like [Manager]. What you tell Pip goes to Claude (Anthropic's AI). Kept notes go out again with later messages, with no new Send.",
         "manual": "Summaries never send themselves. You copy or export them."
       }
     }
@@ -556,8 +556,8 @@
     "privacy": {
       "title": "What I see, and what I never see",
       "rules": [
-        "I only read text you select and send me with the shortcut, and what you type to me. I never read your email or chat by myself.",
-        "Before anything leaves your computer, I swap names for roles and remove emails, phone numbers and links.",
+        "I only read text you select and send me with the shortcut, and what you type or dictate to me and send. I never read your email or chat by myself.",
+        "Before anything leaves your computer, I swap names for roles and remove emails, phone numbers and links. Notes you keep go out again this way with later messages.",
         "I never send anything for you. You copy what you want."
       ],
       "tryLabel": "Try it: type a name, like your manager's",
@@ -711,7 +711,7 @@
   },
   "tell": {
     "title": "Tell Pip",
-    "hint": "Nothing is sent until you press Send.",
+    "hint": "Goes to Claude (Anthropic's AI) only when you press Send, with names removed. Notes you keep go out again later.",
     "label": "Your message to Pip",
     "placeholder": "Write or speak. For example: I focus best when I get a plan the day before.",
     "send": "Send",
@@ -722,6 +722,7 @@
     "another": "Tell Pip something else",
     "failedTitle": "Pip could not answer",
     "failedBody": "Your words are saved as a note. Nothing is lost.",
+    "rejected": "Pip could not take this. Your words are still in the box, so you can try again.",
     "tryAgain": "Try again"
   },
   "reminder": {
@@ -738,6 +739,7 @@
     "summary": "Pip will remind you {{when}}.",
     "errorPast": "Pick a time in the future.",
     "errorLong": "Reminders can be up to 500 characters.",
+    "errorGeneric": "Pip could not save this. Try again.",
     "errorFull": "Pip keeps up to 200 reminders. Delete one to add another.",
     "fromStep": "From your step. You can change it.",
     "tuckStep": "When you save, Pip tucks this step away until then.",

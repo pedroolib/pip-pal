@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Pencil, Trash2 } from 'lucide-react'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
+import { oldestFirst } from '@renderer/command/dueQueue'
 import { ReminderForm } from '@renderer/command/ReminderForm'
 import { formatDue } from '@renderer/triage/model'
 import { HouseCard } from './parts'
@@ -20,7 +21,7 @@ export function ComingUp(): React.JSX.Element | null {
   const [all, setAll] = useState(false)
 
   if (!data?.length) return null
-  const sorted = [...data].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id))
+  const sorted = [...data].sort((a, b) => oldestFirst(a, b) || a.id.localeCompare(b.id))
   const shown = all ? sorted : sorted.slice(0, SHOWN)
   const now = new Date()
 

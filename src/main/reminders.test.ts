@@ -200,18 +200,33 @@ describe('saving and deleting', () => {
     ['empty text', { id: 'a', text: '', at: inMs(MINUTE) }],
     ['blank text', { id: 'a', text: '   ', at: inMs(MINUTE) }],
     ['text too long', { id: 'a', text: 'x'.repeat(501), at: inMs(MINUTE) }],
-    ['a bad time', { id: 'a', text: 'x', at: 'tomorrow' }]
+    ['a bad time', { id: 'a', text: 'x', at: 'tomorrow' }],
+    ['text with nothing visible', { id: 'a', text: '\u200B\u2060', at: inMs(MINUTE) }],
+    ['a huge id', { id: 'x'.repeat(101), text: 'x', at: inMs(MINUTE) }]
   ])('rejects %s and stores nothing', (_, input) => {
     const store = open()
     expect(() => saveReminder(store, input, NOW)).toThrow()
     expect(store.list()).toEqual([])
   })
 
+  it.each([
+    ['REMINDER_LONG', { id: 'a', text: 'x'.repeat(501), at: inMs(MINUTE) }],
+    ['REMINDER_PAST', { id: 'a', text: 'x', at: inMs(-MINUTE) }]
+  ])('says %s in its message', (code, input) => {
+    expect(() => saveReminder(open(), input, NOW)).toThrow(code)
+  })
+
+  it('names no limit for other bad input', () => {
+    expect(() => saveReminder(open(), { id: 'a', text: '', at: 'x' }, NOW)).toThrow(
+      /^(?!.*REMINDER_)/
+    )
+  })
+
   it('rejects past the limit, but still lets one be edited at the limit', () => {
     const store = open()
     const full = Array.from({ length: REMINDER_MAX }, (_, i) => reminder(`r${i}`, MINUTE))
     store.replace(full)
-    expect(() => saveReminder(store, reminder('one-more', MINUTE), NOW)).toThrow(/too many/i)
+    expect(() => saveReminder(store, reminder('one-more', MINUTE), NOW)).toThrow('REMINDER_FULL')
     expect(store.list()).toHaveLength(REMINDER_MAX)
     saveReminder(store, reminder('r0', 2 * MINUTE), NOW)
     expect(store.list()[0]).toEqual(reminder('r0', 2 * MINUTE))

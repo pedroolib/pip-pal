@@ -98,12 +98,16 @@ export const IPC = {
   /** corner window → main → overlay: the person clicked the corner Pip. */
   cornerClick: 'corner:click',
   cornerOpen: 'overlay:corner-open',
-  /** main → overlay: `pip-pal --record` was run. */
+  /** main → overlay: `pip-pal --record` was run, or the command was pressed during a recording. */
   recordHotkey: 'pip:record-hotkey',
   /** main → overlay: the command shortcut was pressed. */
   command: 'pip:command',
   /** overlay → main: whether a recording is running, so the shortcut can tell. */
   recordingActive: 'overlay:recording-active',
+  /** overlay → main: it has subscribed, so what main sends from now on reaches it. */
+  overlayReady: 'overlay:ready',
+  /** overlay → main: a selection arrived with typed text in a card; nothing happens, so undo the press. */
+  selectionRefused: 'overlay:selection-refused',
   reminderList: 'reminder:list',
   reminderSave: 'reminder:save',
   reminderDelete: 'reminder:delete',
@@ -195,9 +199,9 @@ export interface PipApi {
   /** Overlay: the corner Pip was clicked, so swap the cursor's card with it. Returns an unsubscribe function. */
   onCornerOpen(cb: () => void): () => void
   /**
-   * Only `pip-pal --record` now: opens the source card, or stops the recording if one is running. The
-   * shortcut pressed with no selection on an open record card arrives through `onCommand`. Returns an unsubscribe function.
-   * shortcut: to be removed from callers once the command replaces it; kept so main and renderer still compile.
+   * `pip-pal --record` (opens the source card, or stops the recording) and the command pressed during a recording
+   * (stops it). The shortcut pressed with no selection on an open record card arrives through `onCommand`. Returns an
+   * unsubscribe function.
    */
   onRecordHotkey(cb: () => void): () => void
   /**
@@ -207,8 +211,12 @@ export interface PipApi {
   onCommand(cb: (e: { copyFailed: boolean }) => void): () => void
   /** Overlay only: whether a recording is running; ignored from other windows. */
   setRecordingActive(on: boolean): void
+  /** Overlay only, once its page has subscribed and again after a reload: main then sends what it held back. */
+  overlayReady(): void
+  /** Overlay only: it ignored a selection to keep typed text, so main puts the window and the keyboard back. */
+  refuseSelection(): void
   listReminders(): Promise<Reminder[]>
-  /** Creates, or updates the one with the same id. Rejects with bad input or past REMINDER_MAX. */
+  /** Creates, or updates the one with the same id. Rejects with bad input or past REMINDER_MAX; see REMINDER_ERROR. */
   saveReminder(reminder: Reminder): Promise<void>
   deleteReminder(id: string): Promise<void>
   /** A reminder's time came (or passed while Pip was off). Returns an unsubscribe function. */
@@ -216,7 +224,7 @@ export interface PipApi {
   /**
    * Text the person typed or dictated and pressed Send on. One Claude call (scrubbed): a reply, why, and what
    * to do with their words as a note. Their words are saved first; if the call fails `reply` is null and the
-   * note keeps them. Rejects with bad input.
+   * note keeps them. Overlay only. Rejects with bad input, in which case nothing was saved.
    */
   tellPip(message: string): Promise<TellAnswer>
   /**

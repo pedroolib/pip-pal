@@ -8,7 +8,9 @@ import {
   hotkeyReady,
   Profile,
   QuestionTopic,
+  REMINDER_ID_MAX,
   REMINDER_MAX,
+  hasVisibleText,
   REMINDER_TEXT_MAX,
   Reminder,
   RecordSource,
@@ -182,7 +184,9 @@ describe('reminders', () => {
     expect(Reminder.safeParse(r).success).toBe(true)
     expect(Reminder.safeParse({ ...r, text: 'a'.repeat(REMINDER_TEXT_MAX) }).success).toBe(true)
     expect(Reminder.safeParse({ ...r, text: '' }).success).toBe(false)
-    expect(Reminder.safeParse({ ...r, text: 'a'.repeat(REMINDER_TEXT_MAX + 1) }).success).toBe(false)
+    expect(Reminder.safeParse({ ...r, text: 'a'.repeat(REMINDER_TEXT_MAX + 1) }).success).toBe(
+      false
+    )
   })
 
   it('needs an ISO time', () => {
@@ -195,21 +199,56 @@ describe('reminders', () => {
 
   it('mock persists saves (create and update by id) and deletes', async () => {
     const api = createMockApi()
+    const seeded = await api.listReminders()
     await api.saveReminder(r)
     await api.saveReminder({ ...r, text: 'Call Dana at 3' })
-    expect(await api.listReminders()).toEqual([{ ...r, text: 'Call Dana at 3' }])
+    expect(await api.listReminders()).toEqual([...seeded, { ...r, text: 'Call Dana at 3' }])
     await api.deleteReminder('r1')
-    expect(await api.listReminders()).toEqual([])
+    expect(await api.listReminders()).toEqual(seeded)
+  })
+
+  it('mock starts with two reminders ahead, so Coming up shows in a plain browser', async () => {
+    const seeded = await createMockApi().listReminders()
+    expect(seeded).toHaveLength(2)
+    for (const reminder of seeded) {
+      expect(Reminder.parse(reminder)).toEqual(reminder)
+      expect(Date.parse(reminder.at)).toBeGreaterThan(Date.now())
+    }
   })
 
   it('mock refuses a reminder past the limit', async () => {
     const api = createMockApi()
-    for (let i = 0; i < REMINDER_MAX; i++) await api.saveReminder({ ...r, id: `r${i}` })
-    await expect(api.saveReminder({ ...r, id: 'extra' })).rejects.toThrow()
+    for (let i = 0; i < REMINDER_MAX - 2; i++) await api.saveReminder({ ...r, id: `r${i}` })
+    await expect(api.saveReminder({ ...r, id: 'extra' })).rejects.toThrow('REMINDER_FULL')
+  })
+})
+
+describe('Reminder limits', () => {
+  it('has a maximum id length', () => {
+    const r = { id: 'x'.repeat(REMINDER_ID_MAX), text: 'x', at: '2026-11-03T12:00:00.000Z' }
+    expect(Reminder.safeParse(r).success).toBe(true)
+    expect(Reminder.safeParse({ ...r, id: r.id + 'x' }).success).toBe(false)
+  })
+
+  it('tells visible text from invisible characters', () => {
+    expect(hasVisibleText('a\u200B')).toBe(true)
+    expect(hasVisibleText(' \u200B\u2060\uFEFF\n')).toBe(false)
   })
 })
 
 describe('tellPip in the mock', () => {
+  it('rejects when the message says reject, so the card can be reviewed', async () => {
+    await expect(createMockApi().tellPip('please reject')).rejects.toThrow()
+  })
+
+  it('removes the note for a question, like main', async () => {
+    const api = createMockApi()
+    const before = await api.listLessons()
+    const a = await api.tellPip('Who approves leave?')
+    expect(a.note).toMatchObject({ kind: 'none', noteId: null })
+    expect(await api.listLessons()).toEqual(before)
+  })
+
   it('answers with reply, why and a note it saves to the lessons', async () => {
     const api = createMockApi()
     const before = (await api.listLessons()).length

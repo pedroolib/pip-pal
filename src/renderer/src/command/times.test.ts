@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { customAt, describeWhen, quickAt } from './times'
+import { customAt, dateField, describeWhen, quickAt, sameMoment, timeField } from './times'
 
 // Tue Nov 3 2026, 3:42 PM local.
 const now = new Date(2026, 10, 3, 15, 42)
@@ -39,5 +39,23 @@ describe('describeWhen', () => {
   })
   it('later days have no day word', () => {
     expect(describeWhen(new Date(2026, 10, 6, 9, 0), now, 'en-US')).toBe('Fri, Nov 6, 9:00 AM')
+  })
+})
+
+describe('sameMoment', () => {
+  const at = new Date(2026, 10, 3, 15, 42, 37).toISOString()
+
+  it('fills the fields the form shows, to the minute', () => {
+    expect(dateField(new Date(at))).toBe('2026-11-03')
+    expect(timeField(new Date(at))).toBe('15:42')
+  })
+
+  it('is true for untouched fields, though the stored time has seconds', () => {
+    expect(sameMoment(at, '2026-11-03', '15:42')).toBe(true)
+  })
+
+  it('is false once either field changes', () => {
+    expect(sameMoment(at, '2026-11-04', '15:42')).toBe(false)
+    expect(sameMoment(at, '2026-11-03', '15:43')).toBe(false)
   })
 })

@@ -207,8 +207,12 @@ function Overlay(): React.JSX.Element {
     setFlip(f)
     setAtCursor(true)
   }
+  // What the person wrote in the open card, which a press of the command or --record must not lose.
+  const hasTyped = (): boolean =>
+    [...(frame.current?.querySelectorAll('textarea') ?? [])].some((field) => field.value.trim())
   // `here`: text from the record flow opens where that flow already sits.
   const capture = (selected: string, here = false): void => {
+    if (!here && hasTyped()) return api.refuseSelection() // what they typed would be lost
     refreshSettings()
     const id = ++request.current
     text.current = selected
@@ -244,9 +248,6 @@ function Overlay(): React.JSX.Element {
       () => {}
     )
   }
-  // What the person wrote in the open card, which a press of the command or --record must not lose.
-  const hasTyped = (): boolean =>
-    [...(frame.current?.querySelectorAll('textarea') ?? [])].some((field) => field.value.trim())
   const openMenu = (failed: boolean): void => {
     refreshSettings()
     setCopyFailed(failed)
@@ -373,6 +374,7 @@ function Overlay(): React.JSX.Element {
       setOnDemand(false)
       setView('checkIn')
     })
+    api.overlayReady() // only now: what main sends before this is lost
     return () => {
       offCaptured()
       offCorner()
@@ -518,8 +520,10 @@ function Overlay(): React.JSX.Element {
     setView('hidden')
     if (snooze.current) return
     snooze.current = setTimeout(() => {
+      if (viewNow.current === 'due') return setCheckInWaits(true) // the card being read stays
+      if (viewNow.current !== 'hidden') return
       setOnDemand(false)
-      setView((v) => (v === 'hidden' || v === 'due' ? 'checkIn' : v))
+      setView('checkIn')
     }, SNOOZE_MS)
   }
 
@@ -576,7 +580,7 @@ function Overlay(): React.JSX.Element {
   }
   const dropDue = (id: string): void => {
     setDueQueue((q) => q.filter((r) => r.id !== id))
-    setView('hidden')
+    setView((v) => (v === 'due' ? 'hidden' : v)) // the person may have opened something during the save
   }
   const dueDone = async (id: string): Promise<void> => {
     await api.deleteReminder(id)

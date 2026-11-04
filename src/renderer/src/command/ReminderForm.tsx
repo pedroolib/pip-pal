@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, Info, X } from 'lucide-react'
-import { REMINDER_TEXT_MAX, type Reminder } from '@shared/schemas'
+import { REMINDER_TEXT_MAX, hasVisibleText, type Reminder } from '@shared/schemas'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
@@ -13,7 +13,16 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { DictateButton } from '@renderer/record/DictateButton'
 import { cn } from '@renderer/lib/utils'
 import { CARD_WIDTH } from '@renderer/triage/model'
-import { customAt, describeWhen, quickAt, type QuickTime } from './times'
+import { errorFor, type FormError } from './formError'
+import {
+  customAt,
+  dateField,
+  describeWhen,
+  quickAt,
+  sameMoment,
+  timeField,
+  type QuickTime
+} from './times'
 
 const CHOICES = [
   ['in15', 'reminder.in15'],
@@ -22,18 +31,6 @@ const CHOICES = [
   ['custom', 'reminder.custom']
 ] as const
 type Choice = (typeof CHOICES)[number][0]
-
-type FormError = 'errorPast' | 'errorLong' | 'errorFull'
-
-const pad = (n: number): string => String(n).padStart(2, '0')
-
-// The main process rejects without a code, so its message is the only way to tell which limit was hit.
-function errorFor(e: unknown): FormError {
-  const m = e instanceof Error ? e.message : ''
-  if (/too many|200|limit|full/i.test(m)) return 'errorFull'
-  if (/500|long|character/i.test(m)) return 'errorLong'
-  return 'errorPast'
-}
 
 export function ReminderForm({
   initialText = '',
@@ -53,12 +50,8 @@ export function ReminderForm({
   const [text, setText] = useState(initial?.text ?? initialText)
   // Editing starts on the custom time so the saved moment is shown exactly; a new one has none chosen.
   const [choice, setChoice] = useState<Choice | null>(initial ? 'custom' : null)
-  const [date, setDate] = useState(
-    start ? `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}` : ''
-  )
-  const [time, setTime] = useState(
-    start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : ''
-  )
+  const [date, setDate] = useState(start ? dateField(start) : '')
+  const [time, setTime] = useState(start ? timeField(start) : '')
   const [error, setError] = useState<FormError | null>(null)
   const [saving, setSaving] = useState(false)
   const field = useRef<HTMLTextAreaElement>(null)
@@ -74,17 +67,21 @@ export function ReminderForm({
     choice === 'custom' ? customAt(date, time) : choice ? quickAt(choice as QuickTime, now) : null
   const now = new Date()
   const preview = when(now)
-  const canSave = !saving && text.trim() !== '' && preview !== null && preview > now
+  // Fixing a word in a reminder that already fired keeps its time, past or not; main allows that.
+  const keptAt =
+    initial && choice === 'custom' && sameMoment(initial.at, date, time) ? initial.at : null
+  const canSave =
+    !saving && hasVisibleText(text) && (keptAt !== null || (preview !== null && preview > now))
 
   const save = async (): Promise<void> => {
     // Quick times count from the press, so a form left open cannot save a moment already gone.
     const at = when(new Date())
     if (!text.trim() || !at) return
-    if (at <= new Date()) return setError('errorPast')
+    if (!keptAt && at <= new Date()) return setError('errorPast')
     const reminder: Reminder = {
       id: initial?.id ?? crypto.randomUUID(),
       text: text.trim(),
-      at: at.toISOString()
+      at: keptAt ?? at.toISOString()
     }
     setError(null)
     setSaving(true)

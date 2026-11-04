@@ -1,5 +1,5 @@
-// Tell Pip: one message, one answer, once per open. The words are saved by main before Pip answers, so a
-// failure still keeps them and "Try again" only asks for the reply again (the rememberer skips identical text).
+// Tell Pip: one message, one answer, once per open. The words are saved by main before Pip answers, so a failed
+// call still keeps them, and "Try again" asks again for that note. A rejected call saved nothing: the words stay in the box.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LoaderCircle, RotateCcw, X } from 'lucide-react'
@@ -13,6 +13,7 @@ import { RememberNote } from '@renderer/expand/RememberNote'
 import { Pip, type Mood } from '@renderer/pip/Pip'
 import { DictateButton } from '@renderer/record/DictateButton'
 import { CARD_WIDTH } from '@renderer/triage/model'
+import { noteToShow } from './tellModel'
 
 type Phase = 'write' | 'sending' | 'answered' | 'failed'
 
@@ -22,7 +23,12 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
   const [phase, setPhase] = useState<Phase>('write')
   const [answer, setAnswer] = useState<TellAnswer | null>(null)
   const [noteDone, setNoteDone] = useState(false)
+  const [rejected, setRejected] = useState(false)
   const field = useRef<HTMLTextAreaElement>(null)
+  // Where the keyboard goes when the field or the strip it was in goes away, so it isn't left on the page's body.
+  const replied = useRef<HTMLDivElement>(null)
+  const retry = useRef<HTMLButtonElement>(null)
+  const next = useRef<HTMLButtonElement>(null)
   // Each send gets a number; an answer that arrives after close or after a newer send is dropped.
   const run = useRef(0)
 
@@ -34,10 +40,20 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
     }
   }, [])
 
+  useEffect(() => {
+    if (phase === 'answered') replied.current?.focus()
+    if (phase === 'failed') retry.current?.focus()
+  }, [phase])
+  useEffect(() => {
+    if (noteDone) next.current?.focus()
+  }, [noteDone])
+
   const send = (): void => {
     const mine = ++run.current
     setPhase('sending')
     setNoteDone(false)
+    setRejected(false)
+    setAnswer(null)
     api.tellPip(text.trim()).then(
       (a) => {
         if (run.current !== mine) return
@@ -46,8 +62,9 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
       },
       () => {
         if (run.current !== mine) return
-        setAnswer(null)
-        setPhase('failed')
+        setRejected(true)
+        setPhase('write')
+        field.current?.focus()
       }
     )
   }
@@ -56,9 +73,6 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
     setText('')
     setAnswer(null)
     setPhase('write')
-    // RememberNote gives the keyboard back when it closes, and this card still needs it.
-    api.setOverlayFocus(true)
-    field.current?.focus()
   }
 
   const mood: Mood =
@@ -69,7 +83,7 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
         : phase === 'failed'
           ? 'gentle'
           : 'calm'
-  const sent = phase !== 'write'
+  const note = noteToShow(answer, noteDone)
   return (
     <Card
       className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
@@ -105,6 +119,11 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
         />
       )}
 
+      {rejected && phase === 'write' && (
+        <p role="alert" className="text-sm text-body">
+          {t('tell.rejected')}
+        </p>
+      )}
       {phase === 'write' && (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="lg" disabled={!text.trim()} onClick={send}>
@@ -120,8 +139,8 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
         </p>
       )}
       {phase === 'answered' && answer?.reply && (
-        <div className="flex flex-col gap-2" role="status">
-          <p className="text-base leading-snug font-bold">{answer.reply}</p>
+        <div ref={replied} tabIndex={-1} className="flex flex-col gap-2 outline-none" role="status">
+          <p className="text-base leading-snug">{answer.reply}</p>
           {answer.why && (
             <p className="text-sm text-body">
               <span className="font-bold">{t('tell.why')}</span> {answer.why}
@@ -133,25 +152,18 @@ export function TellCard({ onClose }: { onClose: () => void }): React.JSX.Elemen
         <div className="flex flex-col gap-2" role="status">
           <p className="font-bold">{t('tell.failedTitle')}</p>
           <p className="text-sm text-body">{t('tell.failedBody')}</p>
-          <Button variant="outline" size="sm" className="self-start" onClick={send}>
+          <Button ref={retry} variant="outline" size="sm" className="self-start" onClick={send}>
             <RotateCcw aria-hidden />
             {t('tell.tryAgain')}
           </Button>
         </div>
       )}
 
-      {sent && answer?.note && !noteDone && (
-        <RememberNote
-          key={answer.note.text}
-          note={answer.note}
-          onDone={() => {
-            setNoteDone(true)
-            api.setOverlayFocus(true)
-          }}
-        />
+      {note && (
+        <RememberNote key={note.text} note={note} holdsKeyboard onDone={() => setNoteDone(true)} />
       )}
       {(phase === 'answered' || phase === 'failed') && (
-        <Button variant="ghost" className="self-start text-primary" onClick={another}>
+        <Button ref={next} variant="ghost" className="self-start text-primary" onClick={another}>
           {t('tell.another')}
         </Button>
       )}

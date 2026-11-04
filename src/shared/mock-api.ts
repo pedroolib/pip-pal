@@ -15,6 +15,7 @@ import {
   OnboardingAnswers,
   type PendingEntry,
   Profile,
+  REMINDER_ERROR,
   REMINDER_MAX,
   Recipient,
   Reminder,
@@ -48,7 +49,12 @@ export function createMockApi(): PipApi {
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
   let events = UsageEvent.array().parse(eventsJson)
-  let reminders: Reminder[] = []
+  // Ahead of now, so Coming up has something to show in a plain browser and neither comes due there.
+  const fromNow = (hours: number): string => new Date(Date.now() + hours * 3_600_000).toISOString()
+  let reminders: Reminder[] = [
+    { id: 'seed-weekly-numbers', text: 'Send Dana the weekly numbers', at: fromNow(3) },
+    { id: 'seed-ask-alex', text: 'Ask Alex about the report deadline', at: fromNow(26) }
+  ]
   let lessons: Lesson[] = [
     {
       id: 'lesson-package-35',
@@ -231,19 +237,28 @@ export function createMockApi(): PipApi {
     onRecordHotkey: () => () => {},
     onCommand: () => () => {},
     setRecordingActive: () => {},
+    overlayReady: () => {},
+    refuseSelection: () => {},
     listReminders: async () => [...reminders],
     saveReminder: async (r) => {
       const reminder = Reminder.parse(r)
       const i = reminders.findIndex((x) => x.id === reminder.id)
       if (i >= 0) reminders[i] = reminder
-      else if (reminders.length >= REMINDER_MAX) throw new Error('Too many reminders')
+      else if (reminders.length >= REMINDER_MAX) throw new Error(`${REMINDER_ERROR.full} Too many`)
       else reminders.push(reminder)
     },
     deleteReminder: async (id) => void (reminders = reminders.filter((r) => r.id !== id)),
     onReminderDue: () => () => {},
     tellPip: async (message) => {
       const text = message.trim()
-      if (!text || text.length > LESSON_MAX) throw new Error('Bad message')
+      // "reject", "fail" and a question show each way the card can end, in a plain browser.
+      if (!text || text.length > LESSON_MAX || /reject/i.test(text)) throw new Error('Bad message')
+      const reply = 'Thanks for telling me. I will plan around that.'
+      const why = 'You said it in your own words, so I keep it as you wrote it.'
+      if (text.endsWith('?')) {
+        const none = { kind: 'none' as const, noteId: null, targetId: null, oldText: null }
+        return { reply, why, note: { ...none, text, why: null } }
+      }
       const note: Lesson = {
         id: crypto.randomUUID(),
         text,
@@ -252,10 +267,11 @@ export function createMockApi(): PipApi {
       }
       lessons = [...lessons, note]
       const proposal = { kind: 'add' as const, noteId: note.id, targetId: null, oldText: null }
-      if (/fail/i.test(text)) return { reply: null, why: null, note: { ...proposal, text, why: null } }
+      if (/fail/i.test(text))
+        return { reply: null, why: null, note: { ...proposal, text, why: null } }
       return {
-        reply: 'Thanks for telling me. I will plan around that.',
-        why: 'You said it in your own words, so I keep it as you wrote it.',
+        reply,
+        why,
         note: { ...proposal, text: `Pip's cleaner version: ${text}`, why: null }
       }
     },

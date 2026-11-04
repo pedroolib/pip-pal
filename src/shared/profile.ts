@@ -58,7 +58,7 @@ const phone = (m: string, date?: string): string =>
 // A lone ´ is typed as an apostrophe, and NFKC would split it into a space plus an accent.
 // shortcut: NFKC also rewrites the text Claude sees ("½" -> "1⁄2", "x²" -> "x2", "℃" -> "°C"); apply it only for matching if decodes suffer.
 // shortcut: Cyrillic look-alikes ("Dаna" with U+0430) are not folded to Latin; add a small skeleton map if one shows up.
-const normalize = (s: string): string =>
+export const normalize = (s: string): string =>
   s
     .replace(/´/g, "'")
     .normalize('NFKC')

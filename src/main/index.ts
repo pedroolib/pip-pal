@@ -45,15 +45,18 @@ let overlay: BrowserWindow | null = null
 // What the overlay's page last told main; a replaced page starts over (resetOverlayPage).
 let recordingActive = false
 let overlayWantsKeyboard = false
-// Reminders wait for this: sent before the page has loaded, one would be lost.
-let overlayLoaded = false
+// Reminders wait for this: sent before the page has subscribed, one would be lost.
+let overlaySubscribed = false
+// Where a press with a selection found the window, in case the overlay refuses the selection.
+let beforeSelection: { bounds: Bounds; held: boolean } | null = null
 let reminders: ReturnType<typeof startReminderSchedule> | null = null
 
 // A reload, crash or new window can't send the "false" the old page owed, or the command would be stuck.
 function resetOverlayPage(): void {
   recordingActive = false
   overlayWantsKeyboard = false
-  overlayLoaded = false
+  overlaySubscribed = false
+  beforeSelection = null
 }
 
 // The overlay's renderer is untrusted input like any IPC sender: check the shape before using it.
@@ -161,10 +164,6 @@ function createOverlay(): void {
     setEscape(false)
     setCorner(null) // the reloaded overlay has no task open
     resetOverlayPage()
-  })
-  mainWindow.webContents.on('did-finish-load', () => {
-    overlayLoaded = true
-    reminders?.redeliver()
   })
 
   // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
@@ -278,9 +277,9 @@ async function moveToCursor(win: BrowserWindow): Promise<void> {
   win.showInactive()
 }
 
-// shortcut: the overlay window stays shown with nothing drawn, so isVisible can't tell that a card is open. A card counts
-// as open while it holds the keyboard, and any other may move to the cursor; upgrade if the overlay ever reports its view.
-const cardOpen = (win: BrowserWindow): boolean => win.isVisible() && overlayWantsKeyboard
+// shortcut: the overlay window stays shown with nothing drawn, so a card counts as open while it holds the keyboard, even
+// one that lost it to another app (the next press then opens the menu where it sits); upgrade if the overlay reports its view.
+const cardOpen = (): boolean => overlayWantsKeyboard
 
 // The one command. A recording always stops, without touching the selection. Otherwise it reads the
 // selection: text goes to triage, and with none the overlay decides what the press means. Ignores
@@ -308,10 +307,11 @@ async function command(): Promise<void> {
     if (!text.trim()) {
       // Nothing to read, so an open card stays and needs its keyboard back.
       if (held) setOverlayFocus(win, true)
-      if (!cardOpen(win)) await moveToCursor(win)
+      if (!cardOpen()) await moveToCursor(win)
       win.webContents.send(IPC.command, { copyFailed })
       return
     }
+    beforeSelection = { bounds: win.getBounds(), held }
     await moveToCursor(win)
     win.webContents.send(IPC.captured, text)
   } finally {
@@ -324,7 +324,7 @@ async function command(): Promise<void> {
 async function record(): Promise<void> {
   const win = overlay
   if (!win) return
-  if (!recordingActive && !cardOpen(win)) await moveToCursor(win)
+  if (!recordingActive && !cardOpen()) await moveToCursor(win)
   win.webContents.send(IPC.recordHotkey)
 }
 
@@ -488,6 +488,23 @@ app.whenReady().then(() => {
     recordingActive = on
   })
 
+  // The overlay has subscribed: send what it would have missed. A reload clears this and it says so again.
+  ipcMain.on(IPC.overlayReady, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay) return
+    overlaySubscribed = true
+    reminders?.redeliver()
+  })
+
+  // Typed text would be lost, so the press means nothing: the card goes back where it was, with the keyboard if it had it.
+  ipcMain.on(IPC.selectionRefused, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || !beforeSelection) return
+    win.setBounds(beforeSelection.bounds)
+    if (beforeSelection.held) setOverlayFocus(win, true)
+    beforeSelection = null
+  })
+
   // Only the overlay sets the corner Pip; its click goes back to the overlay to swap.
   ipcMain.on(IPC.cornerSet, (event, state: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -520,9 +537,9 @@ app.whenReady().then(() => {
   powerMonitor.on('resume', checkIns.resume)
   app.on('will-quit', checkIns.stop)
   // The list reads empty until the overlay can show a reminder and onboarding allows it, so none is
-  // used up early; did-finish-load and the settings save above check again.
+  // used up early; IPC.overlayReady and the settings save above check again.
   const schedule = startReminderSchedule({
-    list: () => (overlayLoaded && ready() ? storage.reminders.list() : []),
+    list: () => (overlaySubscribed && ready() ? storage.reminders.list() : []),
     onDue: (reminder) => {
       const win = overlay
       if (!win) return

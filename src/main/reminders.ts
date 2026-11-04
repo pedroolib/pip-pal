@@ -1,7 +1,7 @@
 // When a reminder comes due, and the rules for saving one. Reminders stay on this machine, apart from
 // the profile and the events, so no summary or Claude call can include them.
 import { z } from 'zod'
-import { REMINDER_MAX, Reminder } from '@shared/schemas'
+import { REMINDER_ERROR, REMINDER_MAX, Reminder, hasVisibleText } from '@shared/schemas'
 
 // setTimeout fires at once above this, so a longer wait re-arms when it runs out.
 const MAX_DELAY_MS = 2 ** 31 - 1
@@ -65,14 +65,22 @@ type Store = { list(): Reminder[]; replace(items: Reminder[]): void }
 
 /** Creates, or updates the one with the same id. `input` comes from the renderer; throws if it is bad. */
 export function saveReminder(store: Store, input: unknown, now = new Date()): void {
-  const reminder = Reminder.parse(input)
-  if (!reminder.text.trim()) throw new Error('A reminder needs some text.')
+  const parsed = Reminder.safeParse(input)
+  if (!parsed.success) {
+    const long = parsed.error.issues.some((i) => i.path[0] === 'text' && i.code === 'too_big')
+    throw new Error(
+      long ? `${REMINDER_ERROR.long} A reminder is too long.` : 'A reminder is not valid.'
+    )
+  }
+  const reminder = parsed.data
+  if (!hasVisibleText(reminder.text)) throw new Error('A reminder needs some text.')
   const all = store.list()
   const old = all.find((r) => r.id === reminder.id)
-  if (!old && all.length >= REMINDER_MAX) throw new Error('Too many reminders.')
+  if (!old && all.length >= REMINDER_MAX)
+    throw new Error(`${REMINDER_ERROR.full} Too many reminders.`)
   const moved = !old || old.at !== reminder.at
   if (moved && Date.parse(reminder.at) < now.getTime() - PAST_GRACE_MS) {
-    throw new Error('A reminder must be in the future.')
+    throw new Error(`${REMINDER_ERROR.past} A reminder must be in the future.`)
   }
   store.replace(old ? all.map((r) => (r === old ? reminder : r)) : [...all, reminder])
 }

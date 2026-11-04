@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Reminder } from '@shared/schemas'
-import { addDue, refreshDue } from './dueQueue'
+import { addDue, oldestFirst, refreshDue } from './dueQueue'
 
 const NOW = new Date('2026-11-03T12:00:00.000Z')
 const r = (id: string, at: string, text = id): Reminder => ({ id, text, at })
@@ -44,5 +44,13 @@ describe('refreshDue', () => {
 
   it('leaves out reminders that were never due', () => {
     expect(refreshDue([a], [a, r('future', '2026-11-04T09:00:00.000Z')], NOW)).toEqual([a])
+  })
+})
+
+describe('oldestFirst', () => {
+  it('orders by the moment, not the text, across offsets', () => {
+    const late = r('late', '2026-11-03T12:00:00.000Z')
+    const early = r('early', '2026-11-03T13:00:00.000+02:00')
+    expect(ids([late, early].sort(oldestFirst))).toEqual(['early', 'late'])
   })
 })

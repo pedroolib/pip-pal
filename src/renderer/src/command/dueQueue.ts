@@ -2,7 +2,7 @@
 // holds them until it is hidden.
 import type { Reminder } from '@shared/schemas'
 
-const oldestFirst = (a: Reminder, b: Reminder): number => Date.parse(a.at) - Date.parse(b.at)
+export const oldestFirst = (a: Reminder, b: Reminder): number => Date.parse(a.at) - Date.parse(b.at)
 
 export function addDue(queue: Reminder[], reminder: Reminder): Reminder[] {
   return [...queue.filter((r) => r.id !== reminder.id), reminder].sort(oldestFirst)
