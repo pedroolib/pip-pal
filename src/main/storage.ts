@@ -1,12 +1,20 @@
 // Everything Pip keeps, as JSON files in userData (docs/DECISIONS.md §6).
 import { app } from 'electron'
 import { join } from 'path'
-import { Achievement, ChangeEvent, CheckIn, SECTIONS, type Profile } from '@shared/schemas'
+import {
+  Achievement,
+  ChangeEvent,
+  CheckIn,
+  SECTIONS,
+  type Lesson,
+  type Profile
+} from '@shared/schemas'
 import samJson from '@shared/fixtures/sam.profile.json'
 import checkInsJson from '@shared/fixtures/week.checkins.json'
 import changesJson from '@shared/fixtures/week.changes.json'
 import achievementsJson from '@shared/fixtures/achievements.json'
 import eventsJson from '@shared/fixtures/week.events.json'
+import { StoredLesson } from './ai/lessons'
 import { createEventStore } from './event-store'
 import { createLogStore } from './log-store'
 import { createProfileStore } from './profile-store'
@@ -30,6 +38,7 @@ export function openStorage(): {
   changes: ReturnType<typeof createLogStore<ChangeEvent>>
   achievements: ReturnType<typeof createLogStore<Achievement>>
   events: ReturnType<typeof createEventStore>
+  lessons: ReturnType<typeof createLogStore<Lesson>>
 } {
   const data = (name: string): string => join(app.getPath('userData'), name)
   const demo = process.env.PIP_DEMO === '1'
@@ -42,7 +51,8 @@ export function openStorage(): {
     checkIns: createLogStore(data('checkins.json'), CheckIn, seed(checkInsJson)),
     changes: createLogStore(data('changes.json'), ChangeEvent, seed(changesJson)),
     achievements: createLogStore(data('achievements.json'), Achievement, seed(achievementsJson)),
-    events: createEventStore(data('events.json'), seed(eventsJson))
+    events: createEventStore(data('events.json'), seed(eventsJson)),
+    lessons: createLogStore(data('lessons.json'), StoredLesson)
   }
 }
 

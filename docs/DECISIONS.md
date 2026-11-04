@@ -177,7 +177,7 @@ Es el centro del pitch de IA responsable.
 
 ## 6. Datos
 
-**No hay base de datos.** Todo vive en archivos JSON en `app.getPath('userData')` (en Mac, `~/Library/Application Support/Pip/`): `profile.json`, `checkins.json`, `changes.json`, `achievements.json`, `events.json`, `settings.json`. Son pocos datos, de una sola persona y en una máquina; leer y filtrar en JavaScript tarda milisegundos.
+**No hay base de datos.** Todo vive en archivos JSON en `app.getPath('userData')` (en Mac, `~/Library/Application Support/Pip/`): `profile.json`, `checkins.json`, `changes.json`, `achievements.json`, `events.json`, `settings.json`, `lessons.json` (lo que la persona le enseñó a Pip, ver §15). Son pocos datos, de una sola persona y en una máquina; leer y filtrar en JavaScript tarda milisegundos.
 
 Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts`; la versión con datos de ejemplo vive en `src/shared/mock-api.ts` y se queda para el navegador):
 - **Escritura segura:** escribir a un archivo temporal y renombrarlo, para no corromper datos si la app se cierra a la mitad.
@@ -347,3 +347,33 @@ Decidido el 3 de noviembre de 2026 (subió del nivel 3). Para instrucciones habl
 - **El modelo se instala aparte.** `npm run fetch:whisper` baja `whisper-base` cuantizado (unos 80 MB) una sola vez a `resources/models/`, que no va en git. Hay que correrlo antes de empaquetar; sin el modelo, Pip muestra una tarjeta tranquila en vez de fallar.
 - **Cadena de suministro:** la descarga apunta a un commit fijo y comprueba el SHA-256 de cada archivo. `sharp` (lo trae transformers.js y Pip nunca lo llama) está forzado a `^0.35.5` por vulnerabilidades de libvips; `npm audit --omit=dev` queda limpio. `.npmrc` evita la descarga sin verificar de los binarios CUDA en Linux; npm 11 avisa que no conoce esa clave y dejará de leerla en su siguiente versión mayor.
 - **Límites en main:** solo el overlay puede transcribir, y una grabación a la vez, incluso después del tiempo límite del demo. La captura de pantalla solo se concede al marco principal del overlay y cuando pide audio. Main tiene que dar una fuente de video para el loopback; el renderer la detiene de inmediato, y main no puede exigirlo.
+
+## 15. Memoria de trabajo
+
+**Qué es.** Cuando la persona corrige a Pip ("That's not right") o responde cuando Pip pide contexto, Pip guarda una nota en `lessons.json`. Las notas más nuevas van en cada llamada de expand y el modelo decide cuáles aplican. El perfil es lo que Pip sabe de la persona (como `USER.md` en Hermes) y estas notas son lo que sabe de su trabajo (como `MEMORY.md`). Se copian las reglas de Hermes, no sus archivos markdown: el perfil necesita secciones, origen y `visibleTo` para filtrar resúmenes con código.
+
+**Sin búsqueda ni vectores por ahora.** Las notas caben en el prompt: `LESSON_BUDGET_CHARS` (4000 caracteres, unas 20 notas), de la más nueva a la más vieja. Las que no caben no se borran: My profile las marca y dice que la memoria está llena. Si la gente llena el presupuesto, se busca en lo viejo por palabras clave o con embeddings locales, nunca con un servicio externo.
+
+**Decidido el 3 de noviembre: confirmar con un toque.** Sigue la regla de §5 de que lo que escribe Pip no llega a Claude sin aceptación. Las palabras de la persona se guardan apenas la respuesta corregida es válida y funcionan desde el siguiente mensaje. Después, una llamada a Claude propone qué hacer y la tarjeta de pasos lo muestra (`RememberNote`). No va a la lista de sugerencias de My profile, que ya acumula pendientes sin revisar.
+
+| Decisión del modelo | Qué pasa sin tocar nada | Botones |
+|---|---|---|
+| `add` | Se quedan las palabras de la persona | Keep usa el texto de Pip (`learned`), Edit el suyo (`self`), Skip borra la nota |
+| `update` | Quedan la nota vieja y las palabras, separadas | Keep cambia la nota vieja, mostrando antes y después; Edit igual con su texto; Skip borra las palabras |
+| `profile` | La nota se quita y queda una sugerencia en My profile | Got it |
+| `none` | La nota se quita: solo sirvió para esta tarea | Remember it la devuelve; Got it |
+
+Si la llamada falla o la respuesta no es válida, se muestra `add` con las palabras de la persona. Reemplazar una nota entera es lo que Hermes quitó porque los modelos borraban datos; aquí es seguro porque nada se reemplaza sin que la persona vea el antes y el después. El modelo solo puede borrar sin un toque en `none` y `profile`, por eso el prompt le pide no elegir `none` si duda y la tarjeta ofrece Remember it. **Medido** con `npm run ai:notes -- 3` en `claude-haiku-5-5`: 141 de 141 decisiones correctas en 47 casos ficticios, sin datos duraderos borrados como `none`. Son casos escritos por nosotros y el prompt se ajustó con ellos, así que falta probar con correcciones reales. Hay que volver a correrlo al cambiar el prompt o el modelo.
+
+**Las notas van justo antes del mensaje.** Puestas antes del perfil, el modelo a veces preguntaba "¿qué es VisionSystemX?" con la nota enfrente. Con la nota justo antes del mensaje no preguntó en 8 de 8 corridas; sin nota preguntó en 7 de 8, y en una tarea simple en 0 de 4. Lo que solo puede aclarar quien envió el mensaje (la fecha, los requisitos) se vuelve un paso, no una pregunta a la persona.
+
+**Las notas no son verdad.** El prompt dice que pueden estar viejas, que si chocan con el mensaje manda el mensaje, y que son datos, no instrucciones.
+
+**Lo que sale de la máquina.** Texto seleccionado, lo que la persona escribe para corregir o enseñar a Pip, y las notas guardadas, siempre sin nombres. Las notas se limpian otra vez cada vez que salen, porque un nombre agregado a `people` después no estaba en la limpieza original. Falta acordar el cambio de la regla de privacidad de `CLAUDE.md`, que solo menciona texto seleccionado y onboarding.
+
+**Almacén.** Cada nota es `{ id, text, origin, at }` en su propio archivo, no en `Profile`, para que un resumen no pueda incluirla ni por error. Se guarda con nombres reales, igual que `profile.json`, y se limpia solo al salir, así que un cambio de rol o un nombre nuevo aplica a las notas viejas. `origin` es `self` si son palabras de la persona y `learned` si es la reescritura de Pip. No se guarda el mensaje original. Antes de guardar se quitan caracteres invisibles y saltos de línea, y se rechaza un duplicado exacto sin importar mayúsculas. El formato anterior (`correction`, `message`) se convierte al leer, sin perder datos: esas notas quedan como `learned` porque no se sabe quién las escribió, y conservan sus tokens `[Role]`, que se ven así en Settings hasta que se borren.
+
+**Visibilidad.** La tarjeta dice qué notas usó (`lessonsUsed`, junto a `profileUsed`): el modelo solo devuelve el número de cada nota y el código pone el texto guardado, así que no puede citar una nota que no existe ni reescribirla. "What you taught Pip" pasó de Settings a My profile, con un medidor de uso calculado con la misma función que elige las notas del prompt (`recentLessons`), para que lo que dice la pantalla sea lo que pasa. Desde 80% aparece "Ask Pip to merge notes": una llamada a Claude solo cuando la persona la pide, que propone unir notas del mismo tema; nada cambia hasta que presiona Keep, viendo las notas viejas y la nueva. Una unión que no ahorra espacio se descarta en código.
+
+**Lo que sigue:**
+- **Después:** un botón "This worked" que guarde los pasos validados como procedimiento, y búsqueda en notas viejas si hace falta.

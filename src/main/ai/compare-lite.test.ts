@@ -38,6 +38,8 @@ describe('formatLite', () => {
                 model: 'sonnet',
                 ms: 812,
                 output: {
+                  needsContext: null,
+                  lessonsUsed: [],
                   kind: 'steps',
                   steps: [
                     { text: 'Ask Alex.', why: 'You prefer writing.' },
@@ -65,14 +67,15 @@ describe('formatLite', () => {
                       topic: 'deadline'
                     }
                   ],
-                  profileUsed: []
+                  profileUsed: [],
+                  lessonsUsed: []
                 },
                 error: null
               },
               {
                 model: 'haiku',
                 ms: 300,
-                output: { kind: 'questions', questions: [], profileUsed: [] },
+                output: { kind: 'questions', questions: [], profileUsed: [], lessonsUsed: [] },
                 error: null
               }
             ]
@@ -87,7 +90,8 @@ describe('formatLite', () => {
                   kind: 'transition',
                   plan: ['Project changes.', 'Hand off.'],
                   questionsToAsk: ['Who owns it?'],
-                  profileUsed: []
+                  profileUsed: [],
+                  lessonsUsed: []
                 },
                 error: null
               }

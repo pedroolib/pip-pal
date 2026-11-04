@@ -15,6 +15,10 @@ function setup(env: Record<string, string | undefined>) {
   const makeExpander = vi.fn(() => realExpand)
   const realSummary = vi.fn(async () => ({ real: 'summary' }) as never)
   const makeSummarizer = vi.fn(() => realSummary)
+  const realRemember = vi.fn(async () => null)
+  const makeRememberer = vi.fn(() => realRemember)
+  const realMerge = vi.fn(async () => [])
+  const makeMerger = vi.fn(() => realMerge)
   const summaryData = vi.fn(() => ({ checkIns: [], events: [], achievements: [] }))
   const logEvent = vi.fn()
   const log = vi.fn()
@@ -29,6 +33,8 @@ function setup(env: Record<string, string | undefined>) {
     save,
     makeTriager,
     makeExpander,
+    makeRememberer,
+    makeMerger,
     makeSummarizer,
     makeDrafter,
     summaryData,
@@ -41,6 +47,8 @@ function setup(env: Record<string, string | undefined>) {
     realTriage,
     realExpand,
     realSummary,
+    realRemember,
+    realMerge,
     makeTriager,
     makeExpander,
     makeSummarizer,
@@ -156,7 +164,7 @@ describe('key switch', () => {
     expect(await s.ai.triage('hello')).toEqual({ real: 'triage' })
     expect(await s.ai.expand('hello', 'steps', 3)).toEqual({ real: 'expand' })
     expect(s.realTriage).toHaveBeenCalledWith('hello', profile)
-    expect(s.realExpand).toHaveBeenCalledWith('hello', 'steps', 3, profile, undefined)
+    expect(s.realExpand).toHaveBeenCalledWith('hello', 'steps', 3, profile, undefined, undefined)
   })
 
   it('serves the fixtures and builds nothing without keys', async () => {
@@ -207,10 +215,14 @@ describe('input validation', () => {
   it('passes valid unclear hints to the expander and the fixture', async () => {
     const s = setup({ ANTHROPIC_API_KEY: 'k' })
     await s.ai.expand('hi', 'questions', 3, ['what_or_who', 'deadline'])
-    expect(s.realExpand).toHaveBeenCalledWith('hi', 'questions', 3, profile, [
-      'what_or_who',
-      'deadline'
-    ])
+    expect(s.realExpand).toHaveBeenCalledWith(
+      'hi',
+      'questions',
+      3,
+      profile,
+      ['what_or_who', 'deadline'],
+      undefined
+    )
     const f = setup({})
     for (const u of [undefined, [], ['deadline']] as const)
       expect((await f.ai.expand('hi', 'questions', 3, u && [...u])).kind).toBe('questions')
@@ -338,5 +350,33 @@ describe('one running call per key', () => {
     expect(s.realExpand).toHaveBeenCalledTimes(3)
     ds.forEach((d) => d.resolve({} as never))
     await Promise.all(all)
+  })
+})
+
+describe('proposeMerges', () => {
+  it('uses the real merger with a key and the fixture without one', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    await s.ai.proposeMerges()
+    expect(s.realMerge).toHaveBeenCalledOnce()
+    const f = setup({})
+    await f.ai.proposeMerges()
+    expect(f.realMerge).not.toHaveBeenCalled()
+  })
+})
+
+describe('rememberCorrection', () => {
+  it('uses the real rememberer with a key and the fixture without one', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    expect(await s.ai.rememberCorrection('msg', 'said')).toBeNull()
+    expect(s.realRemember).toHaveBeenCalledWith('msg', 'said')
+    expect((await setup({}).ai.rememberCorrection('msg', 'said'))?.kind).toBe('add')
+  })
+
+  it('checks what the renderer sends', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    await expect(s.ai.rememberCorrection('', 'said')).rejects.toThrow()
+    await expect(s.ai.rememberCorrection('msg', 1 as never)).rejects.toThrow(/correction/)
+    await expect(s.ai.rememberCorrection('msg', 'x'.repeat(1001))).rejects.toThrow(/correction/)
+    expect(s.realRemember).not.toHaveBeenCalled()
   })
 })

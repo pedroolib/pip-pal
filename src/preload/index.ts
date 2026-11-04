@@ -12,8 +12,8 @@ const api: PipApi = {
   onCheckInDue: (cb) => on(IPC.checkInDue, cb),
   decode: (text, spoons) => ipcRenderer.invoke(IPC.decode, text, spoons),
   triage: (text) => ipcRenderer.invoke(IPC.triage, text),
-  expand: (text, kind, spoons, unclear) =>
-    ipcRenderer.invoke(IPC.expand, text, kind, spoons, unclear),
+  expand: (text, kind, spoons, unclear, correction) =>
+    ipcRenderer.invoke(IPC.expand, text, kind, spoons, unclear, correction),
   getProfile: () => ipcRenderer.invoke(IPC.profileGet),
   saveProfile: (profile) => ipcRenderer.invoke(IPC.profileSave, profile),
   getSettings: () => ipcRenderer.invoke(IPC.settingsGet),
@@ -28,6 +28,12 @@ const api: PipApi = {
   listEvents: () => ipcRenderer.invoke(IPC.eventList),
   deleteEvent: (id) => ipcRenderer.invoke(IPC.eventDelete, id),
   clearEvents: () => ipcRenderer.invoke(IPC.eventClear),
+  listLessons: () => ipcRenderer.invoke(IPC.lessonList),
+  deleteLesson: (id) => ipcRenderer.invoke(IPC.lessonDelete, id),
+  rememberCorrection: (text, correction) => ipcRenderer.invoke(IPC.noteRemember, text, correction),
+  resolveNote: (resolution) => ipcRenderer.invoke(IPC.noteResolve, resolution),
+  proposeMerges: () => ipcRenderer.invoke(IPC.noteProposeMerges),
+  applyMerge: (merge) => ipcRenderer.invoke(IPC.noteApplyMerge, merge),
   refreshLearned: () => ipcRenderer.invoke(IPC.learnedRefresh),
   draftProfile: (answers) => ipcRenderer.invoke(IPC.onboardingDraft, answers),
   checkAccessibility: (prompt) => ipcRenderer.invoke(IPC.accessibility, prompt),

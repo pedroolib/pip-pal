@@ -22,6 +22,7 @@
     "test": "vitest run",
     "ai:compare": "node scripts/ai-compare.mjs",
     "ai:lite": "node scripts/compare-lite.mjs",
+    "ai:notes": "node scripts/compare-notes.mjs",
     "fetch:whisper": "node scripts/fetch-whisper.mjs"
   },
   "dependencies": {

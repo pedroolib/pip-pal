@@ -1,4 +1,20 @@
 {
+  "note": {
+    "add": "Pip will remember:",
+    "update": "Pip will update a note:",
+    "profile": "Pip added a suggestion to My profile:",
+    "none": "Used for this task only:",
+    "was": "Was:",
+    "keep": "Keep",
+    "edit": "Edit",
+    "skip": "Skip",
+    "save": "Save",
+    "cancel": "Cancel",
+    "rememberIt": "Remember it",
+    "gotIt": "Got it",
+    "editLabel": "What should Pip remember?",
+    "failed": "That did not save. Try again."
+  },
   "card": {
     "stepOf": "Step {{current}} of {{total}}",
     "done": "Done",
@@ -13,7 +29,15 @@
     "allDoneBody": "Every step is finished. Nice, steady work.",
     "restWaiting_one": "{{count}} more step can wait for another time.",
     "restWaiting_other": "{{count}} more steps can wait for another time.",
-    "close": "Close"
+    "close": "Close",
+    "correct": {
+      "open": "That's not right",
+      "label": "What is Pip missing or getting wrong?",
+      "placeholder": "For example: \"Support package 35 is our monthly update bundle. It is installed from the admin portal.\"",
+      "send": "Redo the steps",
+      "sendAsk": "Make the steps",
+      "cancel": "Cancel"
+    }
   },
   "checkIn": {
     "title": "Which face matches your energy right now?",
@@ -143,6 +167,28 @@
     }
   },
   "manual": {
+    "lessons": {
+      "title": "What you taught Pip",
+      "body": "When you tell Pip it got something wrong, it saves a note on this computer. Your newest notes go with each request, without names, so Pip can use them. Delete anything that is wrong or out of date.",
+      "empty": "Nothing taught yet.",
+      "loadFailed": "The list did not load.",
+      "deleteFailed": "That did not delete. Try again.",
+      "deleteOne": "Delete: {{what}}",
+      "meter": "Pip's memory is {{percent}}% full.",
+      "unused": "Pip is not using this note.",
+      "full_one": "{{count}} older note is not being used because Pip's memory is full. Delete or merge notes to make room.",
+      "full_other": "{{count}} older notes are not being used because Pip's memory is full. Delete or merge notes to make room.",
+      "merge": "Ask Pip to merge notes",
+      "merging": "Pip is reading your notes…",
+      "mergeNote": "This sends your notes to Claude, without names. Nothing changes until you press Keep.",
+      "mergeNone": "Pip found no notes to merge.",
+      "mergeFailed": "Pip could not do this. Try again in a moment.",
+      "mergeTitle": "Pip can merge these into one note:",
+      "becomes": "New note:",
+      "keep": "Keep",
+      "skip": "Skip",
+      "saveFailed": "That did not save. Try again."
+    },
     "title": "My manual",
     "subtitle": "{{name}}, {{role}}",
     "intro": "Pip reads this to explain messages the way that works for you. Every entry shows who can see it. An entry with nobody ticked stays private.",
@@ -452,13 +498,15 @@
       },
       "privacy": {
         "title": "Privacy",
-        "selected": "Only text you select leaves your computer, and only after names are swapped for roles like [Manager].",
+        "selected": "Only text you select, what you type to correct or teach Pip, and what you taught Pip before leave your computer, and only after names are swapped for roles like [Manager].",
         "manual": "Summaries never send themselves. You copy or export them."
       }
     }
   },
   "expand": {
+    "usedLessons": "Used what you taught me",
     "working": "Pip is working on it. This takes a few seconds.",
+    "needsContext": "Pip needs a bit more context before it can make steps:",
     "error": "Pip couldn't do this one. Try again in a moment.",
     "close": "Close",
     "stepsTitle": "Your steps",
@@ -507,7 +555,7 @@
     "privacy": {
       "title": "What I see, and what I never see",
       "rules": [
-        "I only read text you select and send me with the shortcut. I never read your email or chat by myself.",
+        "I only read text you select and send me with the shortcut, and what you type to me. I never read your email or chat by myself.",
         "Before anything leaves your computer, I swap names for roles and remove emails, phone numbers and links.",
         "I never send anything for you. You copy what you want."
       ],

@@ -11,6 +11,8 @@ import {
 import { ensureIds } from '@shared/profile'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/api'
+import { useLoad } from '@renderer/house/useLoad'
+import { Lessons } from './Lessons'
 import {
   activeIndex,
   approvePending,
@@ -34,7 +36,8 @@ type Del = {
 const PEOPLE = 'people'
 const CALMING = 'calming'
 const NEW = 'new'
-const NAV_IDS: string[] = [...SECTIONS, CALMING, PEOPLE]
+const LESSONS = 'lessons'
+const NAV_IDS: string[] = [...SECTIONS, CALMING, PEOPLE, LESSONS]
 
 function Manual({
   onPendingChange
@@ -53,6 +56,8 @@ function Manual({
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [current, setCurrent] = useState<string | null>(null)
   const lockUntil = useRef(0)
+  // On focus too: the overlay, another window, adds to it.
+  const lessons = useLoad(() => api.listLessons(), { onFocus: true })
 
   const load = useCallback((alive: () => boolean = () => true) => {
     api
@@ -390,7 +395,8 @@ function Manual({
       count: profile.sections[s].length
     })),
     { id: CALMING, label: t('manual.calming.title'), count: strategies.length },
-    { id: PEOPLE, label: t('manual.people.title'), count: people.length }
+    { id: PEOPLE, label: t('manual.people.title'), count: people.length },
+    { id: LESSONS, label: t('manual.lessons.title'), count: lessons.data?.length }
   ]
 
   return (
@@ -617,6 +623,8 @@ function Manual({
             />
           )}
         </Block>
+
+        <Lessons lessons={lessons.data} failed={lessons.failed} reload={lessons.reload} />
       </div>
 
       <ConfirmDelete

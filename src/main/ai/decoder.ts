@@ -106,6 +106,16 @@ async function classifyWithJev(
   }
 }
 
+// Stripped until stable, so "</mes</message>sage>" cannot rebuild the tag.
+export function stripTag(text: string, tag: string): string {
+  const re = new RegExp(`<\\s*\\/?\\s*${tag}\\b[^>]*>`, 'gi')
+  for (let prev = ''; prev !== text;) {
+    prev = text
+    text = text.replace(re, () => '')
+  }
+  return text
+}
+
 /** Issue codes and field paths only, never the model's output or the message. */
 export function describeIssues(error: z.ZodError): string {
   return error.issues.map((i) => `${i.code} at ${i.path.join('.') || 'root'}`).join('; ')

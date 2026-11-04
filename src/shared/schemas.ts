@@ -257,6 +257,8 @@ export const QuestionTopic = z.enum(['deadline', 'scope', 'priority', 'who', 'fo
 export type QuestionTopic = z.infer<typeof QuestionTopic>
 
 const profileUsed = z.array(z.object({ section: Section, how: z.string() }))
+/** The saved notes that shaped the answer, as saved: code fills it in, so the model cannot cite a note that does not exist. */
+const lessonsUsed = z.array(z.string()).default([])
 
 /** What one button returns. Every suggestion carries its why, so Pip teaches instead of masking. */
 export const Expansion = z.discriminatedUnion('kind', [
@@ -264,7 +266,10 @@ export const Expansion = z.discriminatedUnion('kind', [
     kind: z.literal('steps'),
     /** All steps, in order of importance; the UI trims to 3 when spoons are low. */
     steps: z.array(z.object({ text: z.string(), why: z.string().nullable() })),
-    profileUsed
+    /** A short question for the person when the steps hinge on something specific Pip can't know (then `steps` is empty). */
+    needsContext: z.string().nullable().default(null),
+    profileUsed,
+    lessonsUsed
   }),
   z.object({
     kind: z.literal('questions'),
@@ -272,13 +277,15 @@ export const Expansion = z.discriminatedUnion('kind', [
     questions: z.array(
       z.object({ what: z.string(), suggestedQuestion: z.string(), topic: QuestionTopic })
     ),
-    profileUsed
+    profileUsed,
+    lessonsUsed
   }),
   z.object({
     kind: z.literal('transition'),
     plan: z.array(z.string()),
     questionsToAsk: z.array(z.string()),
-    profileUsed
+    profileUsed,
+    lessonsUsed
   })
 ])
 export type Expansion = z.infer<typeof Expansion>
@@ -444,6 +451,65 @@ export const RECORD_SAMPLE_RATE = 16000
 export const RECORD_MAX_MS = 600_000
 /** In demo mode, how long `transcribe` may take before the scripted transcript is used. */
 export const TRANSCRIBE_TIMEOUT_MS = 8000
+
+export const LESSON_MAX = 1000
+/**
+ * A note about the person's work, kept on this machine with real names and scrubbed each time it is sent.
+ * Separate from `Profile`, so a summary cannot include it. `origin`: `self` for their words, `learned` for Pip's rewrite.
+ */
+export const Lesson = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(LESSON_MAX),
+  origin: Origin.exclude(['onboarding']),
+  at: z.string()
+})
+export type Lesson = z.infer<typeof Lesson>
+
+/** How much of the prompt lessons may fill: about 20 notes. */
+export const LESSON_BUDGET_CHARS = 4000
+
+/** The lessons a prompt carries: newest first, until the budget is used up. My profile marks the rest as unused. */
+export function recentLessons(lessons: Lesson[]): Lesson[] {
+  const picked: Lesson[] = []
+  let used = 0
+  for (const lesson of [...lessons].reverse()) {
+    used += lesson.text.length
+    if (used > LESSON_BUDGET_CHARS) break
+    picked.push(lesson)
+  }
+  return picked
+}
+
+/** Pip's proposal to turn several notes into one, applied only when the person presses Keep. */
+export const NoteMerge = z.object({
+  ids: z.array(z.string()).min(2),
+  text: z.string().min(1).max(LESSON_MAX),
+  why: z.string()
+})
+export type NoteMerge = z.infer<typeof NoteMerge>
+
+/** What Pip proposes after a correction. `noteId` is the note holding the person's words, when one was kept. */
+export const NoteProposal = z.object({
+  /** `add`/`update` wait for a tap; `profile` is already a suggestion; `none` removed the note (`text` is their words). */
+  kind: z.enum(['add', 'update', 'profile', 'none']),
+  noteId: z.string().nullable(),
+  /** The note an update changes, and its text now. */
+  targetId: z.string().nullable(),
+  oldText: z.string().nullable(),
+  text: z.string(),
+  why: z.string().nullable()
+})
+export type NoteProposal = z.infer<typeof NoteProposal>
+
+/** The person's tap: Keep or Edit on a proposal, or "Remember it" (no `noteId`) after a `none`. */
+export const NoteResolution = z.object({
+  noteId: z.string().nullable(),
+  targetId: z.string().nullable(),
+  text: z.string().min(1).max(LESSON_MAX),
+  /** They wrote this text themselves, so its origin is `self`. */
+  edited: z.boolean()
+})
+export type NoteResolution = z.infer<typeof NoteResolution>
 
 export const Settings = z.object({
   checkIns: z

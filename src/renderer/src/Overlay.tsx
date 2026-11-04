@@ -6,7 +6,7 @@
 // tucking the card away (or Esc) leaves it in that corner Pip.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { OVERLAY_MIN, type Bounds } from '@shared/ipc'
+import { CORRECTION_MAX, OVERLAY_MIN, type Bounds } from '@shared/ipc'
 import {
   DEFAULT_SETTINGS,
   LOW_SPOONS,
@@ -18,6 +18,7 @@ import {
   type CalmingStrategy,
   type Expansion,
   type LoggableEvent,
+  type NoteProposal,
   type QuestionTopic,
   type Triage
 } from '@shared/schemas'
@@ -62,6 +63,12 @@ type Task = {
   asked: boolean
   /** Questions copied or steps left for later that are already in the log: each counts once. */
   logged: string[]
+  /** What the person added after a wrong answer, kept across retries and further corrections. */
+  correction: string
+  /** The part of `correction` not yet saved as a note: it waits for a valid answer. */
+  toRemember: string
+  /** What Pip proposes to remember, waiting for a tap. */
+  note: NoteProposal | null
 }
 type Tasks = Partial<Record<ActionKind, Task>>
 
@@ -73,7 +80,10 @@ const NEW_TASK: Task = {
   calm: null,
   planned: false,
   asked: false,
-  logged: []
+  logged: [],
+  correction: '',
+  toRemember: '',
+  note: null
 }
 
 // A failed write only loses the log entry; the flow goes on.
@@ -227,25 +237,41 @@ function Overlay(): React.JSX.Element {
   }
   // One Claude call per button, only once it's pressed (spoons from today's check-in). Pressing it
   // again reopens its card; after an error it tries again.
-  const act = (kind: ActionKind): void => {
+  const act = (kind: ActionKind, added?: string): void => {
     setActive(kind)
     setView('task')
-    if (tasks[kind] && !tasks[kind].error) return
+    if (tasks[kind] && !tasks[kind].error && !added) return
     const id = request.current
     const live = (): boolean => id === request.current
     const unclear = kind === 'questions' && triage ? unclearParts(triage) : undefined
-    setTasks((all) => ({ ...all, [kind]: NEW_TASK }))
+    // shortcut: past the limit the oldest words drop, even mid-sentence; keep notes short if long chains get common.
+    const join = (prev: string | undefined): string =>
+      [prev, added].filter(Boolean).join('\n').slice(-CORRECTION_MAX)
+    const correction = join(tasks[kind]?.correction)
+    const toRemember = join(tasks[kind]?.toRemember)
+    const source = text.current
+    setTasks((all) => ({ ...all, [kind]: { ...NEW_TASK, correction, toRemember } }))
     api
       .listCheckIns()
       .catch(() => [])
       .then((checkIns) => {
         const spoons = spoonsOverride() ?? spoonsToday(checkIns, new Date())
         if (live()) patch(kind, () => ({ spoons }))
-        return api.expand(text.current, kind, spoons, unclear).then((result) => {
-          if (!live()) return
-          patch(kind, () => ({ result }))
-          offerCalm(kind, spoons, live)
-        })
+        return api
+          .expand(text.current, kind, spoons, unclear, correction || undefined)
+          .then((result) => {
+            const asking = result.kind === 'steps' && !!result.needsContext
+            // Outside the live check: closing the card must not lose what the person taught Pip.
+            if (toRemember && !asking)
+              api.rememberCorrection(source, toRemember).then(
+                (note) => live() && patch(kind, () => ({ note, toRemember: '' })),
+                () => {} // only the proposal is lost if the words were saved
+              )
+            if (!live()) return
+            patch(kind, () => ({ result }))
+            // A question for the person comes first; a calming offer then would sit in front of it.
+            if (!asking) offerCalm(kind, spoons, live)
+          })
       })
       .catch(() => live() && patch(kind, () => ({ error: true })))
   }
@@ -506,6 +532,9 @@ function Overlay(): React.JSX.Element {
               onCalm={(calm) => patch(active, () => ({ calm }))}
               onStepDone={stepDone}
               onLater={remindLater}
+              onCorrect={(added) => act(active, added)}
+              note={task.note}
+              onNoteDone={() => patch(active, () => ({ note: null }))}
               onAsk={() => act('questions')}
               onCopied={(what, question, topic) => copied(active, what, question, topic)}
               onPlanned={() => planned(active)}
