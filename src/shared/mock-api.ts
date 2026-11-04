@@ -11,13 +11,14 @@ import {
   LoggableEvent,
   type Lesson,
   Expansion,
-  NewReminder,
+  LESSON_MAX,
   OnboardingAnswers,
   type PendingEntry,
   Profile,
+  REMINDER_ERROR,
+  REMINDER_MAX,
   Recipient,
-  type Reminder,
-  ReminderDelay,
+  Reminder,
   SummaryPeriod,
   UsageEvent,
   Settings,
@@ -39,7 +40,6 @@ export function createMockApi(): PipApi {
   // Parsing up front doubles as the fixture self-check: a bad fixture fails loudly on startup.
   let profile = Profile.parse(samJson)
   let settings = DEFAULT_SETTINGS
-  let reminders: Reminder[] = []
   const decoded = Decoded.parse(decodedJson)
   const triage = Triage.parse(triageJson)
   const expansions = Object.fromEntries(
@@ -49,6 +49,12 @@ export function createMockApi(): PipApi {
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
   let events = UsageEvent.array().parse(eventsJson)
+  // Ahead of now, so Coming up has something to show in a plain browser and neither comes due there.
+  const fromNow = (hours: number): string => new Date(Date.now() + hours * 3_600_000).toISOString()
+  let reminders: Reminder[] = [
+    { id: 'seed-weekly-numbers', text: 'Send Dana the weekly numbers', at: fromNow(3) },
+    { id: 'seed-ask-alex', text: 'Ask Alex about the report deadline', at: fromNow(26) }
+  ]
   let lessons: Lesson[] = [
     {
       id: 'lesson-package-35',
@@ -217,26 +223,6 @@ export function createMockApi(): PipApi {
       ]
     }),
     exportSummaryPdf: async () => null,
-    // A plain browser keeps the list but never fires: timers need main (src/main/reminders.ts).
-    addReminder: async (r, delay) => {
-      const added: Reminder = {
-        ...NewReminder.parse(r),
-        id: crypto.randomUUID(),
-        dueAt: new Date().toISOString(),
-        nudges: 0,
-        parked: false
-      }
-      ReminderDelay.parse(delay)
-      reminders = [...reminders, added]
-      return added
-    },
-    rescheduleReminder: async () => {},
-    finishReminder: async (id) => {
-      reminders = reminders.filter((r) => r.id !== id)
-    },
-    showReminder: async () => {},
-    listReminders: async () => reminders,
-    onReminderDue: () => () => {},
     openHome: () => {},
     setOverlayInteractive: () => {},
     setOverlayBounds: () => {},
@@ -249,6 +235,46 @@ export function createMockApi(): PipApi {
     clickCorner: () => {},
     onCornerOpen: () => () => {},
     onRecordHotkey: () => () => {},
+    onCommand: () => () => {},
+    setRecordingActive: () => {},
+    overlayReady: () => {},
+    refuseSelection: () => {},
+    listReminders: async () => [...reminders],
+    saveReminder: async (r) => {
+      const reminder = Reminder.parse(r)
+      const i = reminders.findIndex((x) => x.id === reminder.id)
+      if (i >= 0) reminders[i] = reminder
+      else if (reminders.length >= REMINDER_MAX) throw new Error(`${REMINDER_ERROR.full} Too many`)
+      else reminders.push(reminder)
+    },
+    deleteReminder: async (id) => void (reminders = reminders.filter((r) => r.id !== id)),
+    onReminderDue: () => () => {},
+    tellPip: async (message) => {
+      const text = message.trim()
+      // "reject", "fail" and a question show each way the card can end, in a plain browser.
+      if (!text || text.length > LESSON_MAX || /reject/i.test(text)) throw new Error('Bad message')
+      const reply = 'Thanks for telling me. I will plan around that.'
+      const why = 'You said it in your own words, so I keep it as you wrote it.'
+      if (text.endsWith('?')) {
+        const none = { kind: 'none' as const, noteId: null, targetId: null, oldText: null }
+        return { reply, why, note: { ...none, text, why: null } }
+      }
+      const note: Lesson = {
+        id: crypto.randomUUID(),
+        text,
+        origin: 'self',
+        at: new Date().toISOString()
+      }
+      lessons = [...lessons, note]
+      const proposal = { kind: 'add' as const, noteId: note.id, targetId: null, oldText: null }
+      if (/fail/i.test(text))
+        return { reply: null, why: null, note: { ...proposal, text, why: null } }
+      return {
+        reply,
+        why,
+        note: { ...proposal, text: `Pip's cleaner version: ${text}`, why: null }
+      }
+    },
     transcribe: async (audio) => {
       if (audio.length === 0) throw new Error('No audio')
       await new Promise((r) => setTimeout(r, 800))

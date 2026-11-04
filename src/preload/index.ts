@@ -40,17 +40,6 @@ const api: PipApi = {
   generateSummary: (recipient, period) =>
     ipcRenderer.invoke(IPC.summaryGenerate, recipient, period),
   exportSummaryPdf: () => ipcRenderer.invoke(IPC.summaryExportPdf),
-  addReminder: (reminder, delay) => ipcRenderer.invoke(IPC.reminderAdd, reminder, delay),
-  rescheduleReminder: (id, delay) => ipcRenderer.invoke(IPC.reminderReschedule, id, delay),
-  finishReminder: (id) => ipcRenderer.invoke(IPC.reminderFinish, id),
-  showReminder: (id) => ipcRenderer.invoke(IPC.reminderShow, id),
-  listReminders: () => ipcRenderer.invoke(IPC.reminderList),
-  onReminderDue: (cb) => {
-    const listener = (_: IpcRendererEvent, reminder: unknown, missed: boolean): void =>
-      cb(reminder as Parameters<typeof cb>[0], missed)
-    ipcRenderer.on(IPC.reminderDue, listener)
-    return () => ipcRenderer.removeListener(IPC.reminderDue, listener)
-  },
   openHome: () => ipcRenderer.send(IPC.homeOpen),
   setOverlayInteractive: (interactive) => ipcRenderer.send(IPC.overlayInteractive, interactive),
   setOverlayBounds: (bounds) => ipcRenderer.send(IPC.overlayBounds, bounds),
@@ -62,6 +51,15 @@ const api: PipApi = {
   clickCorner: () => ipcRenderer.send(IPC.cornerClick),
   onCornerOpen: (cb) => on<void>(IPC.cornerOpen, cb),
   onRecordHotkey: (cb) => on<void>(IPC.recordHotkey, cb),
+  onCommand: (cb) => on(IPC.command, cb),
+  setRecordingActive: (on) => ipcRenderer.send(IPC.recordingActive, on),
+  overlayReady: () => ipcRenderer.send(IPC.overlayReady),
+  refuseSelection: () => ipcRenderer.send(IPC.selectionRefused),
+  listReminders: () => ipcRenderer.invoke(IPC.reminderList),
+  saveReminder: (reminder) => ipcRenderer.invoke(IPC.reminderSave, reminder),
+  deleteReminder: (id) => ipcRenderer.invoke(IPC.reminderDelete, id),
+  onReminderDue: (cb) => on(IPC.reminderDue, cb),
+  tellPip: (message) => ipcRenderer.invoke(IPC.tellPip, message),
   transcribe: (audio) => ipcRenderer.invoke(IPC.transcribe, audio)
 }
 

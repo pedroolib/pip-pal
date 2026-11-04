@@ -4,6 +4,7 @@ import { Button } from '@renderer/components/ui/button'
 import { Face } from '@renderer/checkin/Face'
 import { hashFor } from './route'
 import { AchievementRow } from './AchievementRow'
+import { ComingUp } from './ComingUp'
 import { isToday, latest, timeLabel } from './days'
 import { HouseCard } from './parts'
 import { useLoad } from './useLoad'
@@ -14,9 +15,6 @@ export function HomeView({ learned }: { learned: number }): React.JSX.Element {
   const { t, i18n } = useTranslation()
   const checkIns = useLoad(() => api.listCheckIns(), { onFocus: true }).data
   const achievements = useLoad(() => api.listAchievements(), { onFocus: true }).data
-  const reminders = useLoad(() => api.listReminders(), { onFocus: true })
-  const reload = reminders.reload
-  const pending = (reminders.data ?? []).filter((r) => r.parked)
   const today = latest((checkIns ?? []).filter((c) => isToday(c.at)))
   const win = latest(achievements ?? [])
 
@@ -66,33 +64,7 @@ export function HomeView({ learned }: { learned: number }): React.JSX.Element {
               )}
             </HouseCard>
           </div>
-          {pending.length > 0 && (
-            <HouseCard aria-labelledby="home-pending">
-              <h2 id="home-pending" className="text-[1.0625rem] leading-snug font-bold">
-                {t('house.home.pending.title')}
-              </h2>
-              <p className="text-sm text-muted-foreground">{t('house.home.pending.hint')}</p>
-              <ul className="flex flex-col gap-3">
-                {pending.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center gap-3">
-                    <span className="min-w-0 flex-1 font-bold">{r.title}</span>
-                    <Button
-                      variant="outline"
-                      onClick={() => api.showReminder(r.id).then(reload, reload)}
-                    >
-                      {t('house.home.pending.show')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => api.finishReminder(r.id).then(reload, reload)}
-                    >
-                      {t('house.home.pending.done')}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            </HouseCard>
-          )}
+          <ComingUp />
           {learned > 0 && (
             <HouseCard aria-labelledby="home-learned">
               <h2 id="home-learned" className="text-[1.0625rem] leading-snug font-bold">

@@ -511,35 +511,35 @@ export const NoteResolution = z.object({
 })
 export type NoteResolution = z.infer<typeof NoteResolution>
 
-// ---------- Reminders ("Not now" / "Remind me later") ----------
-
-export const REMINDER_DELAYS = ['5m', '15m', '30m', '1h', 'tomorrow'] as const
-export const ReminderDelay = z.enum(REMINDER_DELAYS)
-export type ReminderDelay = z.infer<typeof ReminderDelay>
-
-/** After a reminder fires and gets no answer, Pip shows it again this many times (5, 10, 15 min), then parks it. */
-export const REMINDER_NUDGES = 3
-
-export const REMINDER_SOURCE_MAX = 4000
-
-/** What the renderer asks main to remind about. `source` is the selected text a steps card was made from. */
-export const NewReminder = z.object({
-  kind: z.enum(['steps', 'checkin']),
-  title: z.string().max(300),
-  why: z.string().max(600).optional(),
-  source: z.string().max(REMINDER_SOURCE_MAX).optional()
-})
-export type NewReminder = z.infer<typeof NewReminder>
-
-export const Reminder = NewReminder.extend({
-  id: z.string().min(1),
-  dueAt: z.iso.datetime({ offset: true }),
-  /** How many times it was shown again without an answer. */
-  nudges: z.number().int().min(0).max(REMINDER_NUDGES),
-  /** Out of nudges: it waits on Home until the person shows or finishes it. */
-  parked: z.boolean()
+export const REMINDER_TEXT_MAX = 500
+export const REMINDER_MAX = 200
+export const REMINDER_ID_MAX = 100
+/** Stable codes that start main's rejection messages: IPC keeps only the message, and its wording may change. */
+export const REMINDER_ERROR = {
+  past: 'REMINDER_PAST',
+  long: 'REMINDER_LONG',
+  full: 'REMINDER_FULL'
+} as const
+/** False for text that would fire a blank card: nothing left once invisible characters go. */
+export const hasVisibleText = (text: string): boolean => text.replace(/\p{Cf}/gu, '').trim() !== ''
+/**
+ * Something the person asked Pip to remind them of, at a time. Kept on this machine and apart from `Profile`,
+ * so a summary cannot include it.
+ */
+export const Reminder = z.object({
+  id: z.string().min(1).max(REMINDER_ID_MAX),
+  text: z.string().min(1).max(REMINDER_TEXT_MAX),
+  at: z.iso.datetime({ offset: true })
 })
 export type Reminder = z.infer<typeof Reminder>
+
+/** Pip's answer to something the person told it. `reply` is null when the call failed and their words were kept. */
+export const TellAnswer = z.object({
+  reply: z.string().nullable(),
+  why: z.string().nullable(),
+  note: NoteProposal.nullable()
+})
+export type TellAnswer = z.infer<typeof TellAnswer>
 
 export const Settings = z.object({
   checkIns: z

@@ -27,8 +27,10 @@ Gates: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
 
 | Feature | How |
 |---|---|
-| Read a message | Select text and press `Ctrl+Shift+Space`: the triage bubble appears next to the cursor; each button opens its own card (steps, questions, change plan) |
-| Voice capture | `Ctrl+Shift+Enter` records the microphone, computer audio or both (up to 10 min). Pip transcribes on this machine, you review the text, then the same triage runs |
+| One shortcut | `Ctrl+Shift+Space` (`Control+Shift+Space` on a Mac). **With text selected:** the triage bubble appears next to the cursor; each button opens its own card (steps, questions, change plan). **With nothing selected:** Pip's menu opens at the cursor with five choices: Pip's Home, Let Pip listen, Check-In, Tell Pip and Remember Pip. Pip no longer falls back to the last thing you copied; on a Mac without Accessibility permission the menu says it could not read the selection. With typed text in an open card the shortcut does nothing, so the text is never lost. On Windows, with a terminal in front Pip does not press Ctrl+C and opens the menu, so text selected in a terminal cannot be read this way (the terminal inside VS Code cannot be told apart and still gets Ctrl+C). `Ctrl+Shift+Enter` no longer does anything |
+| Voice capture | Pick "Let Pip listen" in the menu, or run `pip-pal --record`. It records the microphone, computer audio or both (up to 10 min). Pip transcribes on this machine, you review the text, then the same triage runs. Pressing the shortcut with nothing selected while recording stops it |
+| Tell Pip | Write or speak to Pip and press Send: it answers, says why, and offers to keep what you said as a note. Nothing is sent until you press Send |
+| Reminders | "Remember Pip" in the menu, or the clock on a step card. Pip reminds you at the time you pick and keeps them on this computer; they show under "Coming up" in Pip's Home |
 | Check-ins | Spoons (1–5) at the times set in Settings; few spoons means fewer steps and a calming suggestion |
 | Pip's House | Home, My profile, Achievements, Summary, Connections (coming soon) and Settings |
 | Onboarding | First run without `PIP_DEMO=1`: Pip's questions become suggestions you accept, edit or reject |

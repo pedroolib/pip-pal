@@ -20,14 +20,12 @@ import { captureSelection } from './capture'
 import { isSafeExternalUrl } from './external-links'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
 import { registerMockHandlers, warmUpTranscriber } from './mock'
-import { startReminders } from './reminders'
+import { startReminderSchedule } from './reminders'
 import { openStorage } from './storage'
 
 // Explicit Control: `CommandOrControl` would become ⌘ on Mac (docs/DECISIONS.md, notes for A).
 // shortcut: fixed until there is a settings screen to change it.
 const HOTKEY = 'Control+Shift+Space'
-// Starts and stops voice capture in the overlay (the renderer decides which).
-const RECORD_HOTKEY = 'Control+Shift+Enter'
 
 // One Pip at a time. Global shortcuts don't work on Wayland, so a compositor bind runs
 // `pip-pal --capture`; that second launch only hands the request to this one and exits.
@@ -44,6 +42,22 @@ const OVERLAY_PAD = 32
 const CLICK_THROUGH = process.platform !== 'linux'
 
 let overlay: BrowserWindow | null = null
+// What the overlay's page last told main; a replaced page starts over (resetOverlayPage).
+let recordingActive = false
+let overlayWantsKeyboard = false
+// Reminders wait for this: sent before the page has subscribed, one would be lost.
+let overlaySubscribed = false
+// Where a press with a selection found the window, in case the overlay refuses the selection.
+let beforeSelection: { bounds: Bounds; held: boolean } | null = null
+let reminders: ReturnType<typeof startReminderSchedule> | null = null
+
+// A reload, crash or new window can't send the "false" the old page owed, or the command would be stuck.
+function resetOverlayPage(): void {
+  recordingActive = false
+  overlayWantsKeyboard = false
+  overlaySubscribed = false
+  beforeSelection = null
+}
 
 // The overlay's renderer is untrusted input like any IPC sender: check the shape before using it.
 function isCornerPip(v: unknown): v is CornerPip {
@@ -138,13 +152,18 @@ function createOverlay(): void {
     overlay = null
     setEscape(false)
     setCorner(null)
+    resetOverlayPage()
   })
   // A reload or crash skips React's cleanup, so the bubble could never release the shortcut.
-  mainWindow.webContents.on('render-process-gone', () => setEscape(false))
+  mainWindow.webContents.on('render-process-gone', () => {
+    setEscape(false)
+    resetOverlayPage()
+  })
   mainWindow.webContents.on('did-start-navigation', (_e, _url, _inPlace, isMainFrame) => {
     if (!isMainFrame) return
     setEscape(false)
     setCorner(null) // the reloaded overlay has no task open
+    resetOverlayPage()
   })
 
   // The renderer paints the cream app background. Clearing it here keeps it for the plain browser
@@ -248,52 +267,64 @@ function setOverlayFocus(win: BrowserWindow, on: boolean): void {
   }
 }
 
-// Hotkey pressed: read the selection and hand it to the overlay. Ignores presses while one is running.
+// The bubble opens next to the cursor, its card just inside the transparent padding. Not clamped: the
+// renderer reads the cursor back from this position and fits the bubble on screen itself, opening it
+// left or up near an edge (CURSOR_GAP in Overlay.tsx).
+async function moveToCursor(win: BrowserWindow): Promise<void> {
+  const cursor = await cursorPoint()
+  const { width, height } = win.getBounds()
+  win.setBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
+  win.showInactive()
+}
+
+// shortcut: the overlay window stays shown with nothing drawn, so a card counts as open while it holds the keyboard, even
+// one that lost it to another app (the next press then opens the menu where it sits); upgrade if the overlay reports its view.
+const cardOpen = (): boolean => overlayWantsKeyboard
+
+// The one command. A recording always stops, without touching the selection. Otherwise it reads the
+// selection: text goes to triage, and with none the overlay decides what the press means. Ignores
+// presses while one is reading.
 let capturing = false
-async function capture(): Promise<void> {
+async function command(): Promise<void> {
+  if (recordingActive) {
+    overlay?.webContents.send(IPC.recordHotkey)
+    return
+  }
   if (capturing) return
   capturing = true
-  // A record card may hold the keyboard: give it back first, or the copy keys land in Pip itself.
+  // A card may hold the keyboard: give it back first, or the copy keys land in Pip itself.
   const held = !!overlay?.isFocused()
   if (held) setOverlayFocus(overlay!, false)
   try {
-    const { text, fromSelection, app: from } = await captureSelection()
+    const { text, copyFailed, app: from } = await captureSelection()
     if (is.dev) {
       // Only a preview, so the terminal doesn't fill with whole messages.
-      const source = fromSelection ? 'selection' : 'last copied'
       const where = from ? ` (⌘C went to ${from})` : ''
-      console.log(`[capture] ${source}${where}, ${text.length} chars: ${text.slice(0, 80)}…`)
+      console.log(`[capture]${where} ${text.length} chars: ${text.slice(0, 80)}…`)
     }
     const win = overlay
-    if (!text.trim() || !win) {
-      // Nothing to read, so the record card stays open and needs its keyboard back.
-      if (held && win) setOverlayFocus(win, true)
+    if (!win) return
+    if (!text.trim()) {
+      // Nothing to read, so an open card stays and needs its keyboard back.
+      if (held) setOverlayFocus(win, true)
+      if (!cardOpen()) await moveToCursor(win)
+      win.webContents.send(IPC.command, { copyFailed })
       return
     }
-    // The bubble opens next to the cursor, its card just inside the transparent padding. Not clamped:
-    // the renderer reads the cursor back from this position and fits the bubble on screen itself,
-    // opening it left or up near an edge (CURSOR_GAP in Overlay.tsx).
-    const cursor = await cursorPoint()
-    const { width, height } = win.getBounds()
-    win.setBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
-    win.showInactive()
+    beforeSelection = { bounds: win.getBounds(), held }
+    await moveToCursor(win)
     win.webContents.send(IPC.captured, text)
   } finally {
     capturing = false
   }
 }
 
-// Record hotkey pressed: open the overlay at the cursor (unless it is already showing, so a second
-// press that stops the recording doesn't move it) and tell it. Pip never starts recording by itself.
+// `pip-pal --record`: open the overlay at the cursor (unless a press that stops the recording or an open
+// card must keep it where it is) and tell it. Pip never starts recording by itself.
 async function record(): Promise<void> {
   const win = overlay
   if (!win) return
-  if (!win.isVisible()) {
-    const cursor = await cursorPoint()
-    const { width, height } = win.getBounds()
-    win.setBounds({ x: cursor.x + 12 - OVERLAY_PAD, y: cursor.y + 12 - OVERLAY_PAD, width, height })
-    win.showInactive()
-  }
+  if (!recordingActive && !cardOpen()) await moveToCursor(win)
   win.webContents.send(IPC.recordHotkey)
 }
 
@@ -404,16 +435,6 @@ app.whenReady().then(() => {
   const storage = openStorage()
   // Until onboarding reaches its practice step, the hotkey and check-ins stay quiet (demo: always on).
   const ready = (): boolean => storage.demo || hotkeyReady(storage.settings.load().onboarding)
-  // Reminders from "Not now": shown on the overlay without taking focus, like a check-in.
-  const reminders = startReminders({
-    store: storage.reminders,
-    onDue: (reminder, missed) => {
-      const win = overlay
-      if (!win) return
-      win.showInactive()
-      win.webContents.send(IPC.reminderDue, reminder, missed)
-    }
-  })
   // Launch at login keeps reminders alive after a reboot. Packaged app only: in dev it would register Electron itself.
   const applyLogin = (): void => {
     if (!app.isPackaged) return
@@ -421,14 +442,16 @@ app.whenReady().then(() => {
     app.setLoginItemSettings({ openAtLogin: on })
   }
   // A saved change to the check-in times re-arms the schedule (created below) without a restart.
+  // It may also be the save that ends onboarding's quiet, which reminders wait for.
   registerMockHandlers(
     storage,
     () => {
       checkIns.reschedule()
+      reminders?.refresh()
       applyLogin()
     },
     (wc) => wc === overlay?.webContents,
-    reminders
+    () => reminders?.refresh()
   )
 
   ipcMain.on(IPC.overlayInteractive, (event, interactive: boolean) => {
@@ -461,7 +484,32 @@ app.whenReady().then(() => {
   ipcMain.on(IPC.overlayFocus, (event, on: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== overlay || typeof on !== 'boolean') return
+    overlayWantsKeyboard = on
     setOverlayFocus(win, on)
+  })
+
+  // Tells the command that its press means "stop", before it would touch the selection.
+  ipcMain.on(IPC.recordingActive, (event, on: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || typeof on !== 'boolean') return
+    recordingActive = on
+  })
+
+  // The overlay has subscribed: send what it would have missed. A reload clears this and it says so again.
+  ipcMain.on(IPC.overlayReady, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay) return
+    overlaySubscribed = true
+    reminders?.redeliver()
+  })
+
+  // Typed text would be lost, so the press means nothing: the card goes back where it was, with the keyboard if it had it.
+  ipcMain.on(IPC.selectionRefused, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== overlay || !beforeSelection) return
+    win.setBounds(beforeSelection.bounds)
+    if (beforeSelection.held) setOverlayFocus(win, true)
+    beforeSelection = null
   })
 
   // Only the overlay sets the corner Pip; its click goes back to the overlay to swap.
@@ -495,32 +543,33 @@ app.whenReady().then(() => {
   })
   powerMonitor.on('resume', checkIns.resume)
   app.on('will-quit', checkIns.stop)
-  powerMonitor.on('resume', reminders.resume)
-  app.on('will-quit', reminders.stop)
+  // The list reads empty until the overlay can show a reminder and onboarding allows it, so none is
+  // used up early; IPC.overlayReady and the settings save above check again.
+  const schedule = startReminderSchedule({
+    list: () => (overlaySubscribed && ready() ? storage.reminders.list() : []),
+    onDue: (reminder) => {
+      const win = overlay
+      if (!win) return
+      win.showInactive()
+      win.webContents.send(IPC.reminderDue, reminder)
+    }
+  })
+  reminders = schedule
+  powerMonitor.on('resume', schedule.refresh)
   applyLogin()
-  // Give the overlay's page time to load before showing what came due while Pip was closed.
-  setTimeout(reminders.resume, 4000)
+  app.on('will-quit', schedule.stop)
   if (
     !globalShortcut.register(HOTKEY, () => {
-      if (ready()) void capture()
+      if (ready()) void command()
     })
   ) {
     console.warn(`[capture] ${HOTKEY} is taken by another app; use \`pip-pal --capture\` instead.`)
-  }
-  if (
-    !globalShortcut.register(RECORD_HOTKEY, () => {
-      if (ready()) void record()
-    })
-  ) {
-    console.warn(
-      `[record] ${RECORD_HOTKEY} is taken by another app; use \`pip-pal --record\` instead.`
-    )
   }
   setMediaPermissions()
   // Load the speech model before the first recording needs it.
   setTimeout(() => void warmUpTranscriber(), 3000)
   app.on('second-instance', (_, argv) => {
-    if (argv.includes('--capture') && ready()) void capture()
+    if (argv.includes('--capture') && ready()) void command()
     if (argv.includes('--record') && ready()) void record()
     if (argv.includes('--dismiss')) overlay?.webContents.send(IPC.dismiss)
   })
