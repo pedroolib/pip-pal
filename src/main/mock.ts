@@ -7,7 +7,7 @@ import { LEARN_WINDOW_DAYS, NoteMerge, NoteResolution, type Profile } from '@sha
 import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
 import { createExpander } from './ai/expand'
-import { applyMerge, applyNote, createMerger, createRememberer } from './ai/lessons'
+import { applyMerge, applyNote, createMerger, createRememberer, createTeller } from './ai/lessons'
 import { createProfileDrafter } from './ai/onboarding'
 import { createSummarizer } from './ai/summary'
 import { createTriager } from './ai/triage'
@@ -68,6 +68,13 @@ export function registerMockHandlers(
         load: () => profiles.load(),
         save: (p) => profiles.save(p)
       }),
+    makeTeller: () =>
+      createTeller({
+        claude: process.env.ANTHROPIC_API_KEY ? createClaudeClient() : null,
+        lessons,
+        load: () => profiles.load(),
+        save: (p) => profiles.save(p)
+      }),
     makeMerger: () =>
       createMerger({
         claude: createClaudeClient(),
@@ -123,6 +130,7 @@ export function registerMockHandlers(
     lessons.replace(lessons.list().filter((l) => l.id !== id))
   })
   ipcMain.handle(IPC.noteRemember, (_, text, correction) => ai.rememberCorrection(text, correction))
+  ipcMain.handle(IPC.tellPip, (_, message) => ai.tellPip(message))
   ipcMain.handle(IPC.noteResolve, (_, resolution) =>
     applyNote(lessons, NoteResolution.parse(resolution), new Date().toISOString())
   )

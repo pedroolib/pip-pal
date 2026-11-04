@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createMockApi } from '@shared/mock-api'
+import { CORRECTION_MAX } from '@shared/ipc'
 import { createAiHandlers } from './index'
 import { MAX_CHARS } from './decoder'
 
@@ -17,6 +18,12 @@ function setup(env: Record<string, string | undefined>) {
   const makeSummarizer = vi.fn(() => realSummary)
   const realRemember = vi.fn(async () => null)
   const makeRememberer = vi.fn(() => realRemember)
+  const realTell = vi.fn(async (): Promise<{ reply: string; why: string; note: null }> => ({
+    reply: 'real',
+    why: 'real',
+    note: null
+  }))
+  const makeTeller = vi.fn(() => realTell)
   const realMerge = vi.fn(async () => [])
   const makeMerger = vi.fn(() => realMerge)
   const summaryData = vi.fn(() => ({ checkIns: [], events: [], achievements: [] }))
@@ -34,6 +41,7 @@ function setup(env: Record<string, string | undefined>) {
     makeTriager,
     makeExpander,
     makeRememberer,
+    makeTeller,
     makeMerger,
     makeSummarizer,
     makeDrafter,
@@ -48,6 +56,7 @@ function setup(env: Record<string, string | undefined>) {
     realExpand,
     realSummary,
     realRemember,
+    realTell,
     realMerge,
     makeTriager,
     makeExpander,
@@ -361,6 +370,70 @@ describe('proposeMerges', () => {
     const f = setup({})
     await f.ai.proposeMerges()
     expect(f.realMerge).not.toHaveBeenCalled()
+  })
+})
+
+describe('tellPip', () => {
+  const keys = { ANTHROPIC_API_KEY: 'k' }
+
+  it('uses the real teller with a key', async () => {
+    const s = setup(keys)
+    expect(await s.ai.tellPip('hello')).toEqual({ reply: 'real', why: 'real', note: null })
+    expect(s.realTell).toHaveBeenCalledWith('hello')
+  })
+
+  it('without a key still uses the real teller, so the words reach the real notes', async () => {
+    const s = setup({})
+    expect((await s.ai.tellPip('hello')).reply).toBe('real')
+    expect(s.realTell).toHaveBeenCalledOnce()
+  })
+
+  it('in the demo without a key, answers from the fixture like the other handlers', async () => {
+    const s = setup({ PIP_DEMO: '1' })
+    expect((await s.ai.tellPip('hello')).reply).toEqual(expect.any(String))
+    expect(s.realTell).not.toHaveBeenCalled()
+  })
+
+  it('in the demo with a key, uses the real teller like the other handlers', async () => {
+    const s = setup({ ...keys, PIP_DEMO: '1' })
+    await s.ai.tellPip('hello')
+    expect(s.realTell).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    ['not a string', 42],
+    ['missing', undefined],
+    ['empty', ''],
+    ['only spaces', '  \n '],
+    ['only invisible characters', '​﻿­'],
+    ['too long', 'x'.repeat(CORRECTION_MAX + 1)],
+    ['too long and secret', SECRET + 'x'.repeat(CORRECTION_MAX)]
+  ])('rejects a message that is %s, without echoing it', async (_, message) => {
+    for (const env of [keys, {}, { PIP_DEMO: '1' }]) {
+      const s = setup(env)
+      const e = await s.ai.tellPip(message as never).catch((x: Error) => x)
+      expect((e as Error).message).toMatch(/message/)
+      expect((e as Error).message).not.toContain('Quillfeather')
+      expect(s.realTell).not.toHaveBeenCalled()
+    }
+  })
+
+  it('accepts a message of exactly the maximum', async () => {
+    const s = setup(keys)
+    await s.ai.tellPip('x'.repeat(CORRECTION_MAX))
+    expect(s.realTell).toHaveBeenCalledOnce()
+  })
+
+  it('joins a double send and refuses a different message while one runs', async () => {
+    const s = setup(keys)
+    let finish!: (v: { reply: string; why: string; note: null }) => void
+    s.realTell.mockReturnValueOnce(new Promise((a) => (finish = a)))
+    const first = s.ai.tellPip('same')
+    const again = s.ai.tellPip('same')
+    await expect(s.ai.tellPip('other')).rejects.toThrow(/still working/)
+    finish({ reply: 'late', why: 'w', note: null })
+    expect(await first).toEqual(await again)
+    expect(s.realTell).toHaveBeenCalledOnce()
   })
 })
 

@@ -1,11 +1,12 @@
 // Glue for the triage, expand, summary and onboarding IPC handlers: validates what the untrusted renderer sends, then picks the
 // real pipeline (its key is set) or the fixture. Free of electron so it can be tested; mock.ts passes the real parts in.
+import { z } from 'zod'
 import { ActionKind, Recipient, SummaryPeriod, UnclearPart, type Profile } from '@shared/schemas'
 import { CORRECTION_MAX, type PipApi } from '@shared/ipc'
 import type { NewEvent } from '../event-store'
 import { MAX_CHARS } from './decoder'
 import type { Expand } from './expand'
-import type { ProposeMerges, RememberCorrection } from './lessons'
+import { cleanNote, type ProposeMerges, type RememberCorrection, type TellPip } from './lessons'
 import type { DraftProfile } from './onboarding'
 import type { Summarize, SummaryData } from './summary'
 import type { TriageFn } from './triage'
@@ -13,12 +14,23 @@ import type { TriageFn } from './triage'
 type Env = Record<string, string | undefined>
 type Handlers = Pick<
   PipApi,
-  'triage' | 'expand' | 'rememberCorrection' | 'proposeMerges' | 'generateSummary' | 'draftProfile'
+  | 'triage'
+  | 'expand'
+  | 'rememberCorrection'
+  | 'tellPip'
+  | 'proposeMerges'
+  | 'generateSummary'
+  | 'draftProfile'
 >
 
 const UnclearHints = UnclearPart.array()
   .max(UnclearPart.options.length)
   .refine((parts) => new Set(parts).size === parts.length)
+
+const TellMessage = z
+  .string()
+  .max(CORRECTION_MAX)
+  .refine((message) => cleanNote(message) !== '')
 
 // Messages never include the input: the renderer is untrusted and the text is the person's.
 function checkText(text: unknown): asserts text is string {
@@ -52,6 +64,7 @@ export function createAiHandlers({
   makeTriager,
   makeExpander,
   makeRememberer,
+  makeTeller,
   makeMerger,
   makeSummarizer,
   makeDrafter,
@@ -67,6 +80,7 @@ export function createAiHandlers({
   makeTriager: () => TriageFn
   makeExpander: () => Expand
   makeRememberer: () => RememberCorrection
+  makeTeller: () => TellPip
   makeMerger: () => ProposeMerges
   makeSummarizer: () => Summarize
   makeDrafter: () => DraftProfile
@@ -79,6 +93,8 @@ export function createAiHandlers({
   const triager = env.TYPESAFE_API_KEY ? makeTriager() : null
   const expander = env.ANTHROPIC_API_KEY ? makeExpander() : null
   const rememberer = env.ANTHROPIC_API_KEY ? makeRememberer() : null
+  // Without a key a real person's words still go to their real notes; only the demo answers from the fixture.
+  const teller = env.ANTHROPIC_API_KEY || env.PIP_DEMO !== '1' ? makeTeller() : null
   const merger = env.ANTHROPIC_API_KEY ? makeMerger() : null
   const summarizer = env.ANTHROPIC_API_KEY ? makeSummarizer() : null
   const drafter = env.ANTHROPIC_API_KEY ? makeDrafter() : null
@@ -100,6 +116,7 @@ export function createAiHandlers({
   const triaging = new Map<string, { input: string; promise: ReturnType<PipApi['triage']> }>()
   const expanding = new Map<string, { input: string; promise: ReturnType<PipApi['expand']> }>()
   const drafting = new Map<string, { input: string; promise: ReturnType<PipApi['draftProfile']> }>()
+  const telling = new Map<string, { input: string; promise: ReturnType<PipApi['tellPip']> }>()
 
   return {
     async triage(text) {
@@ -148,6 +165,13 @@ export function createAiHandlers({
       if (typeof correction !== 'string' || correction.length > CORRECTION_MAX)
         throw new Error(`The correction must be text of at most ${CORRECTION_MAX} characters.`)
       return rememberer ? rememberer(text, correction) : api.rememberCorrection(text, correction)
+    },
+    async tellPip(message) {
+      if (!TellMessage.safeParse(message).success)
+        throw new Error(`The message must hold text, at most ${CORRECTION_MAX} characters.`)
+      return oneAtATime(telling, 'tell', message, () =>
+        teller ? teller(message) : api.tellPip(message)
+      )
     },
     async proposeMerges() {
       return merger ? merger() : api.proposeMerges()
