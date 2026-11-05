@@ -13,3 +13,5 @@ resources/models/
 .factory/jobs/
 .factory/init-state.json
 .claude/settings.local.json
+/.*.tgz
+/.dev-src.md5
