@@ -14,6 +14,8 @@ const api: PipApi = {
   triage: (text) => ipcRenderer.invoke(IPC.triage, text),
   expand: (text, kind, spoons, unclear, correction) =>
     ipcRenderer.invoke(IPC.expand, text, kind, spoons, unclear, correction),
+  unstick: (text, step, spoons, answer) =>
+    ipcRenderer.invoke(IPC.unstick, text, step, spoons, answer),
   getProfile: () => ipcRenderer.invoke(IPC.profileGet),
   saveProfile: (profile) => ipcRenderer.invoke(IPC.profileSave, profile),
   getSettings: () => ipcRenderer.invoke(IPC.settingsGet),

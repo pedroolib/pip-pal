@@ -34,7 +34,7 @@ import { TellCard } from '@renderer/command/TellCard'
 import { CornerButton } from '@renderer/corner/CornerPip'
 import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
 import { planSteps } from '@renderer/decode/model'
-import { ExpandView } from '@renderer/expand/ExpandView'
+import { ExpandView, type Stuck } from '@renderer/expand/ExpandView'
 import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
 import { useFitFont } from '@renderer/overlay/useFitFont'
 import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
@@ -74,6 +74,8 @@ type Task = {
   /** Index of the step in progress (steps only); kept here so tucking the card away keeps it. */
   step: number
   calm: CalmingStrategy | null
+  /** "I'm stuck" on the current step, until its smaller steps take its place (steps only). */
+  stuck: Stuck | null
   /** "I have a plan" was pressed (transition only). */
   planned: boolean
   /** A drafted question was copied; logged as an achievement once per card. */
@@ -95,6 +97,7 @@ const NEW_TASK: Task = {
   error: false,
   step: 0,
   calm: null,
+  stuck: null,
   planned: false,
   asked: false,
   logged: [],
@@ -624,6 +627,50 @@ function Overlay(): React.JSX.Element {
     setActive('steps')
     setView('task')
   }
+  // "I'm stuck": Pip breaks the current step into smaller ones that take its place. The done steps drop, so with
+  // few spoons the small steps are the ones on show. If that hinges on something only the person knows, Pip asks
+  // first: each answer joins the next call and, once Pip can answer, may become a note. Also the retry after an error.
+  const unstick = (answer?: string): void => {
+    const task = tasks.steps
+    const step = task?.stuck?.step ?? (task && steps?.[task.step]?.text)
+    if (!task || !step) return
+    const said = [task.stuck?.answer, answer].filter(Boolean).join('\n').slice(-CORRECTION_MAX)
+    const id = request.current
+    const live = (): boolean => id === request.current
+    const source = text.current
+    const stuck = (status: Stuck['status'], question = ''): Partial<Task> => ({
+      stuck: { step, answer: said, status, question }
+    })
+    patch('steps', () => stuck('working'))
+    api.unstick(source, step, task.spoons, said || undefined).then(
+      (result) => {
+        // Outside the live check: closing the card must not lose what the person taught Pip.
+        if (said && !result.needsContext)
+          api.rememberCorrection(source, said).then(
+            (note) => live() && patch('steps', () => ({ note })),
+            () => {} // only the proposal is lost if the words were saved
+          )
+        if (!live()) return
+        const question = result.needsContext
+        if (question) return patch('steps', () => stuck('asking', question))
+        patch('steps', (x) => {
+          if (x.result?.kind !== 'steps') return { stuck: null }
+          const { profileUsed, lessonsUsed } = x.result
+          const merged = {
+            ...x.result,
+            steps: [...result.steps, ...x.result.steps.slice(x.step + 1)],
+            profileUsed: [
+              ...profileUsed,
+              ...result.profileUsed.filter((p) => !profileUsed.some((q) => q.how === p.how))
+            ],
+            lessonsUsed: [...new Set([...lessonsUsed, ...result.lessonsUsed])]
+          }
+          return { result: merged, step: 0, stuck: null }
+        })
+      },
+      () => live() && patch('steps', () => stuck('error'))
+    )
+  }
   const stepDone = (): void => {
     const done = stepsTask && steps?.[stepsTask.step]
     if (done) {
@@ -745,7 +792,9 @@ function Overlay(): React.JSX.Element {
               onCorrect={(added) => act(active, added)}
               note={task.note}
               onNoteDone={() => patch(active, () => ({ note: null }))}
-              onAsk={() => act('questions')}
+              stuck={task.stuck}
+              onStuck={unstick}
+              onStuckCancel={() => patch(active, () => ({ stuck: null }))}
               onCopied={(what, question, topic) => copied(active, what, question, topic)}
               onPlanned={() => planned(active)}
               onBack={triage ? () => setView('triage') : undefined}

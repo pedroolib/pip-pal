@@ -493,7 +493,13 @@
     "retry": "Intentar de nuevo",
     "back": "Volver a las opciones de Pip",
     "gotPlan": "Ya tengo un plan",
-    "planned": "Guardado en tus logros. Atravesaste este cambio."
+    "planned": "Guardado en tus logros. Atravesaste este cambio.",
+    "stuck": {
+      "title": "Hagamos este paso más pequeño",
+      "working": "Pip está partiendo este paso en otros más pequeños.",
+      "needsContext": "Pip necesita saber una cosa antes de partir este paso:",
+      "back": "Volver al paso"
+    }
   },
   "achievement": {
     "asked": "Preguntaste en vez de adivinar: {{what}}",

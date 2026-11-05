@@ -6,7 +6,7 @@ import { createMockApi } from '@shared/mock-api'
 import { LEARN_WINDOW_DAYS, NoteMerge, NoteResolution, type Profile } from '@shared/schemas'
 import { createClaudeClient, createJevClient, createTriageJevClient } from './ai/clients'
 import { createDecoder } from './ai/decoder'
-import { createExpander } from './ai/expand'
+import { createExpander, createUnsticker } from './ai/expand'
 import { applyMerge, applyNote, createMerger, createRememberer, createTeller } from './ai/lessons'
 import { createProfileDrafter } from './ai/onboarding'
 import { createSummarizer } from './ai/summary'
@@ -73,6 +73,8 @@ export function registerMockHandlers(
     makeTriager: () => createTriager({ jev: createTriageJevClient() }),
     makeExpander: () =>
       createExpander({ claude: createClaudeClient(), lessons, tone: () => settings.load().tone }),
+    makeUnsticker: () =>
+      createUnsticker({ claude: createClaudeClient(), lessons, tone: () => settings.load().tone }),
     makeRememberer: () =>
       createRememberer({
         claude: createClaudeClient(),
@@ -105,6 +107,9 @@ export function registerMockHandlers(
   ipcMain.handle(IPC.triage, (_, text) => ai.triage(text))
   ipcMain.handle(IPC.expand, (_, text, kind, spoons, unclear, correction) =>
     ai.expand(text, kind, spoons, unclear, correction)
+  )
+  ipcMain.handle(IPC.unstick, (_, text, step, spoons, answer) =>
+    ai.unstick(text, step, spoons, answer)
   )
   ipcMain.handle(IPC.profileGet, () => profiles.load())
   ipcMain.handle(IPC.profileSave, (_, p) => profiles.save(p))

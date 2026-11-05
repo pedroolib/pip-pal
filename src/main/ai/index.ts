@@ -5,7 +5,7 @@ import { ActionKind, Recipient, SummaryPeriod, UnclearPart, type Profile } from 
 import { CORRECTION_MAX, type PipApi } from '@shared/ipc'
 import type { NewEvent } from '../event-store'
 import { MAX_CHARS } from './decoder'
-import type { Expand } from './expand'
+import type { Expand, Unstick } from './expand'
 import { cleanNote, type ProposeMerges, type RememberCorrection, type TellPip } from './lessons'
 import type { DraftProfile } from './onboarding'
 import type { Summarize, SummaryData } from './summary'
@@ -16,6 +16,7 @@ type Handlers = Pick<
   PipApi,
   | 'triage'
   | 'expand'
+  | 'unstick'
   | 'rememberCorrection'
   | 'tellPip'
   | 'proposeMerges'
@@ -63,6 +64,7 @@ export function createAiHandlers({
   save,
   makeTriager,
   makeExpander,
+  makeUnsticker,
   makeRememberer,
   makeTeller,
   makeMerger,
@@ -79,6 +81,7 @@ export function createAiHandlers({
   save: (profile: Profile) => void
   makeTriager: () => TriageFn
   makeExpander: () => Expand
+  makeUnsticker: () => Unstick
   makeRememberer: () => RememberCorrection
   makeTeller: () => TellPip
   makeMerger: () => ProposeMerges
@@ -92,6 +95,7 @@ export function createAiHandlers({
 }): Handlers {
   const triager = env.TYPESAFE_API_KEY ? makeTriager() : null
   const expander = env.ANTHROPIC_API_KEY ? makeExpander() : null
+  const unsticker = env.ANTHROPIC_API_KEY ? makeUnsticker() : null
   const rememberer = env.ANTHROPIC_API_KEY ? makeRememberer() : null
   // Without a key a real person's words still go to their real notes; only the demo answers from the fixture.
   const teller = env.ANTHROPIC_API_KEY || env.PIP_DEMO !== '1' ? makeTeller() : null
@@ -115,6 +119,7 @@ export function createAiHandlers({
 
   const triaging = new Map<string, { input: string; promise: ReturnType<PipApi['triage']> }>()
   const expanding = new Map<string, { input: string; promise: ReturnType<PipApi['expand']> }>()
+  const unsticking = new Map<string, { input: string; promise: ReturnType<PipApi['unstick']> }>()
   const drafting = new Map<string, { input: string; promise: ReturnType<PipApi['draftProfile']> }>()
   const telling = new Map<string, { input: string; promise: ReturnType<PipApi['tellPip']> }>()
 
@@ -158,6 +163,20 @@ export function createAiHandlers({
           record(() => ({ kind: 'action', action: kind }))
           return e
         }
+      )
+    },
+    async unstick(text, step, spoons, answer) {
+      checkText(text)
+      if (typeof step !== 'string' || !step.trim() || step.length > CORRECTION_MAX)
+        throw new Error(`The step must be text of at most ${CORRECTION_MAX} characters.`)
+      if (answer !== undefined && (typeof answer !== 'string' || answer.length > CORRECTION_MAX))
+        throw new Error(`The answer must be text of at most ${CORRECTION_MAX} characters.`)
+      if (spoons !== null && !(Number.isInteger(spoons) && spoons >= 1 && spoons <= 5))
+        throw new Error('Spoons must be null or a whole number from 1 to 5.')
+      return oneAtATime(unsticking, 'unstick', `${spoons}:${answer ?? ''}:${step}:${text}`, () =>
+        unsticker
+          ? unsticker(text, step, spoons, load(), answer)
+          : api.unstick(text, step, spoons, answer)
       )
     },
     async rememberCorrection(text, correction) {

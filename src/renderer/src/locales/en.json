@@ -541,7 +541,13 @@
     "retry": "Try again",
     "back": "Back to Pip's options",
     "gotPlan": "I have a plan",
-    "planned": "Saved to your achievements. You got through this change."
+    "planned": "Saved to your achievements. You got through this change.",
+    "stuck": {
+      "title": "Let's make this step smaller",
+      "working": "Pip is breaking this step into smaller ones.",
+      "needsContext": "Pip needs to know one thing before it can break this step down:",
+      "back": "Back to the step"
+    }
   },
   "achievement": {
     "asked": "Asked instead of guessing: {{what}}",
