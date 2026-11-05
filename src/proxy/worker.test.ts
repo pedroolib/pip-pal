@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { createClaudeClient, createTriageJevClient } from '../main/ai/clients'
 import { resolveModel } from '../main/ai/models'
-import { useProxyWithoutKeys } from '../main/ai/proxy'
+import { useProxyWithToken } from '../main/ai/proxy'
 import worker, { CLAUDE_MODELS, type Env } from './worker'
 
 const PROXY = 'https://proxy.test'
+const TOKEN = 'team-token'
+const WITH_TOKEN = { 'x-api-key': TOKEN }
 const VALID = {
   model: 'claude-haiku-5-5',
   max_tokens: 8192,
@@ -21,6 +23,7 @@ let answer: () => Response
 const env: Env = {
   ANTHROPIC_API_KEY: 'real-claude',
   TYPESAFE_API_KEY: 'real-jev',
+  PIP_ACCESS_TOKEN: TOKEN,
   LIMITER: { limit: async () => ({ success: !limited }) }
 }
 
@@ -39,16 +42,44 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 const post = (path: string, body: unknown): Promise<Response> =>
-  fetch(`${PROXY}${path}`, { method: 'POST', body: JSON.stringify(body) })
+  fetch(`${PROXY}${path}`, { method: 'POST', headers: WITH_TOKEN, body: JSON.stringify(body) })
 
 describe('proxy worker', () => {
-  it('lets the real SDKs reach Claude with the server key, never the placeholder', async () => {
+  it.each([
+    ['no token', {}],
+    ['a wrong token', { 'x-api-key': 'guess' }],
+    ['a wrong bearer token', { authorization: 'Bearer guess' }]
+  ])('refuses a valid call with %s before calling a provider', async (_, headers) => {
+    const res = await fetch(`${PROXY}/anthropic/v1/messages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(VALID)
+    })
+    expect(res.status).toBe(401)
+    expect(upstream).toEqual([])
+  })
+
+  it('refuses everyone if the secret is missing from the Worker', async () => {
+    const noSecret = { ...env, PIP_ACCESS_TOKEN: '' }
+    const asks: HeadersInit[] = [{}, { 'x-api-key': '' }]
+    for (const headers of asks) {
+      const request = new Request(`${PROXY}/anthropic/v1/messages`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(VALID)
+      })
+      expect((await worker.fetch(request, noSecret)).status).toBe(401)
+    }
+    expect(upstream).toEqual([])
+  })
+
+  it('lets the real SDKs reach Claude with the server key, never the token', async () => {
     answer = () =>
       Response.json({
         content: [{ type: 'text', text: '{"a":1}' }],
         stop_reason: 'end_turn'
       })
-    const sdk = new Anthropic({ apiKey: 'pip-proxy', baseURL: `${PROXY}/anthropic` })
+    const sdk = new Anthropic({ apiKey: TOKEN, baseURL: `${PROXY}/anthropic` })
     const out = await createClaudeClient(sdk).ask({
       system: 's',
       user: 'u',
@@ -59,9 +90,22 @@ describe('proxy worker', () => {
     expect(upstream[0].headers.get('x-api-key')).toBe('real-claude')
   })
 
-  it('lets the real SDK reach Jev with the server key, never the placeholder', async () => {
+  it('passes on a large Jev request as JSON the provider can read', async () => {
+    answer = () => Response.json({ answers: {} })
+    vi.stubEnv('TYPESAFE_API_KEY', TOKEN)
+    vi.stubEnv('TYPESAFE_BASE_URL', `${PROXY}/typesafe`)
+    const message = 'a long message '.repeat(400)
+    await createTriageJevClient().ask({
+      state: { message },
+      questions: { yes: noul('Is it?', { true: 'yes', false: 'no' }) }
+    })
+    vi.unstubAllEnvs()
+    expect((await upstream[0].json()).state.message).toBe(message)
+  })
+
+  it('lets the real SDK reach Jev with the server key, never the token', async () => {
     answer = () => Response.json({ answers: { yes: { value: true, probability: 0.9 } } })
-    vi.stubEnv('TYPESAFE_API_KEY', 'pip-proxy')
+    vi.stubEnv('TYPESAFE_API_KEY', TOKEN)
     vi.stubEnv('TYPESAFE_BASE_URL', `${PROXY}/typesafe`)
     await createTriageJevClient().ask({
       state: { message: 'm' },
@@ -86,7 +130,7 @@ describe('proxy worker', () => {
 
   it('refuses a body that is not JSON, one too large, and unknown paths or methods', async () => {
     const send = (path: string, init: RequestInit): Promise<Response> =>
-      fetch(`${PROXY}${path}`, init)
+      fetch(`${PROXY}${path}`, { headers: WITH_TOKEN, ...init })
     const big = 'x'.repeat(256 * 1024 + 1)
     const statuses = await Promise.all([
       send('/anthropic/v1/messages', { method: 'POST', body: 'nope' }),
@@ -122,18 +166,26 @@ describe('proxy worker', () => {
   })
 })
 
-describe('useProxyWithoutKeys', () => {
-  it('points an app without keys at the proxy', () => {
-    const e: NodeJS.ProcessEnv = { ANTHROPIC_API_KEY: '' }
-    useProxyWithoutKeys(e)
+describe('useProxyWithToken', () => {
+  it('points an app with the token and no keys at the proxy', () => {
+    const e: NodeJS.ProcessEnv = { PIP_ACCESS_TOKEN: TOKEN, ANTHROPIC_API_KEY: '' }
+    useProxyWithToken(e)
     expect(e.ANTHROPIC_BASE_URL).toMatch(/\/anthropic$/)
     expect(e.TYPESAFE_BASE_URL).toMatch(/\/typesafe$/)
-    expect(e.ANTHROPIC_API_KEY).toBe('pip-proxy')
+    expect(e.ANTHROPIC_API_KEY).toBe(TOKEN)
+    expect(e.TYPESAFE_API_KEY).toBe(TOKEN)
+  })
+
+  it('leaves a clone without a token on the demo fixtures', () => {
+    const e: NodeJS.ProcessEnv = {}
+    useProxyWithToken(e)
+    expect(e).toEqual({})
   })
 
   it('never sends a personal key to the proxy', () => {
-    const e: NodeJS.ProcessEnv = { ANTHROPIC_API_KEY: 'mine', TYPESAFE_API_KEY: 'mine' }
-    useProxyWithoutKeys(e)
-    expect(e).toEqual({ ANTHROPIC_API_KEY: 'mine', TYPESAFE_API_KEY: 'mine' })
+    const mine = { PIP_ACCESS_TOKEN: TOKEN, ANTHROPIC_API_KEY: 'mine', TYPESAFE_API_KEY: 'mine' }
+    const e: NodeJS.ProcessEnv = { ...mine }
+    useProxyWithToken(e)
+    expect(e).toEqual(mine)
   })
 })

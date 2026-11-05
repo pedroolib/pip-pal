@@ -1,7 +1,7 @@
 // Cloudflare Worker that holds the API keys, so nobody running Pip needs one.
 // It sees scrubbed text in transit: it must never log or store a request or a response.
-// shortcut: forwards model calls and keeps the prompts in the app, so a copied URL can still
-// spend credits up to these limits; upgrade to one endpoint per action after the Launchpad.
+// shortcut: one token shared by the team, so a leak means replacing it for everyone (scripts/new-proxy-token.mjs);
+// upgrade to one endpoint per action and per-person licenses after the Launchpad.
 
 export const CLAUDE_MODELS = ['claude-sonnet-5-5', 'claude-haiku-5-5']
 const MAX_TOKENS = 8192 // what src/main/ai/clients.ts asks for
@@ -12,6 +12,7 @@ const CLAUDE_FIELDS = new Set(['model', 'max_tokens', 'system', 'messages', 'out
 export interface Env {
   ANTHROPIC_API_KEY: string
   TYPESAFE_API_KEY: string
+  PIP_ACCESS_TOKEN: string
   LIMITER: { limit(options: { key: string }): Promise<{ success: boolean }> }
 }
 
@@ -54,6 +55,13 @@ export default {
     if (request.method !== 'POST' || !Object.hasOwn(ROUTES, pathname))
       return new Response(null, { status: 404 })
     const route = ROUTES[pathname]
+
+    // Each SDK sends the token as its API key: Claude's in x-api-key, Jev's as a bearer token.
+    const token =
+      request.headers.get('x-api-key') ??
+      request.headers.get('authorization')?.replace(/^Bearer /, '')
+    if (!env.PIP_ACCESS_TOKEN || token !== env.PIP_ACCESS_TOKEN)
+      return new Response(null, { status: 401 })
 
     const key = request.headers.get('cf-connecting-ip') ?? 'unknown'
     if (!(await env.LIMITER.limit({ key })).success) return new Response(null, { status: 429 })

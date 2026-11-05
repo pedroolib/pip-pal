@@ -19,7 +19,7 @@ import { enabledTimes, hotkeyReady } from '@shared/schemas'
 import { captureSelection } from './capture'
 import { isSafeExternalUrl } from './external-links'
 import { parseCheckInTimes, startCheckInSchedule } from './check-in-schedule'
-import { useProxyWithoutKeys } from './ai/proxy'
+import { useProxyWithToken } from './ai/proxy'
 import { registerMockHandlers, warmUpTranscriber } from './mock'
 import { startReminderSchedule } from './reminders'
 import { openStorage } from './storage'
@@ -509,7 +509,7 @@ app.whenReady().then(() => {
       // no .env: keys, if any, come from the environment
     }
   }
-  useProxyWithoutKeys()
+  useProxyWithToken()
   const storage = openStorage()
   // Until onboarding reaches its practice step, the hotkey and check-ins stay quiet (demo: always on).
   const ready = (): boolean => storage.demo || hotkeyReady(storage.settings.load().onboarding)

@@ -19,7 +19,7 @@ npm run fetch:whisper
 npm run dev
 ```
 
-`fetch:whisper` downloads the speech model once (about 80 MB, not in git). Only voice capture needs it, and packaging needs it first. **No API keys are needed:** the AI calls go through a hosted proxy that holds them on the server. To start with Sam's demo data instead of onboarding, set `PIP_DEMO=1` (in the environment, or in a `.env` copied from `.env.example`). Keys you put in `.env` go direct instead of through the proxy.
+`fetch:whisper` downloads the speech model once (about 80 MB, not in git). Only voice capture needs it, and packaging needs it first. **No API keys are needed, and none are in this repo:** they live on the server, in a hosted proxy. Without anything else, Pip runs on demo fixtures. Set `PIP_DEMO=1` to start with Sam's demo data instead of onboarding; Tell Pip only answers from the fixtures in that mode. For live AI, the team puts its private access token in `.env` as `PIP_ACCESS_TOKEN` (see `.env.example`). The installed app does not read `.env`, so there the variables must be set in the system environment.
 
 Gates: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`.
 
@@ -45,7 +45,7 @@ Open work is in [docs/PLAN.md §8](docs/PLAN.md).
 | `src/shared/` | Contract: Zod schemas, IPC API, fixtures, and `mock-api.ts` (fixture-backed API used until the real one exists, and in a plain browser). **Change only through a PR all three devs review.** | All |
 | `src/main/` | Electron main: windows, hotkey, capture, storage. `mock.ts` serves the mock over IPC until real handlers replace it, one by one. | A |
 | `src/main/` (AI files) | Claude + Jev calls, PII scrubbing, cache fallback. | B |
-| `src/proxy/` | Cloudflare Worker that holds the API keys and forwards only Pip's calls, with no logs. Deploy notes in `wrangler.toml`. | B |
+| `src/proxy/` | Cloudflare Worker that holds the API keys and forwards only Pip's calls from people with the access token, with no logs. Deploy notes in `wrangler.toml`. | B |
 | `src/renderer/` | React UI. Call main through `api` from `@renderer/api`. Theme tokens in `assets/main.css`, UI text in `locales/en.json`. Also runs in a plain browser on the fixtures. | C |
 | `src/shared/fixtures/*.json` | Sam's profile and demo data; plain JSON, editable without code. | D |
 

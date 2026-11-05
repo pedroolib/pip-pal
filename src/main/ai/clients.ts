@@ -130,7 +130,8 @@ export function createJevClient(): JevClient {
   const client = new TypeSafeClient({
     timeout: JEV_TIMEOUT_MS,
     retry: { maxRetries: 0 },
-    logLevel: 'off'
+    logLevel: 'off',
+    compression: false // the proxy reads bodies as text; a compressed one reaches Jev garbled (422)
   })
   return {
     async classify(text) {
@@ -150,7 +151,8 @@ export function createTriageJevClient(
   client: Pick<TypeSafeClient, 'systemOne'> = new TypeSafeClient({
     timeout: JEV_TIMEOUT_MS,
     retry: { maxRetries: 0 },
-    logLevel: 'off'
+    logLevel: 'off',
+    compression: false // see createJevClient
   })
 ): TriageJevClient {
   return {
