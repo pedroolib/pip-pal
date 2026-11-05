@@ -6,6 +6,7 @@ out
 *.log*
 scripts/.out/
 resources/models/
+.wrangler/
 .env
 .env.*
 !.env.example

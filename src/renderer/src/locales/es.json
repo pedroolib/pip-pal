@@ -475,7 +475,7 @@
       },
       "privacy": {
         "title": "Privacidad",
-        "selected": "Solo salen de tu computadora el texto que seleccionas, lo que escribes para corregir o enseñar a Pip, lo que escribes o dictas en Cuéntale a Pip y envías, y tus notas guardadas, y solo después de cambiar los nombres por roles como [Manager]. Lo que le cuentas a Pip va a Claude (la IA de Anthropic). Las notas guardadas vuelven a salir con mensajes posteriores, sin que pulses Enviar otra vez.",
+        "selected": "Solo salen de tu computadora el texto que seleccionas, lo que escribes para corregir o enseñar a Pip, lo que escribes o dictas en Cuéntale a Pip y envías, y tus notas guardadas, y solo después de cambiar los nombres por roles como [Manager]. Lo que le cuentas a Pip va a Claude (la IA de Anthropic). Las notas guardadas vuelven a salir con mensajes posteriores, sin que pulses Enviar otra vez. En el camino, este texto pasa por el intermediario de Pip en Cloudflare, que no guarda nada.",
         "manual": "Los resúmenes nunca se envían solos. Tú los copias o los exportas."
       }
     }
