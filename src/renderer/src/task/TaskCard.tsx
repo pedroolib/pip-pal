@@ -125,7 +125,7 @@ export function TaskCard({
 
   return (
     <PeekingPip pip={<StepPip key={current} finished={finished} cheer={current > 0} />}>
-      <Card className="@container min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-lg">
+      <Card className="@container min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-float">
         <header className="flex items-start gap-2">
           {onBack && (
             <Button
@@ -162,10 +162,10 @@ export function TaskCard({
             <span
               key={i}
               className={cn(
-                'h-1.5 flex-1 rounded-full transition-colors duration-500',
+                'h-1 flex-1 rounded-full transition-colors duration-500',
                 s === 'done' && 'bg-primary',
                 s === 'current' && 'bg-primary/40',
-                s === 'todo' && 'bg-border'
+                s === 'todo' && 'bg-input'
               )}
             />
           ))}
@@ -175,7 +175,7 @@ export function TaskCard({
         <div className="flex flex-col gap-4 @xl:flex-row @xl:items-end @xl:gap-8">
           {finished ? (
             <div className="motion-swap flex flex-col gap-1 @xl:flex-1">
-              <h1 className="text-2xl font-bold">{t('card.allDone')}</h1>
+              <h1 className="text-[1.375rem] font-bold">{t('card.allDone')}</h1>
               <p className="text-body">
                 {laterCount > 0
                   ? t('card.restWaiting', { count: laterCount })
@@ -186,7 +186,7 @@ export function TaskCard({
             <div className="flex flex-col gap-1 @xl:flex-1" aria-live="polite">
               {/* Keyed by step so each new step fades in. */}
               <div key={current} className="motion-swap flex flex-col gap-1">
-                <h1 className="text-2xl leading-tight font-bold">
+                <h1 className="text-[1.375rem] leading-tight font-bold">
                   <WithKeys text={step.text} />
                 </h1>
                 {step.why && (

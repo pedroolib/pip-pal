@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { CornerPip as Holding } from '@shared/ipc'
 import { api } from '@renderer/api'
 import { DockedPip } from '@renderer/pip/DockedPip'
+import { usePaused } from '@renderer/pause'
 
 /** The corner Pip itself; the plain browser draws it inside the overlay page. */
 export function CornerButton({
@@ -15,9 +16,10 @@ export function CornerButton({
   onOpen: () => void
 }): React.JSX.Element {
   const { t } = useTranslation()
+  const [paused] = usePaused()
   return (
     <DockedPip
-      mood="calm"
+      mood={paused ? 'quiet' : 'calm'}
       progress={holding.progress}
       doneStep={null}
       label={t(holding.holds === 'menu' ? 'dock.openMenu' : 'dock.openTask')}

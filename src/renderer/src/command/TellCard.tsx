@@ -96,7 +96,7 @@ export function TellCard({
   return (
     <WithPip mood={mood} flip={flip}>
       <Card
-        className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
+        className="min-h-0 gap-4 overflow-y-auto p-5 shadow-float"
         style={{ width: CARD_WIDTH, maxWidth: '100%' }}
         onKeyDown={(e) => e.key === 'Escape' && onClose()}
       >

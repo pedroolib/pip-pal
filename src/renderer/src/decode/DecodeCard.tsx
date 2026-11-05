@@ -24,7 +24,7 @@ function Section({
 }): React.JSX.Element {
   return (
     <Collapsible>
-      <CollapsibleTrigger className="group flex min-h-11 w-full items-center gap-2 rounded-md text-left text-sm font-bold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+      <CollapsibleTrigger className="group flex min-h-10 w-full items-center gap-2 rounded-md text-left text-sm font-bold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
         <ChevronDown
           className="size-4 shrink-0 transition-transform duration-150 group-data-[state=closed]:-rotate-90"
           aria-hidden
@@ -101,7 +101,7 @@ export function DecodeCard({
   const changeType = d.change?.type ?? c.changeType
 
   return (
-    <Card className="@container min-h-0 w-full gap-0 py-0 shadow-lg">
+    <Card className="@container min-h-0 w-full gap-0 py-0 shadow-float">
       {/* Wide window: what's asked and the steps on the left, questions and context on the right. */}
       <div
         data-fit-scroll
