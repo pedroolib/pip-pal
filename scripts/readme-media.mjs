@@ -86,15 +86,20 @@ async function open({ w = 800, h = 780, query = {}, hash = '', dark = false }) {
       )
     return sharp(buf).extract({ left: x, top: y, width, height }).toBuffer()
   }
-  return { win, run, waitFor, hasText, click, clickSel, rectOf, grab, crop, w, h }
+  // Lets the page's own background go, so a picture can sit on a light or a dark page.
+  const transparent = () =>
+    dbg.sendCommand('Emulation.setDefaultBackgroundColorOverride', {
+      color: { r: 0, g: 0, b: 0, a: 0 }
+    })
+  return { win, run, waitFor, hasText, click, clickSel, rectOf, grab, crop, transparent, w, h }
 }
 
-async function save(name, buf) {
+async function save(name, buf, { palette = true } = {}) {
   const file = join(OUT, name)
-  writeFileSync(
-    file,
-    await sharp(buf).png({ compressionLevel: 9, palette: true, quality: 90 }).toBuffer()
+  const png = sharp(buf).png(
+    palette ? { compressionLevel: 9, palette: true, quality: 90 } : { compressionLevel: 9 }
   )
+  writeFileSync(file, await png.toBuffer())
   console.log('wrote', name)
 }
 
@@ -117,7 +122,15 @@ async function shotOverlay(page, name, pad = 14) {
 // Frames of a GIF: the same fixed region every time, so the picture doesn't jump.
 async function gif(name, frames, { width, loop = 0 }) {
   const resized = await Promise.all(
-    frames.map((f) => sharp(f.buf).resize({ width }).removeAlpha().png().toBuffer())
+    frames.map((f) =>
+      sharp(f.buf)
+        .resize({ width })
+        .removeAlpha()
+        // A thin border, so the picture reads as a window on a dark page too.
+        .extend({ top: 2, bottom: 2, left: 2, right: 2, background: '#cfcac0' })
+        .png()
+        .toBuffer()
+    )
   )
   const out = await sharp(resized, { join: { animated: true } })
     .gif({ delay: frames.map((f) => f.ms), loop, effort: 10, colours: 128, dither: 0.5 })
@@ -128,6 +141,36 @@ async function gif(name, frames, { width, loop = 0 }) {
 
 async function main() {
   mkdirSync(OUT, { recursive: true })
+
+  // --- Banner: Pip and the name, transparent, in a light and a dark version.
+  for (const dark of [false, true]) {
+    const page = await open({ w: 700, h: 260, query: { spoons: '5' }, dark })
+    await page.waitFor("document.querySelector('[data-overlay-root] svg.pip')")
+    await page.run(`(() => {
+      const pip = document.querySelector('[data-overlay-root] svg.pip').cloneNode(true)
+      pip.setAttribute('class', 'pip')
+      pip.setAttribute('width', '150')
+      pip.setAttribute('height', '150')
+      document.documentElement.style.background = 'transparent'
+      document.body.style.background = 'transparent'
+      document.body.innerHTML = ''
+      const banner = document.createElement('div')
+      banner.id = 'banner'
+      banner.style.cssText = 'display:inline-flex;align-items:center;gap:32px;padding:20px 12px;color:var(--foreground)'
+      const word = document.createElement('span')
+      word.textContent = 'Pip'
+      word.style.cssText = "font:700 124px/1 'Titillium Web',sans-serif;letter-spacing:-0.01em"
+      banner.append(pip, word)
+      document.body.append(banner)
+    })()`)
+    await page.transparent()
+    await sleep(600)
+    const r = await page.rectOf('#banner')
+    await save(`banner-${dark ? 'dark' : 'light'}.png`, await page.crop(await page.grab(), r), {
+      palette: false
+    })
+    page.win.destroy()
+  }
 
   // --- The overlay: triage bubble, steps card, mood check, other cards.
   {
@@ -241,7 +284,7 @@ async function main() {
   // --- The steps flow as a GIF: bubble, steps, browse, done, mood, options, all done.
   {
     const page = await open({ query: { spoons: '5' } })
-    const region = { x: 0, y: 0, w: 500, h: 580 }
+    const region = { x: 0, y: 0, w: 480, h: 570 }
     const frames = []
     const snap = async (ms, settle = 1000) => {
       await sleep(settle)
