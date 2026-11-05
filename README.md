@@ -6,8 +6,8 @@
 </h1>
 
 <p align="center">
-  <b>Plain steps from vague work messages. Built for autistic adults in their first year of work.</b><br>
-  Reads only what you select. Removes names before any AI sees a word. Never sends anything for you.
+  <b>Turns vague work messages into small, clear steps, and tells you why.</b><br>
+  Designed to support autistic and other neurodivergent adults starting a new job.
 </p>
 
 <p align="center">
@@ -21,16 +21,8 @@
 </p>
 
 <p align="center">
-  <video src="docs/images/pip-flow.mp4" poster="docs/images/pip-flow-poster.png" width="640" controls muted playsinline>
-    <a href="docs/images/pip-flow.mp4"><img src="docs/images/pip-flow-poster.png" width="640" alt="Pip: the unwritten rules written down. Click to watch the 52-second demo."></a>
-  </video>
-
-
 
 https://github.com/user-attachments/assets/2f209e01-11a4-48e6-aa80-7968b368215a
-
-
-
 
   <br>
   <sub><b>Pip's flow, 52 s, on a real Slack message.</b> The person selects it and presses the shortcut, reads Pip's bubble, opens <i>Break it into steps</i>, reads ahead with the bar, answers the halfway <i>How are you feeling?</i> and picks a calming option, then opens Pip's House to see their profile and what they taught Pip.</sub>
