@@ -28,6 +28,7 @@ import triageJson from './fixtures/demo.triage.json'
 import stepsJson from './fixtures/demo.expansion.steps.json'
 import questionsJson from './fixtures/demo.expansion.questions.json'
 import transitionJson from './fixtures/demo.expansion.transition.json'
+import unstickJson from './fixtures/demo.expansion.unstick.json'
 import samJson from './fixtures/sam.profile.json'
 import decodedJson from './fixtures/demo.decoded.json'
 import checkInsJson from './fixtures/week.checkins.json'
@@ -45,6 +46,8 @@ export function createMockApi(): PipApi {
   const expansions = Object.fromEntries(
     [stepsJson, questionsJson, transitionJson].map((e) => [e.kind, Expansion.parse(e)])
   ) as Record<ActionKind, Expansion>
+  // Breaks down the demo's handoff step, whichever step the person is stuck on.
+  const unstuck = Expansion.options[0].parse(unstickJson)
   const checkIns = CheckIn.array().parse(checkInsJson)
   const changes = ChangeEvent.array().parse(changesJson)
   const achievements = Achievement.array().parse(achievementsJson)
@@ -74,6 +77,7 @@ export function createMockApi(): PipApi {
       ...expansions[kind],
       lessonsUsed: correction ? lessons.map((l) => l.text) : []
     }),
+    unstick: async () => unstuck,
     getSettings: async () => settings,
     saveSettings: async (s) => void (settings = Settings.parse(s)),
     getProfile: async () => profile,

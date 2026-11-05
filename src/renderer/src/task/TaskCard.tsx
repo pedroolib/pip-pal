@@ -1,7 +1,7 @@
 // The task card: one step at a time, like the reference in docs/design/task-card-reference.png.
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, Clock, MessageSquarePlus, Minus } from 'lucide-react'
+import { ArrowLeft, Clock, MessageSquarePlus, Minus } from 'lucide-react'
 import { CORRECTION_MAX } from '@shared/ipc'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
@@ -16,7 +16,7 @@ import { WithKeys } from './KeyCaps'
 
 type Step = { text: string; why: string | null }
 
-// "That's not right": the person tells Pip what it was missing and gets new steps. The overlay
+// "Tell Pip more context": the person tells Pip what it was missing and gets new steps. The overlay
 // is never focused, so it takes the keyboard while the field is open.
 // Closed until clicked, even when Pip asks (`ask`): the answer arrives while the person may be typing elsewhere.
 export function Correct({
@@ -109,7 +109,7 @@ export function TaskCard({
   onStuck: () => void
   /** The clock: open the reminder form for this step. */
   onLater?: () => void
-  /** "That's not right": new steps from what the person typed. */
+  /** "Tell Pip more context": new steps from what the person typed. */
   onCorrect?: (text: string) => void
   /** Back to the other options, when there are any. */
   onBack?: () => void
@@ -118,10 +118,16 @@ export function TaskCard({
   children?: React.ReactNode
 }): React.JSX.Element {
   const { t } = useTranslation()
+  // Looking at another step is only reading: the buttons keep working on the step in progress.
+  const [looking, setLooking] = useState<{ at: number; index: number } | null>(null)
   const finished = current >= steps.length
-  const step = steps[current]
-  const next = steps[current + 1]
-  const progress = finished ? null : t('card.stepOf', { current: current + 1, total: steps.length })
+  const view = looking && looking.at === current ? looking.index : current
+  const reviewing = view !== current
+  const step = steps[view]
+  const progress =
+    view >= steps.length ? null : t('card.stepOf', { current: view + 1, total: steps.length })
+  const lookAt = (index: number): void =>
+    setLooking(index === current ? null : { at: current, index })
 
   return (
     <PeekingPip pip={<StepPip key={current} finished={finished} cheer={current > 0} />}>
@@ -157,23 +163,31 @@ export function TaskCard({
           </Button>
         </header>
 
-        <div className="flex gap-1.5" aria-hidden>
+        {/* One rectangle per step: blue only once the step is done; click one to read that step. */}
+        <div className="-my-2 flex gap-1.5">
           {segments(steps.length, current).map((s, i) => (
-            <span
+            <button
               key={i}
-              className={cn(
-                'h-1 flex-1 rounded-full transition-colors duration-500',
-                s === 'done' && 'bg-primary',
-                s === 'current' && 'bg-primary/40',
-                s === 'todo' && 'bg-input'
-              )}
-            />
+              type="button"
+              aria-label={t('card.goToStep', { n: i + 1 })}
+              aria-current={i === view ? 'step' : undefined}
+              className="group flex flex-1 cursor-pointer items-center py-2 outline-none"
+              onClick={() => lookAt(i)}
+            >
+              <span
+                className={cn(
+                  'w-full rounded-full transition-all duration-500 group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2',
+                  i === view ? 'h-2' : 'h-1 group-hover:h-1.5',
+                  s === 'done' ? 'bg-primary' : i === view ? 'bg-foreground/40' : 'bg-input'
+                )}
+              />
+            </button>
           ))}
         </div>
 
         {/* Wide window: the step on the left, its buttons on the right. */}
         <div className="flex flex-col gap-4 @xl:flex-row @xl:items-end @xl:gap-8">
-          {finished ? (
+          {view >= steps.length ? (
             <div className="motion-swap flex flex-col gap-1 @xl:flex-1">
               <h1 className="text-[1.375rem] font-bold">{t('card.allDone')}</h1>
               <p className="text-body">
@@ -185,7 +199,7 @@ export function TaskCard({
           ) : (
             <div className="flex flex-col gap-1 @xl:flex-1" aria-live="polite">
               {/* Keyed by step so each new step fades in. */}
-              <div key={current} className="motion-swap flex flex-col gap-1">
+              <div key={view} className="motion-swap flex flex-col gap-1">
                 <h1 className="text-[1.375rem] leading-tight font-bold">
                   <WithKeys text={step.text} />
                 </h1>
@@ -198,7 +212,16 @@ export function TaskCard({
             </div>
           )}
 
-          {finished ? (
+          {reviewing ? (
+            <Button
+              size="lg"
+              variant="outline"
+              className="@xl:w-48"
+              onClick={() => setLooking(null)}
+            >
+              {t(finished ? 'card.backToSummary' : 'card.backToStep', { n: current + 1 })}
+            </Button>
+          ) : finished ? (
             <Button size="lg" className="@xl:w-48" onClick={onMinimize}>
               {t('card.close')}
             </Button>
@@ -230,12 +253,6 @@ export function TaskCard({
           )}
         </div>
 
-        {!finished && next && (
-          <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <ArrowRight className="size-4 shrink-0" aria-hidden />
-            <span className="line-clamp-1">{t('card.then', { step: next.text })}</span>
-          </p>
-        )}
         {onCorrect && <Correct onSend={onCorrect} />}
         {children}
       </Card>

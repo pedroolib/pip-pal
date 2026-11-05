@@ -93,7 +93,7 @@ const compatible = (s: string): string => s.replace(/´/g, "'").normalize('NFKC'
 const normalize = (s: string): string => compatible(s).replace(/\p{Cf}/gu, '')
 
 // Every wrapper a prompt in src/main/ai uses. The lookahead is the ASCII `\b` of the strips in summary.ts and onboarding.ts: what they read as a tag, this must too, or they rejoin it after the scrub. A tag may go on with attributes.
-const WRAPPER = /^\/?(?:message|said|known|correction|answers|facts)(?![A-Za-z0-9_])/i
+const WRAPPER = /^\/?(?:message|said|known|correction|answers|facts|step)(?![A-Za-z0-9_])/i
 const WRAPPER_HEAD = 12 // "/correction" plus the character after it
 const IN_TAG = new RegExp(`[\\p{Cc}${SOFT_BREAK}]`, 'u')
 // Whether the "<" at chars[open] starts a wrapper tag. Reads no further than the next "<".

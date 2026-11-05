@@ -1,0 +1,31 @@
+{
+  "kind": "steps",
+  "steps": [
+    {
+      "text": "Open a new doc and title it \"Dashboard handoff\".",
+      "why": "An empty doc with a title is an easy first move; the rest is filling it in."
+    },
+    {
+      "text": "Add three headings: Done, Left to do, Where things are.",
+      "why": "Those are the three things the note needs; headings turn one big note into three short lists."
+    },
+    {
+      "text": "Under Done, write one line per finished chart or report.",
+      "why": "One line each is enough: the next owner needs to know what exists, not how you built it."
+    },
+    {
+      "text": "Under Left to do, list the open tasks and known bugs.",
+      "why": "Open work is what the next owner needs most, so it goes in even if the list is short."
+    },
+    {
+      "text": "Under Where things are, paste the links to the files and data sources.",
+      "why": "Links save the next person from asking you where each file lives."
+    }
+  ],
+  "profileUsed": [
+    {
+      "section": "communication",
+      "how": "You prefer written instructions, so each step says exactly what to write."
+    }
+  ]
+}

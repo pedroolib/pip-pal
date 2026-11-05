@@ -20,7 +20,9 @@
     "stepOf": "Paso {{current}} de {{total}}",
     "done": "Listo",
     "stuck": "Me trabé",
-    "then": "Después: {{step}}",
+    "goToStep": "Ver el paso {{n}}",
+    "backToStep": "Volver al paso {{n}}",
+    "backToSummary": "Volver al resumen",
     "due": "para el {{date}}",
     "before": "antes del {{date}}",
     "later": "Recuérdame este paso",
@@ -32,7 +34,7 @@
     "restWaiting_other": "{{count}} pasos más pueden esperar a otro momento.",
     "close": "Cerrar",
     "correct": {
-      "open": "Esto no es correcto",
+      "open": "Darle más contexto a Pip",
       "answer": "Responder",
       "label": "¿Qué le falta o qué entiende mal Pip?",
       "placeholder": "Por ejemplo: \"El paquete de soporte 35 es nuestro paquete mensual de actualización. Se instala desde el portal de administración.\"",
@@ -552,7 +554,13 @@
     "retry": "Intentar de nuevo",
     "back": "Volver a las opciones de Pip",
     "gotPlan": "Ya tengo un plan",
-    "planned": "Guardado en tus logros. Atravesaste este cambio."
+    "planned": "Guardado en tus logros. Atravesaste este cambio.",
+    "stuck": {
+      "title": "Hagamos este paso más pequeño",
+      "working": "Pip está partiendo este paso en otros más pequeños.",
+      "needsContext": "Pip necesita saber una cosa antes de partir este paso:",
+      "back": "Volver al paso"
+    }
   },
   "achievement": {
     "asked": "Preguntaste en vez de adivinar: {{what}}",

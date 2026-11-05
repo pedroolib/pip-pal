@@ -55,6 +55,7 @@ export const IPC = {
   decode: 'pip:decode',
   triage: 'pip:triage',
   expand: 'pip:expand',
+  unstick: 'pip:unstick',
   profileGet: 'profile:get',
   profileSave: 'profile:save',
   settingsGet: 'settings:get',
@@ -144,6 +145,14 @@ export interface PipApi {
     /** What the person typed after a wrong answer (scrubbed like the text, at most CORRECTION_MAX characters). */
     correction?: string
   ): Promise<Expansion>
+  /** "I'm stuck" on a step card: one Claude call that breaks `step` (at most CORRECTION_MAX characters) into smaller
+   * steps, or asks for context in `needsContext`. `answer`: what the person said to that question, scrubbed like `text`. */
+  unstick(
+    text: string,
+    step: string,
+    spoons: number | null,
+    answer?: string
+  ): Promise<Extract<Expansion, { kind: 'steps' }>>
   getProfile(): Promise<Profile>
   saveProfile(profile: Profile): Promise<void>
   getSettings(): Promise<Settings>
