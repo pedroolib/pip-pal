@@ -14,6 +14,8 @@ function setup(env: Record<string, string | undefined>) {
   const realExpand = vi.fn(async () => ({ real: 'expand' }) as never)
   const makeTriager = vi.fn(() => realTriage)
   const makeExpander = vi.fn(() => realExpand)
+  const realUnstick = vi.fn(async () => ({ real: 'unstick' }) as never)
+  const makeUnsticker = vi.fn(() => realUnstick)
   const realSummary = vi.fn(async () => ({ real: 'summary' }) as never)
   const makeSummarizer = vi.fn(() => realSummary)
   const realRemember = vi.fn(async () => null)
@@ -40,6 +42,7 @@ function setup(env: Record<string, string | undefined>) {
     save,
     makeTriager,
     makeExpander,
+    makeUnsticker,
     makeRememberer,
     makeTeller,
     makeMerger,
@@ -54,12 +57,14 @@ function setup(env: Record<string, string | undefined>) {
     api,
     realTriage,
     realExpand,
+    realUnstick,
     realSummary,
     realRemember,
     realTell,
     realMerge,
     makeTriager,
     makeExpander,
+    makeUnsticker,
     makeSummarizer,
     logEvent,
     log,
@@ -359,6 +364,75 @@ describe('one running call per key', () => {
     expect(s.realExpand).toHaveBeenCalledTimes(3)
     ds.forEach((d) => d.resolve({} as never))
     await Promise.all(all)
+  })
+})
+
+describe('unstick', () => {
+  it('uses the real unsticker with a key, with the live profile', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    expect(await s.ai.unstick('hello', 'Write the note.', 3, 'A doc.')).toEqual({ real: 'unstick' })
+    expect(s.realUnstick).toHaveBeenCalledWith('hello', 'Write the note.', 3, profile, 'A doc.')
+  })
+
+  it('serves the fixture and builds nothing without a key', async () => {
+    const s = setup({})
+    expect(s.makeUnsticker).not.toHaveBeenCalled()
+    expect(await s.ai.unstick('hello', 'Write the note.', null)).toEqual(
+      await s.api.unstick('hello', 'Write the note.', null)
+    )
+  })
+
+  it.each([
+    ['not a string', 42],
+    ['empty', '  '],
+    ['too long', 'a'.repeat(CORRECTION_MAX + 1)]
+  ])('rejects a step that is %s before any call', async (_, step) => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    await expect(s.ai.unstick('hi', step as never, 3)).rejects.toThrow(/step/)
+    expect(s.realUnstick).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['not a string', 42],
+    ['too long', 'a'.repeat(CORRECTION_MAX + 1)]
+  ])('rejects an answer that is %s before any call', async (_, answer) => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    await expect(s.ai.unstick('hi', 'Step.', 3, answer as never)).rejects.toThrow(/answer/)
+    expect(s.realUnstick).not.toHaveBeenCalled()
+  })
+
+  it.each([0, 6, 2.5, '3', undefined])('rejects spoons %s', async (spoons) => {
+    const s = setup({})
+    await expect(s.ai.unstick('hi', 'Step.', spoons as never)).rejects.toThrow(/spoons/i)
+  })
+
+  it('never echoes the input in an error', async () => {
+    const s = setup({})
+    const bad = [
+      s.ai.unstick(SECRET + 'a'.repeat(MAX_CHARS), 'Step.', 3),
+      s.ai.unstick('hi', SECRET + 'a'.repeat(CORRECTION_MAX), 3),
+      s.ai.unstick('hi', 'Step.', 3, SECRET + 'a'.repeat(CORRECTION_MAX)),
+      s.ai.unstick('hi', 'Step.', SECRET as never)
+    ]
+    for (const p of bad) {
+      const e = await p.catch((x: Error) => x)
+      expect(e).toBeInstanceOf(Error)
+      expect((e as Error).message).not.toContain('Quillfeather')
+    }
+  })
+
+  it('joins the same step, refuses another one while it runs, and clears when done', async () => {
+    const s = setup({ ANTHROPIC_API_KEY: 'k' })
+    let resolve!: (v: never) => void
+    s.realUnstick.mockReturnValueOnce(new Promise((a) => (resolve = a)))
+    const first = s.ai.unstick('same', 'Step.', 3)
+    const again = s.ai.unstick('same', 'Step.', 3)
+    await expect(s.ai.unstick('same', 'Other step.', 3)).rejects.toThrow(/still working/)
+    resolve({ real: 'late' } as never)
+    expect(await first).toEqual({ real: 'late' })
+    expect(await again).toEqual({ real: 'late' })
+    await s.ai.unstick('same', 'Other step.', 3)
+    expect(s.realUnstick).toHaveBeenCalledTimes(2)
   })
 })
 

@@ -291,7 +291,7 @@ export function RecordFlow({
         <Card
           style={{ width: CARD_WIDTH }}
           aria-labelledby={titleId}
-          className="min-w-0 gap-4 p-5 shadow-lg"
+          className="min-w-0 gap-4 p-5 shadow-float"
         >
           {title('record.sourceTitle', 'record.sourceSub')}
           <RadioGroup
@@ -305,7 +305,7 @@ export function RecordFlow({
             {SOURCES.map(({ value, icon: Icon }) => (
               <Label
                 key={value}
-                className="min-h-13 cursor-pointer gap-3 rounded-md border bg-white px-3 py-2 font-normal shadow-xs has-data-[state=checked]:border-primary has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
+                className="min-h-13 cursor-pointer gap-3 rounded-md border bg-surface px-3 py-2 font-normal shadow-xs has-data-[state=checked]:border-primary has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary"
               >
                 <RadioGroupItem value={value} className="data-[state=checked]:border-primary" />
                 <Icon className="size-5 shrink-0 text-primary" aria-hidden />
@@ -353,7 +353,7 @@ export function RecordFlow({
             data-overlay-hit
             role={phase === 'recording' ? 'timer' : 'status'}
             className={cn(
-              'flex min-h-12 min-w-0 items-center gap-3 self-start rounded-full border bg-white py-1 pl-4 shadow-lg motion-pop',
+              'flex min-h-12 min-w-0 items-center gap-3 self-start rounded-full border bg-surface py-1 pl-4 shadow-float motion-pop',
               phase === 'recording' ? 'pr-1' : 'pr-4'
             )}
           >
@@ -389,7 +389,7 @@ export function RecordFlow({
             )}
           </div>
           {phase === 'transcribing' && limited && (
-            <Card className="gap-0 px-4 py-3 shadow-lg">{limitNote}</Card>
+            <Card className="gap-0 px-4 py-3 shadow-float">{limitNote}</Card>
           )}
         </div>
       )}
@@ -398,7 +398,7 @@ export function RecordFlow({
         <Card
           style={{ width: CARD_WIDTH }}
           aria-labelledby={titleId}
-          className="min-w-0 gap-4 p-5 shadow-lg"
+          className="min-w-0 gap-4 p-5 shadow-float"
         >
           {title('record.reviewTitle', 'record.reviewSub')}
           {limitNote}
@@ -415,7 +415,7 @@ export function RecordFlow({
             onMouseUp={select}
             // Selecting text must not drag the overlay.
             onPointerDown={(e) => e.stopPropagation()}
-            className="max-h-56 min-h-36 resize-none overflow-y-auto bg-white leading-6 select-text [field-sizing:fixed]"
+            className="max-h-56 min-h-36 resize-none overflow-y-auto bg-surface leading-6 select-text [field-sizing:fixed]"
           />
           <div className="-mt-2 flex items-start justify-between gap-3 text-sm leading-5">
             {over ? (
@@ -456,7 +456,7 @@ export function RecordFlow({
         <Card
           style={{ width: CARD_WIDTH }}
           aria-labelledby={titleId}
-          className="min-w-0 gap-4 p-5 shadow-lg"
+          className="min-w-0 gap-4 p-5 shadow-float"
         >
           <div>
             {title(phase === 'empty' ? 'record.emptyTitle' : 'record.errorTitle', undefined, true)}
@@ -483,7 +483,7 @@ export function RecordFlow({
         <Card
           style={{ width: CARD_WIDTH }}
           aria-labelledby={titleId}
-          className="min-w-0 gap-4 p-5 shadow-lg"
+          className="min-w-0 gap-4 p-5 shadow-float"
         >
           <div>
             {title('record.cantHearTitle', undefined, true)}

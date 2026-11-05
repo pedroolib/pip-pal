@@ -16,14 +16,13 @@ import {
 } from 'lucide-react'
 import type {
   ActionKind,
-  CalmingStrategy,
   Expansion,
   NoteProposal,
   QuestionTopic,
   Triage
 } from '@shared/schemas'
-import { api } from '@renderer/api'
-import { CalmingCard } from '@renderer/calm/CalmingCard'
+import { CheckInCard } from '@renderer/checkin/CheckInCard'
+import { MoodOptions } from '@renderer/mood/MoodOptions'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import {
@@ -36,6 +35,7 @@ import { RememberNote } from '@renderer/expand/RememberNote'
 import { planSteps } from '@renderer/decode/model'
 import { PeekingPip } from '@renderer/pip/PeekingPip'
 import { Pip, type Mood } from '@renderer/pip/Pip'
+import { WithKeys } from '@renderer/task/KeyCaps'
 import { Correct, TaskCard } from '@renderer/task/TaskCard'
 import { formatDue } from '@renderer/triage/model'
 
@@ -43,6 +43,15 @@ type CopiedHandler = (what: string, question: string, topic: QuestionTopic) => v
 
 // The bubble says "Due Fri, Nov 6"; the card puts it after the step count, in lower case.
 const DUE_KEY = { 'bubble.due': 'card.due', 'bubble.before': 'card.before' } as const
+
+/** "I'm stuck" on a step: its text, what the person answered so far, and where Pip's call is. */
+export type Stuck = {
+  step: string
+  answer: string
+  status: 'working' | 'error' | 'asking'
+  /** Pip's question when it needs context first ('asking'), else empty. */
+  question: string
+}
 
 /** Back to the bubble's other buttons; the card's call keeps going. */
 function BackButton({ onBack }: { onBack: () => void }): React.JSX.Element {
@@ -78,7 +87,7 @@ function Shell({
   const { t } = useTranslation()
   return (
     <PeekingPip pip={<Pip mood={mood} size={40} />}>
-      <Card className="min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-lg">
+      <Card className="min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-float">
         <header className="flex items-center gap-1">
           {onBack && <BackButton onBack={onBack} />}
           <h1 className="min-w-0 flex-1 leading-snug font-bold">{title}</h1>
@@ -112,8 +121,8 @@ function Placeholder(): React.JSX.Element {
     <div className="flex flex-col gap-3" aria-hidden>
       {['w-11/12', 'w-3/4', 'w-5/6'].map((w, i) => (
         <div key={i} className="flex items-center gap-3">
-          <span className="size-6 shrink-0 animate-pulse rounded-full bg-secondary" />
-          <span className={`h-3 animate-pulse rounded-full bg-secondary ${w}`} />
+          <span className="skeleton size-6 shrink-0 rounded-full" />
+          <span className={`skeleton h-3 rounded-full ${w}`} />
         </div>
       ))}
     </div>
@@ -258,16 +267,21 @@ export function ExpandView({
   spoons,
   step,
   deadline,
-  calm,
+  stuck,
   planned,
   asked,
-  onCalm,
+  mood,
+  cut,
+  onMood,
+  onMoodDone,
+  onKeepAll,
   onStepDone,
   onLater,
   onCorrect,
   note,
   onNoteDone,
-  onAsk,
+  onStuck,
+  onStuckCancel,
   onCopied,
   onPlanned,
   onBack,
@@ -285,25 +299,35 @@ export function ExpandView({
   step: number
   /** The bubble's deadline, shown under the steps. */
   deadline: Triage['deadline']
-  /** A calming strategy offered before going on (low spoons, a change, or "I'm stuck"). */
-  calm: CalmingStrategy | null
+  /** Pip is breaking the current step down, or null (steps only). */
+  stuck: Stuck | null
   /** The person said they have a plan for the change (transition only). */
   planned: boolean
   /** A drafted question was copied: Pip says thanks. */
   asked: boolean
-  /** Offer a strategy, or null when the person skipped it or is ready. */
-  onCalm: (strategy: CalmingStrategy | null) => void
+  /** Mid-task: 'ask' shows "How are you feeling?", a number is the face just picked, null is nothing (steps only). */
+  mood: 'ask' | number | null
+  /** How many steps stay visible after a low mood, or null for the usual plan (steps only). */
+  cut: number | null
+  /** The face picked, or null for "Not now". */
+  onMood: (spoons: number | null) => void
+  /** Back to the steps after the options. */
+  onMoodDone: () => void
+  /** Bring back the steps a low mood moved to "can wait". */
+  onKeepAll: () => void
   onStepDone: () => void
   /** The clock on the steps card: open the reminder form for the current step. */
   onLater: () => void
-  /** "That's not right" on the steps card: ask again with what the person added. */
+  /** "Tell Pip more context" on the steps card: ask again with what the person added. */
   onCorrect: (text: string) => void
   /** What Pip proposes to remember from a correction, or null. */
   note: NoteProposal | null
   /** The person answered the proposal, so it goes away. */
   onNoteDone: () => void
-  /** "I'm stuck" with no calming strategy in the manual: ask what's unclear instead. */
-  onAsk: () => void
+  /** "I'm stuck": break the current step down; also retries, and sends the answer when Pip asked for context. */
+  onStuck: (answer?: string) => void
+  /** Back to the step as it was. */
+  onStuckCancel: () => void
   /** A drafted question was copied: the person is asking instead of guessing. */
   onCopied: CopiedHandler
   onPlanned: () => void
@@ -343,12 +367,26 @@ export function ExpandView({
     )
   }
 
-  if (calm) {
-    const then =
-      expansion.kind === 'transition'
-        ? t('calm.thePlan')
-        : t(step === 0 ? 'calm.step1' : 'calm.thisStep')
-    return <CalmingCard strategy={calm} then={then} onDone={() => onCalm(null)} />
+  // Halfway through the steps Pip asks how the person feels, then offers ways to settle or to go on.
+  if (expansion.kind === 'steps' && mood !== null) {
+    if (mood === 'ask')
+      return (
+        <CheckInCard
+          instant
+          title={t('mood.title')}
+          onAnswer={onMood}
+          onSnooze={() => onMood(null)}
+        />
+      )
+    const all = planSteps(expansion.steps, spoons).now.length
+    return (
+      <MoodOptions
+        spoons={mood}
+        waiting={all - planSteps(expansion.steps, spoons, cut).now.length}
+        onContinue={onMoodDone}
+        onKeepAll={onKeepAll}
+      />
+    )
   }
 
   // The steps hinge on something Pip can't know: it asks instead of guessing.
@@ -368,16 +406,49 @@ export function ExpandView({
     )
   }
 
+  if (expansion.kind === 'steps' && stuck) {
+    return (
+      <Shell
+        mood={stuck.status === 'error' ? 'gentle' : 'thinking'}
+        title={t('expand.stuck.title')}
+        onMinimize={onMinimize}
+        onClose={onClose}
+      >
+        <p className="rounded-lg bg-secondary/60 p-3 text-sm">
+          <WithKeys text={stuck.step} />
+        </p>
+        {stuck.status === 'asking' ? (
+          <>
+            <p className="text-sm text-body">{t('expand.stuck.needsContext')}</p>
+            <p className="font-bold">{stuck.question}</p>
+            <Correct ask onSend={onStuck} />
+          </>
+        ) : (
+          <>
+            <p role="status" className="text-body">
+              {t(stuck.status === 'error' ? 'expand.error' : 'expand.stuck.working')}
+            </p>
+            {stuck.status === 'error' ? (
+              <Button variant="outline" className="self-start" onClick={() => onStuck()}>
+                <RotateCcw aria-hidden />
+                {t('expand.retry')}
+              </Button>
+            ) : (
+              <Placeholder />
+            )}
+          </>
+        )}
+        <Button variant="ghost" size="sm" className="self-start" onClick={onStuckCancel}>
+          <ArrowLeft aria-hidden />
+          {t('expand.stuck.back')}
+        </Button>
+      </Shell>
+    )
+  }
+
   if (expansion.kind === 'steps') {
-    const { now, later } = planSteps(expansion.steps, spoons)
+    const { now, later } = planSteps(expansion.steps, spoons, cut)
     const when = deadline && formatDue(deadline, new Date(), i18n.language)
-    const stuck = (): void => {
-      api.getProfile().then((p) => {
-        const strategy = p.calmingStrategies[0]
-        if (strategy) onCalm(strategy)
-        else onAsk()
-      }, onAsk)
-    }
     return (
       <TaskCard
         title={t('expand.stepsTitle')}
@@ -386,7 +457,7 @@ export function ExpandView({
         current={step}
         due={when ? t(DUE_KEY[when.key], { date: when.date }) : null}
         onDone={onStepDone}
-        onStuck={stuck}
+        onStuck={() => onStuck()}
         onLater={onLater}
         onCorrect={onCorrect}
         onBack={onBack}

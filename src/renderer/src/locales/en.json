@@ -19,7 +19,9 @@
     "stepOf": "Step {{current}} of {{total}}",
     "done": "Done",
     "stuck": "I'm stuck",
-    "then": "Then {{step}}",
+    "goToStep": "Show step {{n}}",
+    "backToStep": "Back to step {{n}}",
+    "backToSummary": "Back to the summary",
     "due": "due {{date}}",
     "before": "before {{date}}",
     "later": "Remind me about this step",
@@ -31,7 +33,7 @@
     "restWaiting_other": "{{count}} more steps can wait for another time.",
     "close": "Close",
     "correct": {
-      "open": "That's not right",
+      "open": "Tell Pip more context",
       "answer": "Answer",
       "label": "What is Pip missing or getting wrong?",
       "placeholder": "For example: \"Support package 35 is our monthly update bundle. It is installed from the admin portal.\"",
@@ -59,10 +61,17 @@
     "skip": "Skip",
     "ready": "I'm ready",
     "left_one": "{{count}} minute left",
-    "left_other": "{{count}} minutes left",
-    "step1": "step 1",
-    "thisStep": "this step",
-    "thePlan": "the plan"
+    "left_other": "{{count}} minutes left"
+  },
+  "mood": {
+    "title": "How are you feeling?",
+    "low": "Thanks for telling me. A short pause might help.",
+    "mid": "Thanks. Want a moment first, or keep going?",
+    "strategy": "{{label}} · {{minutes}} min",
+    "then": "back to your steps",
+    "trimmed_one": "I kept your next steps short. {{count}} more step can wait.",
+    "trimmed_other": "I kept your next steps short. {{count}} more steps can wait.",
+    "keepAll": "Keep all steps"
   },
   "dock": {
     "open": "Open Pip",
@@ -191,8 +200,6 @@
       "saveFailed": "That did not save. Try again."
     },
     "title": "My manual",
-    "subtitle": "{{name}}, {{role}}",
-    "intro": "Pip reads this to explain messages the way that works for you. Every entry shows who can see it. An entry with nobody ticked stays private.",
     "indexLabel": "Sections",
     "sections": {
       "experience": "Experience",
@@ -339,6 +346,13 @@
       "connections": "Connect",
       "settings": "Settings"
     },
+    "room": {
+      "open": "Pip's room",
+      "back": "Back to the House",
+      "door": "Open the door to the House",
+      "sceneLight": "Pip in his room, the lamp on",
+      "sceneDark": "Pip in his room, the lamp off"
+    },
     "titles": {
       "achievements": "Achievements",
       "summary": "Summary",
@@ -363,10 +377,25 @@
       "learnedHint": "Nothing is used or shared until you say yes.",
       "learnedAction": "Review in My profile",
       "hello": "Hi, I'm Pip. This is my house: your manual, your wins and your settings live here.",
-      "helloDone": "Got it"
+      "helloDone": "Got it",
+      "greeting": {
+        "morning": "Good morning",
+        "afternoon": "Good afternoon",
+        "evening": "Good evening",
+        "morningName": "Good morning, {{name}}",
+        "afternoonName": "Good afternoon, {{name}}",
+        "eveningName": "Good evening, {{name}}"
+      },
+      "scene": { "label": "Pip's room", "poke": "Poke Pip", "lamp": "Lamp", "plant": "Plant" },
+      "heroBody": "Select a confusing message anywhere and press the shortcut. Pip reads it with you.",
+      "energyLately": "Recent days",
+      "energyLatelyEmpty": "Your check-ins show here, one bar per day.",
+      "energyDay": "{{day}}, about {{count}} of 5",
+      "wins": "Your wins",
+      "seeAll": "See all",
+      "latestWin": "Latest"
     },
     "achievements": {
-      "intro": "Things you did, newest first.",
       "kinds": {
         "step_done": "Step done",
         "change_navigated": "Change navigated",
@@ -375,10 +404,14 @@
       "emptyBody": "Nothing here yet. When you finish a step, ask a question or get through a change, it shows up here.",
       "loading": "Loading your achievements",
       "errorTitle": "Achievements did not load. Try again.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "totals": {
+        "step_done": "Steps done",
+        "change_navigated": "Changes handled",
+        "asked_not_guessed": "Asked, not guessed"
+      }
     },
     "summary": {
-      "intro": "A short note about your week for someone who supports you.",
       "privacy": "Nothing is sent. You choose what to share.",
       "who": "Who is it for?",
       "period": "Which days?",
@@ -406,14 +439,13 @@
         "changes": "From changes",
         "achievements": "From achievements",
         "profile": "From your profile"
-      }
+      },
+      "emptyHint": "Pick who it is for and how many days, then press Generate. Pip drafts short points from your check-ins and wins, and you tick the ones to keep."
     },
     "connections": {
-      "intro": "Later, Pip could use these to suggest your energy face. Nothing is connected now, and nothing is stored.",
       "local": "Stays on your computer. Never sent anywhere.",
       "soon": "Coming soon",
       "now": "Planned first",
-      "later": "Later",
       "appleWatch": {
         "name": "Apple Watch",
         "body": "Sleep and heart-rate variability, to suggest how much energy you may have today."
@@ -421,18 +453,9 @@
       "whoop": {
         "name": "Whoop",
         "body": "Sleep and recovery, to suggest how much energy you may have today."
-      },
-      "email": {
-        "name": "Email",
-        "body": "Pick a message for Pip to explain."
-      },
-      "slack": {
-        "name": "Slack",
-        "body": "Pick a Slack message for Pip to explain."
       }
     },
     "settings": {
-      "intro": "Changes save as you make them.",
       "loading": "Loading your settings",
       "saveFailed": "Settings did not save. Try again.",
       "loadFailed": "Settings did not load.",
@@ -525,7 +548,53 @@
         "title": "Privacy",
         "selected": "Only text you select, what you type to correct or teach Pip, what you type or dictate to Tell Pip and send, and your kept notes leave your computer, and only after names are swapped for roles like [Manager]. What you tell Pip goes to Claude (Anthropic's AI). Kept notes go out again with later messages, with no new Send. On the way, this text passes through Pip's relay on Cloudflare, which keeps none of it.",
         "manual": "Summaries never send themselves. You copy or export them."
+      },
+      "theme": {
+        "title": "Appearance",
+        "body": "Light, dark, or the same as your computer.",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "reading": {
+        "title": "Reading comfort",
+        "body": "Bigger text and more space can make long reading easier.",
+        "size": "Text size",
+        "sizes": {
+          "md": "Default",
+          "lg": "Large",
+          "xl": "Larger"
+        },
+        "spacious": "More space between lines and words",
+        "sample": "Hi Sam, quick heads up. The review moves to Thursday, can you send the numbers by Wednesday?"
       }
+    },
+    "sidebar": {
+      "shortcut": "Read a message",
+      "shortcutBody": "Select text anywhere, then press",
+      "theme": "Appearance"
+    },
+    "pause": {
+      "button": "Pause Pip",
+      "title": "Pause Pip",
+      "body": "While paused, Pip will not pop up check-ins or reminders. The shortcut still works whenever you press it.",
+      "choose": "For how long?",
+      "hour": "For 1 hour",
+      "tomorrow": "Until tomorrow morning",
+      "resume": "Until I resume",
+      "cancel": "Cancel",
+      "paused": "Pip is paused",
+      "untilTime": "Until {{time}}",
+      "untilResume": "Until you resume",
+      "resumeNow": "Resume",
+      "banner": "Check-ins and reminder pop-ups are off. Reminders wait for you."
+    },
+    "changes": {
+      "title": "Changes Pip helped with",
+      "empty": "When a message announces a change and Pip helps you plan for it, it shows here.",
+      "kind": "Change: {{type}}",
+      "more_one": "{{count}} more",
+      "more_other": "{{count}} more"
     }
   },
   "expand": {
@@ -541,7 +610,13 @@
     "retry": "Try again",
     "back": "Back to Pip's options",
     "gotPlan": "I have a plan",
-    "planned": "Saved to your achievements. You got through this change."
+    "planned": "Saved to your achievements. You got through this change.",
+    "stuck": {
+      "title": "Let's make this step smaller",
+      "working": "Pip is breaking this step into smaller ones.",
+      "needsContext": "Pip needs to know one thing before it can break this step down:",
+      "back": "Back to the step"
+    }
   },
   "achievement": {
     "asked": "Asked instead of guessing: {{what}}",

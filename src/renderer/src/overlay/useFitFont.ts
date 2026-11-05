@@ -3,7 +3,7 @@
 // together and there's no empty space left whatever shape the person drags the window into.
 import { useLayoutEffect } from 'react'
 
-// Below MIN the card scrolls instead: legibility first (Atkinson Hyperlegible, never tiny text).
+// Below MIN the card scrolls instead: legibility first (never tiny text).
 const MIN = 14
 const MAX = 28
 const STEPS = 7 // binary search: (MAX - MIN) / 2^7 ≈ 0.1px

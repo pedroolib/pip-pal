@@ -22,7 +22,7 @@ export function AchievementRow({
   const day = when === 'time' ? '' : `${dayLabel(a.at, i18n.language)}, `
   return (
     <div className="flex items-center gap-3.5">
-      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-foreground">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary [&_svg]:size-[18px]">
         <Icon className="size-6" aria-hidden />
       </span>
       <div className="min-w-0 flex-1">

@@ -10,13 +10,11 @@ import { useTranslation } from 'react-i18next'
 import { CORRECTION_MAX, OVERLAY_MIN, type Bounds } from '@shared/ipc'
 import {
   DEFAULT_SETTINGS,
-  LOW_SPOONS,
   dueCheckIn,
   hotkeyReady,
   enabledTimes,
   type Achievement,
   type ActionKind,
-  type CalmingStrategy,
   type Expansion,
   type LoggableEvent,
   type NoteProposal,
@@ -33,8 +31,9 @@ import { ReminderForm } from '@renderer/command/ReminderForm'
 import { TellCard } from '@renderer/command/TellCard'
 import { CornerButton } from '@renderer/corner/CornerPip'
 import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
+import { cutAfterLow, cutAfterUnstick, moodDue, moodLevel } from '@renderer/mood/model'
 import { planSteps } from '@renderer/decode/model'
-import { ExpandView } from '@renderer/expand/ExpandView'
+import { ExpandView, type Stuck } from '@renderer/expand/ExpandView'
 import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
 import { useFitFont } from '@renderer/overlay/useFitFont'
 import { useWindowDrag } from '@renderer/overlay/useWindowDrag'
@@ -44,6 +43,7 @@ import { TriageBubble } from '@renderer/triage/TriageBubble'
 import { BUBBLE_WIDTH, CARD_RESERVE, unclearParts, type Flip } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
 import { RecordFlow } from '@renderer/record/RecordFlow'
+import { isPaused, pausePref, usePaused } from '@renderer/pause'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
 function spoonsOverride(): number | null {
@@ -59,8 +59,9 @@ function spoonsOverride(): number | null {
 type View = 'checkIn' | 'triage' | 'task' | 'record' | 'menu' | 'tell' | 'remind' | 'due' | 'hidden'
 // These open next to the cursor at their design size, with the window fitted to them.
 const FITTED: (View | null)[] = ['triage', 'task', 'record', 'menu', 'tell', 'remind', 'due']
-// Cards that open into a window still sized for the previous view (the triage bubble reserves its room up front).
-const HIDE_WHILE_FITTING: (View | null)[] = ['task', 'record', 'tell', 'remind', 'due']
+// These stay unseen until the window has grown to them, so no card shows clipped, or with its buttons arriving late.
+// Not the triage bubble: it reserves its room up front.
+const HIDE_WHILE_FITTING: (View | null)[] = ['task', 'record', 'tell', 'remind', 'due', 'menu']
 // Esc closes these. Not the due card: it stays until answered.
 const ESCAPES: (View | null)[] = ['triage', 'task', 'menu', 'tell', 'remind']
 // A scheduled check-in or a corner click would throw these away: a recording, or what the person is writing.
@@ -73,7 +74,8 @@ type Task = {
   error: boolean
   /** Index of the step in progress (steps only); kept here so tucking the card away keeps it. */
   step: number
-  calm: CalmingStrategy | null
+  /** "I'm stuck" on the current step, until its smaller steps take its place (steps only). */
+  stuck: Stuck | null
   /** "I have a plan" was pressed (transition only). */
   planned: boolean
   /** A drafted question was copied; logged as an achievement once per card. */
@@ -86,6 +88,12 @@ type Task = {
   toRemember: string
   /** What Pip proposes to remember, waiting for a tap. */
   note: NoteProposal | null
+  /** Mid-task "How are you feeling?" (steps only): 'ask' shows the faces, a number is the face just picked. */
+  mood: 'ask' | number | null
+  /** Pip already asked on this list of steps: it asks once, halfway through. */
+  moodAsked: boolean
+  /** After a low mood only this many steps from the start stay visible; the rest can wait (steps only). */
+  cut: number | null
 }
 type Tasks = Partial<Record<ActionKind, Task>>
 
@@ -94,13 +102,16 @@ const NEW_TASK: Task = {
   result: null,
   error: false,
   step: 0,
-  calm: null,
+  stuck: null,
   planned: false,
   asked: false,
   logged: [],
   correction: '',
   toRemember: '',
-  note: null
+  note: null,
+  mood: null,
+  moodAsked: false,
+  cut: null
 }
 
 // A failed write only loses the log entry; the flow goes on.
@@ -116,8 +127,8 @@ function logEvent(event: LoggableEvent): void {
 const PAD = 32
 // How far the bubble opens from the cursor; keep in step with capture() in src/main/index.ts.
 const CURSOR_GAP = 12
-// The check-in's window; keep in step with OVERLAY in src/main/index.ts.
-const CHECKIN_SIZE = { width: 576, height: 340 }
+// The check-in's window: wide and short, since it is a row of faces; keep in step with OVERLAY in src/main/index.ts.
+const CHECKIN_SIZE = { width: 640, height: 280 }
 
 // Window bounds that keep `anchor`'s edges still (right/bottom when flipped). After a drag there is
 // no anchor, so the same edges stay wherever the person left the window.
@@ -166,8 +177,6 @@ function Overlay(): React.JSX.Element {
     readingNow.current = view === 'triage' && !triage && !error
     onDemandNow.current = onDemand
   }, [view, onDemand, triage, error])
-  // A calming strategy is offered at most once per message, so Pip doesn't insist.
-  const calmOffered = useRef(false)
   // The selected text, for the button's Claude call. Stays in this window.
   const text = useRef('')
   // The window edges next to the cursor (left/top, or right/bottom when flipped), kept still while
@@ -177,6 +186,14 @@ function Overlay(): React.JSX.Element {
   const snooze = useRef<ReturnType<typeof setTimeout> | null>(null)
   const frame = useRef<HTMLDivElement>(null)
   const resized = useRef(false)
+  // The view the window has taken the size of, so it can show (see HIDE_WHILE_FITTING). Tied to the view itself, so
+  // a stale flag can never leave a card hidden.
+  const [fittedView, setFittedView] = useState<View | null>(null)
+  const fitted = fittedView === view
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the next appearance waits for its own fit
+    if (view === 'hidden') setFittedView(null)
+  }, [view])
   // The check-in card fills the window and its text is sized to fit it.
   useFitFont(frame, view === 'checkIn', view)
   // The bubble keeps its design size: the window is fitted to it, not the other way round, so the
@@ -226,7 +243,6 @@ function Overlay(): React.JSX.Element {
     setTasks({})
     setActive(null)
     setStepReminders([])
-    calmOffered.current = false
     if (!here) openAtCursor()
     setTriage(null)
     setError(false)
@@ -242,19 +258,6 @@ function Overlay(): React.JSX.Element {
       const task = all[kind]
       return task ? { ...all, [kind]: { ...task, ...change(task) } } : all
     })
-  // With few spoons, or before a plan for a change, Pip offers the manual's first calming strategy.
-  const offerCalm = (kind: ActionKind, spoons: number | null, live: () => boolean): void => {
-    const low = spoons !== null && spoons <= LOW_SPOONS
-    if (calmOffered.current || kind === 'questions' || !(low || kind === 'transition')) return
-    calmOffered.current = true
-    api.getProfile().then(
-      (p) => {
-        const strategy = p.calmingStrategies[0]
-        if (strategy && live()) patch(kind, () => ({ calm: strategy }))
-      },
-      () => {}
-    )
-  }
   // `inPlace`: Pip is already reading at the cursor, so the menu opens where it is: the window has moved and
   // grown since, and reading the cursor back from it again would put Pip on another side of the card.
   const openMenu = (failed: boolean, inPlace = false): void => {
@@ -332,8 +335,6 @@ function Overlay(): React.JSX.Element {
               )
             if (!live()) return
             patch(kind, () => ({ result }))
-            // A question for the person comes first; a calming offer then would sit in front of it.
-            if (!asking) offerCalm(kind, spoons, live)
           })
       })
       .catch(() => live() && patch(kind, () => ({ error: true })))
@@ -371,7 +372,8 @@ function Overlay(): React.JSX.Element {
           setDueQueue([sample])
           setView('hidden')
         })
-      } else if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
+      } else if (spoonsOverride() !== null || !due || quiet || isPaused(pausePref.get()))
+        afterCheckIn()
       else {
         setOnDemand(false)
         setView('checkIn')
@@ -385,6 +387,7 @@ function Overlay(): React.JSX.Element {
     const offReminderDue = api.onReminderDue((r) => setDueQueue((q) => addDue(q, r)))
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
+      if (isPaused(pausePref.get())) return // paused: Pip does not ask
       refreshSettings()
       if (viewNow.current === 'menu' || HOLDS_WORK.includes(viewNow.current)) {
         return setCheckInWaits(true)
@@ -448,8 +451,10 @@ function Overlay(): React.JSX.Element {
 
   // Once Pip is hidden, what waited comes up, one at a time: the check-in first, then the oldest reminder.
   // Re-listed first, because a reminder may have been edited or deleted in the House while it waited.
+  // While paused nothing comes up by itself; reminders keep waiting and arrive once Pip resumes.
+  const [paused] = usePaused()
   useEffect(() => {
-    if (view !== 'hidden') return
+    if (view !== 'hidden' || paused) return
     if (checkInWaits) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- moving on from 'hidden' is what this effect is for
       setCheckInWaits(false)
@@ -473,7 +478,7 @@ function Overlay(): React.JSX.Element {
     return () => {
       live = false
     }
-  }, [view, checkInWaits, dueQueue])
+  }, [view, checkInWaits, dueQueue, paused])
 
   // The window is fitted to the bubble, keeping its edges at the cursor; hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a
@@ -496,15 +501,45 @@ function Overlay(): React.JSX.Element {
       api.setOverlayBounds(placeAt(anchor.current, flip, OVERLAY_MIN.width, OVERLAY_MIN.height))
     }
     if (!FITTED.includes(view) || !el) return
+    // Shows the view once the window has the size sent to it: on its resize, or at once if it already had it, or
+    // after a moment if main kept the window smaller (a screen edge).
+    let stopWaiting = (): void => {}
+    let waiting = false
+    const settle = (width: number, height: number): void => {
+      if (waiting) return
+      waiting = true
+      const done = (): void => {
+        stopWaiting()
+        setFittedView(view)
+      }
+      const onResize = (): void => {
+        if (Math.abs(innerWidth - width) <= 1 && Math.abs(innerHeight - height) <= 1) done()
+      }
+      const timer = setTimeout(done, 160)
+      const raf = requestAnimationFrame(onResize)
+      window.addEventListener('resize', onResize)
+      stopWaiting = (): void => {
+        clearTimeout(timer)
+        cancelAnimationFrame(raf)
+        window.removeEventListener('resize', onResize)
+        waiting = false
+        stopWaiting = (): void => {}
+      }
+    }
     const fit = (): void => {
       resized.current = true
       const height =
         Math.max(Math.ceil(el.getBoundingClientRect().height), reading ? CARD_RESERVE : 0) + 2 * PAD
-      api.setOverlayBounds(placeAt(anchor.current, flip, BUBBLE_WIDTH + 2 * PAD, height))
+      const width = BUBBLE_WIDTH + 2 * PAD
+      api.setOverlayBounds(placeAt(anchor.current, flip, width, height))
+      settle(width, height)
     }
     const observer = new ResizeObserver(fit)
     observer.observe(el)
-    return () => observer.disconnect()
+    return () => {
+      observer.disconnect()
+      stopWaiting()
+    }
   }, [view, atCursor, reading, flip])
 
   // While cards are open the corner Pip holds whichever of the open card and the buttons isn't at
@@ -512,7 +547,7 @@ function Overlay(): React.JSX.Element {
   const stepsTask = tasks.steps
   const steps =
     stepsTask?.result?.kind === 'steps'
-      ? planSteps(stepsTask.result.steps, stepsTask.spoons).now
+      ? planSteps(stepsTask.result.steps, stepsTask.spoons, stepsTask.cut).now
       : null
   const holds = !hasTask ? null : view === 'task' ? 'menu' : 'task'
   const cornerProgress =
@@ -624,13 +659,81 @@ function Overlay(): React.JSX.Element {
     setActive('steps')
     setView('task')
   }
+  // "I'm stuck": Pip breaks the current step into smaller ones that take its place. The done steps drop, so with
+  // few spoons the small steps are the ones on show. If that hinges on something only the person knows, Pip asks
+  // first: each answer joins the next call and, once Pip can answer, may become a note. Also the retry after an error.
+  const unstick = (answer?: string): void => {
+    const task = tasks.steps
+    const step = task?.stuck?.step ?? (task && steps?.[task.step]?.text)
+    if (!task || !step) return
+    const said = [task.stuck?.answer, answer].filter(Boolean).join('\n').slice(-CORRECTION_MAX)
+    const id = request.current
+    const live = (): boolean => id === request.current
+    const source = text.current
+    const stuck = (status: Stuck['status'], question = ''): Partial<Task> => ({
+      stuck: { step, answer: said, status, question }
+    })
+    patch('steps', () => stuck('working'))
+    api.unstick(source, step, task.spoons, said || undefined).then(
+      (result) => {
+        // Outside the live check: closing the card must not lose what the person taught Pip.
+        if (said && !result.needsContext)
+          api.rememberCorrection(source, said).then(
+            (note) => live() && patch('steps', () => ({ note })),
+            () => {} // only the proposal is lost if the words were saved
+          )
+        if (!live()) return
+        const question = result.needsContext
+        if (question) return patch('steps', () => stuck('asking', question))
+        patch('steps', (x) => {
+          if (x.result?.kind !== 'steps') return { stuck: null }
+          const { profileUsed, lessonsUsed } = x.result
+          const merged = {
+            ...x.result,
+            steps: [...result.steps, ...x.result.steps.slice(x.step + 1)],
+            profileUsed: [
+              ...profileUsed,
+              ...result.profileUsed.filter((p) => !profileUsed.some((q) => q.how === p.how))
+            ],
+            lessonsUsed: [...new Set([...lessonsUsed, ...result.lessonsUsed])]
+          }
+          return {
+            result: merged,
+            step: 0,
+            stuck: null,
+            cut: cutAfterUnstick(x.cut, x.step, result.steps.length),
+            // A new list has its own halfway for "how are you feeling?".
+            mood: null,
+            moodAsked: false
+          }
+        })
+      },
+      () => live() && patch('steps', () => stuck('error'))
+    )
+  }
   const stepDone = (): void => {
     const done = stepsTask && steps?.[stepsTask.step]
     if (done) {
       logAchievement('step_done', done.text)
       logEvent({ kind: 'step', status: 'done', text: done.text })
     }
-    patch('steps', (x) => ({ step: x.step + 1 }))
+    // Once, halfway through the steps, Pip asks how the person feels.
+    patch('steps', (x) => {
+      const done = x.step + 1
+      const ask = moodDue({ total: steps?.length ?? 0, done, asked: x.moodAsked })
+      return { step: done, ...(ask && { mood: 'ask', moodAsked: true }) }
+    })
+  }
+  // The faces count as a check-in: they feed the day's energy and what Pip learns about calming. A low answer
+  // keeps the next few steps and moves the rest to "can wait"; a high one just goes on.
+  const moodAnswer = (spoons: number | null): void => {
+    if (spoons === null) return patch('steps', () => ({ mood: null }))
+    const at = new Date()
+    api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons }).catch(() => {})
+    patch('steps', (x) => ({
+      mood: moodLevel(spoons) === 'high' ? null : spoons,
+      ...(moodLevel(spoons) === 'low' && { cut: cutAfterLow(x.step, x.cut) })
+    }))
   }
   const copied = (kind: ActionKind, what: string, question: string, topic: QuestionTopic): void => {
     logOnce(kind, question, { kind: 'asked', topic, question })
@@ -672,7 +775,7 @@ function Overlay(): React.JSX.Element {
         }}
         ref={frame}
         // The card's rise-in starts once the window has grown to it (main.css), so it plays whole instead of cut off.
-        data-hold={HIDE_WHILE_FITTING.includes(view) || undefined}
+        data-hold={(HIDE_WHILE_FITTING.includes(view) && !fitted) || undefined}
         className={cn(
           'relative flex flex-col select-none',
           !corner && 'place-hold',
@@ -736,16 +839,21 @@ function Overlay(): React.JSX.Element {
               spoons={task.spoons}
               step={task.step}
               deadline={triage?.deadline ?? null}
-              calm={task.calm}
               planned={task.planned}
               asked={task.asked}
-              onCalm={(calm) => patch(active, () => ({ calm }))}
+              mood={task.mood}
+              cut={task.cut}
+              onMood={moodAnswer}
+              onMoodDone={() => patch(active, () => ({ mood: null }))}
+              onKeepAll={() => patch(active, () => ({ cut: null }))}
               onStepDone={stepDone}
               onLater={remindLater}
               onCorrect={(added) => act(active, added)}
               note={task.note}
               onNoteDone={() => patch(active, () => ({ note: null }))}
-              onAsk={() => act('questions')}
+              stuck={task.stuck}
+              onStuck={unstick}
+              onStuckCancel={() => patch(active, () => ({ stuck: null }))}
               onCopied={(what, question, topic) => copied(active, what, question, topic)}
               onPlanned={() => planned(active)}
               onBack={triage ? () => setView('triage') : undefined}

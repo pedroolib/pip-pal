@@ -1666,7 +1666,7 @@ describe('soft breaks: invisible characters and wrapper tags', () => {
       ...['-', '.', ',', ':', "'", '2026-11-01', '2026-11-01 10:30', '10:30', 'é']
     ]
     const SEPARATORS = ['', ' ', ' ', ', ', '. ', '-', '.', '_', '\n', '/', ':']
-    const TAGS = ['message', 'said', 'known', 'correction', 'answers', 'facts']
+    const TAGS = ['message', 'said', 'known', 'correction', 'answers', 'facts', 'step']
     // Every piece of a name or contact that may not come out. Tokens are taken out first: "[Manager]" holds no name.
     const SENSITIVE =
       /john|smith|acme|intranet|people|2291|555|4567|5678|1234|zoe|8675309|alex|morgan|ally|aj-|sean|brien|boss|park|r2|squint|007|7up|cool|maría|maria|lee|vale|srivera|kit|99|sam|rivera|田|太/gi
