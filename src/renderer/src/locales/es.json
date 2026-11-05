@@ -375,6 +375,7 @@
         "afternoonName": "Buenas tardes, {{name}}",
         "eveningName": "Buenas noches, {{name}}"
       },
+      "scene": { "label": "El cuarto de Pip", "poke": "Tocar a Pip", "lamp": "Lámpara", "plant": "Planta" },
       "heroBody": "Selecciona un mensaje confuso en cualquier lugar y presiona el atajo. Pip lo lee contigo.",
       "energyLately": "Días recientes",
       "energyLatelyEmpty": "Tus check-ins aparecen aquí, una barra por día.",

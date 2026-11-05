@@ -67,42 +67,43 @@
   --tab-settings-ink: #57667a;
 }
 
-/* Night Harbor: deep navy, not black; off-white text, not white. The blues lighten so they stay
-   readable on dark, and buttons flip to light blue with navy text. Still no red or yellow. */
+/* Night Harbor, from the palette #071f35 #24496b #446d92 #98b1c8 #f7fafe: the deepest navy is the
+   canvas, the lighter blues build cards and borders, the pale steel blue is the accent and the
+   near-white is the text. In-between surfaces are mixes of those five. Still no red or yellow. */
 .dark {
-  --background: #111921;
-  --foreground: #e6eaee;
-  --card: #18222c;
-  --card-foreground: #e6eaee;
-  --popover: #1b2530;
-  --popover-foreground: #e6eaee;
-  --primary: #82b4e3;
-  --primary-foreground: #0f1a25;
-  --secondary: #1d3045;
-  --secondary-foreground: #c4dcf3;
-  --muted: #1f2a35;
-  --muted-foreground: #9aa7b3;
-  --accent: #22303d;
-  --accent-foreground: #e6eaee;
-  --destructive: #82b4e3;
-  --border: #29353f;
-  --input: #3a4752;
-  --ring: #82b4e3;
+  --background: #071f35;
+  --foreground: #f7fafe;
+  --card: #0e2a44;
+  --card-foreground: #f7fafe;
+  --popover: #123350;
+  --popover-foreground: #f7fafe;
+  --primary: #98b1c8;
+  --primary-foreground: #071f35;
+  --secondary: #1b4062;
+  --secondary-foreground: #d5e1ec;
+  --muted: #0f2d49;
+  --muted-foreground: #98b1c8;
+  --accent: #17395a;
+  --accent-foreground: #f7fafe;
+  --destructive: #98b1c8;
+  --border: #1d4060;
+  --input: #2c5578;
+  --ring: #98b1c8;
 
   --pip: #66a3bf;
-  --pip-soft: #1b3241;
-  --body: #c5cdd4;
+  --pip-soft: #17395a;
+  --body: #c7d5e3;
 
-  --surface: #172029;
-  --sidebar: #0d141b;
-  --hero: linear-gradient(135deg, #1a2e3e 0%, #172029 75%);
+  --surface: #0e2a44;
+  --sidebar: #051a2d;
+  --hero: linear-gradient(135deg, #1b3f60 0%, #0e2a44 75%);
 
-  --primary-hover: #9cc4ea;
-  --secondary-hover: #243a52;
-  --border-strong: #4a5864;
-  --switch-off: #46535e;
-  --scrim: rgb(5 10 15 / 0.55);
-  --shadow-ink: 3 8 12;
+  --primary-hover: #b3c6d8;
+  --secondary-hover: #24496b;
+  --border-strong: #345b7e;
+  --switch-off: #2f5272;
+  --scrim: rgb(3 12 22 / 0.6);
+  --shadow-ink: 2 10 20;
 
   --tab-home: #5d72b3;
   --tab-home-ink: #a9bcf2;
@@ -936,6 +937,156 @@ html.house-page main > :nth-child(n + 6) {
   animation-timing-function: var(--ease-in-out);
 }
 
+/* Pip's room (src/renderer/src/house/RoomScene.tsx): slow, small loops that make the corner feel
+   lived in. Clouds drift, a bird crosses now and then, steam curls, dust floats, the plant sways. */
+@keyframes scene-drift {
+  from {
+    transform: translateX(-60px);
+  }
+  to {
+    transform: translateX(110px);
+  }
+}
+.scene-cloud {
+  animation: scene-drift 50s linear infinite;
+}
+@keyframes scene-fly {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(130px, 70px);
+  }
+  3% {
+    opacity: 1;
+  }
+  14% {
+    opacity: 1;
+    transform: translate(10px, 48px);
+  }
+  15%,
+  99% {
+    opacity: 0;
+  }
+}
+.scene-bird {
+  opacity: 0;
+  animation: scene-fly 26s ease-in-out infinite;
+  animation-delay: -18s;
+}
+.scene-bird path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: scene-flap 0.5s ease-in-out infinite;
+}
+@keyframes scene-flap {
+  50% {
+    transform: scaleY(0.4);
+  }
+}
+@keyframes scene-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.scene-star {
+  animation: scene-twinkle 3.2s ease-in-out infinite;
+}
+@keyframes scene-curl {
+  0% {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  30%,
+  60% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+.scene-steam {
+  opacity: 0;
+  animation: scene-curl 3.2s ease-in-out infinite;
+}
+@keyframes scene-float {
+  0% {
+    opacity: 0;
+    transform: translate(0, 8px);
+  }
+  30%,
+  70% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(10px, -26px);
+  }
+}
+.scene-mote {
+  opacity: 0;
+  animation: scene-float 9s ease-in-out infinite;
+}
+.scene-lamp-glow {
+  transition: opacity 500ms var(--ease-out);
+}
+@keyframes scene-sway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+}
+.scene-leaf {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: scene-sway 6s ease-in-out infinite;
+}
+@keyframes scene-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-7deg);
+  }
+  45% {
+    transform: rotate(6deg);
+  }
+  70% {
+    transform: rotate(-3deg);
+  }
+}
+.scene-rustle {
+  animation: scene-shake 0.8s ease-in-out;
+}
+.scene-lean {
+  transform: translateX(calc(var(--lean, 0) * 7px));
+  transition: transform 700ms var(--ease-out);
+}
+@keyframes scene-spark {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.5);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx, 0px)), -30px) scale(1);
+  }
+}
+.scene-spark {
+  animation: scene-spark 1.2s var(--ease-out) forwards;
+}
+
 /* Honour the OS "reduce motion" setting for Pip and every shadcn animation. The Settings
    "Calmer motion" switch adds .calm-motion to <html> for the same rules; the OS setting always applies. */
 @media (prefers-reduced-motion: reduce) {
@@ -1002,7 +1153,7 @@ html.house-page main > :nth-child(n + 6) {
   --rs-cushion: #8fb0cc;
   --rs-lamp: #7c8a9a;
   --rs-shade: #f4f0e6;
-  --rs-bulb: #fffaf0;
+  --rs-bulb: #d9dde0;
   --rs-light: #fff7e6;
   --rs-shadow: rgb(60 60 60 / 0.16);
 }
@@ -1047,8 +1198,8 @@ html.house-page main > :nth-child(n + 6) {
   --rs-rug-edge: #34444f;
   --rs-cushion: #3e5a74;
   --rs-lamp: #4a5663;
-  --rs-shade: #3a4651;
-  --rs-bulb: #5a6672;
+  --rs-shade: #7d8c9b;
+  --rs-bulb: #fffaf0;
   --rs-shadow: rgb(0 0 0 / 0.35);
 }
 .room-scene svg [class^='rs-'] {
@@ -1152,9 +1303,12 @@ html.house-page main > :nth-child(n + 6) {
   30%, 70% { opacity: 0.8; }
   50% { transform: translate(6px, -14px); }
 }
-/* The lamp's light: on by day, off at night; while on, it breathes very slightly. */
-.room-scene .rs-glow { opacity: 1; }
-.dark .room-scene .rs-glow { opacity: 0; }
+/* The lamp's light: off by day, on at night; while on, it breathes very slightly. */
+.room-scene .rs-glow {
+  opacity: 0;
+  transition: opacity var(--motion-slow) var(--ease-out);
+}
+.dark .room-scene .rs-glow { opacity: 1; }
 .room-scene .rs-glow-breath {
   transform-box: fill-box;
   transform-origin: 50% 0;
