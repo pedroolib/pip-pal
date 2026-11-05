@@ -1,26 +1,12 @@
 import { LOW_SPOONS } from '@shared/schemas'
 import { LOW_SPOONS_STEPS } from '../decode/model'
 
-/** Pip asks how the person feels at most this many times per task. */
-export const MOOD_ASKS = 3
-
-/** Steps between questions: a third of the plan, rounded up (6 steps: every 2). */
-export const moodEvery = (total: number): number => Math.max(1, Math.ceil(total / MOOD_ASKS))
-
 /**
- * After finishing a step: is it time to ask? `done` is how many steps are finished, `since` how many
- * since the last question. Finishing the last step always asks (if the cap allows); a plan of 1 or 2
- * steps asks only then.
+ * Pip asks how the person feels once per list of steps, halfway through (5 steps: after the 3rd).
+ * A single step has no halfway, so it never asks. `done` is how many steps are finished.
  */
-export function moodDue(o: {
-  total: number
-  done: number
-  since: number
-  asks: number
-  every: number
-}): boolean {
-  if (o.asks >= MOOD_ASKS) return false
-  return o.done >= o.total || (o.total >= MOOD_ASKS && o.since >= o.every)
+export function moodDue(o: { total: number; done: number; asked: boolean }): boolean {
+  return !o.asked && o.total >= 2 && o.done === Math.ceil(o.total / 2)
 }
 
 export type MoodLevel = 'low' | 'mid' | 'high'

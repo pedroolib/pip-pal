@@ -33,7 +33,7 @@ import { ReminderForm } from '@renderer/command/ReminderForm'
 import { TellCard } from '@renderer/command/TellCard'
 import { CornerButton } from '@renderer/corner/CornerPip'
 import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
-import { cutAfterLow, cutAfterUnstick, moodDue, moodEvery, moodLevel } from '@renderer/mood/model'
+import { cutAfterLow, cutAfterUnstick, moodDue, moodLevel } from '@renderer/mood/model'
 import { planSteps } from '@renderer/decode/model'
 import { ExpandView, type Stuck } from '@renderer/expand/ExpandView'
 import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
@@ -93,10 +93,8 @@ type Task = {
   note: NoteProposal | null
   /** Mid-task "How are you feeling?" (steps only): 'ask' shows the faces, a number is the face just picked. */
   mood: 'ask' | number | null
-  /** How many times Pip asked on this task, the steps finished since, and the steps between questions. */
-  moodAsks: number
-  moodSince: number
-  moodEvery: number | null
+  /** Pip already asked on this list of steps: it asks once, halfway through. */
+  moodAsked: boolean
   /** After a low mood only this many steps from the start stay visible; the rest can wait (steps only). */
   cut: number | null
 }
@@ -116,9 +114,7 @@ const NEW_TASK: Task = {
   toRemember: '',
   note: null,
   mood: null,
-  moodAsks: 0,
-  moodSince: 0,
-  moodEvery: null,
+  moodAsked: false,
   cut: null
 }
 
@@ -728,11 +724,9 @@ function Overlay(): React.JSX.Element {
             step: 0,
             stuck: null,
             cut: cutAfterUnstick(x.cut, x.step, result.steps.length),
-            // A new list gets its own rhythm of "how are you feeling?", counted again from its length.
+            // A new list has its own halfway for "how are you feeling?".
             mood: null,
-            moodAsks: 0,
-            moodSince: 0,
-            moodEvery: null
+            moodAsked: false
           }
         })
       },
@@ -745,19 +739,11 @@ function Overlay(): React.JSX.Element {
       logAchievement('step_done', done.text)
       logEvent({ kind: 'step', status: 'done', text: done.text })
     }
-    // Every few finished steps (and at the last one) Pip asks how the person feels, up to 3 times per task.
+    // Once, halfway through the steps, Pip asks how the person feels.
     patch('steps', (x) => {
       const done = x.step + 1
-      const since = x.moodSince + 1
-      const every = x.moodEvery ?? moodEvery(steps?.length ?? 0)
-      const ask = moodDue({ total: steps?.length ?? 0, done, since, asks: x.moodAsks, every })
-      return {
-        step: done,
-        moodEvery: every,
-        ...(ask
-          ? { mood: 'ask', moodAsks: x.moodAsks + 1, moodSince: 0 }
-          : { moodSince: since })
-      }
+      const ask = moodDue({ total: steps?.length ?? 0, done, asked: x.moodAsked })
+      return { step: done, ...(ask && { mood: 'ask', moodAsked: true }) }
     })
   }
   // The faces count as a check-in: they feed the day's energy and what Pip learns about calming. A low answer

@@ -1,39 +1,35 @@
 import { describe, expect, it } from 'vitest'
 import { planSteps } from '../decode/model'
-import { cutAfterLow, cutAfterUnstick, moodDue, moodEvery, moodLevel } from './model'
+import { cutAfterLow, cutAfterUnstick, moodDue, moodLevel } from './model'
 
 // Walks a plan of `total` steps the way the overlay does and returns the steps after which Pip asks.
 function asksFor(total: number): number[] {
-  const every = moodEvery(total)
-  let since = 0
-  let asks = 0
+  let asked = false
   const at: number[] = []
   for (let done = 1; done <= total; done++) {
-    since++
-    if (moodDue({ total, done, since, asks, every })) {
+    if (moodDue({ total, done, asked })) {
       at.push(done)
-      asks++
-      since = 0
+      asked = true
     }
   }
   return at
 }
 
 describe('moodDue', () => {
-  it('asks every third of the plan, the last time on the final step', () => {
-    expect(asksFor(6)).toEqual([2, 4, 6])
-    expect(asksFor(5)).toEqual([2, 4, 5])
-    expect(asksFor(7)).toEqual([3, 6, 7])
-    expect(asksFor(3)).toEqual([1, 2, 3])
+  it('asks once, halfway through the steps', () => {
+    expect(asksFor(6)).toEqual([3])
+    expect(asksFor(5)).toEqual([3])
+    expect(asksFor(4)).toEqual([2])
+    expect(asksFor(3)).toEqual([2])
+    expect(asksFor(2)).toEqual([1])
   })
 
-  it('asks once, on the last step, for plans of one or two steps', () => {
-    expect(asksFor(1)).toEqual([1])
-    expect(asksFor(2)).toEqual([2])
+  it('never asks on a single step', () => {
+    expect(asksFor(1)).toEqual([])
   })
 
-  it('never asks more than three times', () => {
-    for (let n = 1; n <= 30; n++) expect(asksFor(n).length).toBeLessThanOrEqual(3)
+  it('does not ask again once it asked', () => {
+    expect(moodDue({ total: 6, done: 3, asked: true })).toBe(false)
   })
 })
 
