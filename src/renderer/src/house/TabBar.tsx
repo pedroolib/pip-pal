@@ -54,10 +54,15 @@ export function TabBar({
         </div>
         <ul className="relative flex flex-col gap-0.5">
           {/* One highlight slides to the current tab (rows are 2.5rem plus a 0.125rem gap). */}
+          {/* It takes the current tab's pastel: a soft outline and the faintest tint. */}
           <li
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-10 rounded-lg bg-surface shadow-active transition-transform duration-300 ease-(--ease-out)"
-            style={{ transform: `translateY(calc(${TABS.indexOf(current)} * 2.625rem))` }}
+            className="pointer-events-none absolute inset-x-0 top-0 h-10 rounded-lg border shadow-control transition-[transform,border-color,background-color] duration-300 ease-(--ease-out)"
+            style={{
+              transform: `translateY(calc(${TABS.indexOf(current)} * 2.625rem))`,
+              borderColor: `var(--tab-${current})`,
+              backgroundColor: `color-mix(in oklab, var(--tab-${current}) 14%, var(--surface))`
+            }}
           />
           {TABS.map((tab) => {
             const Icon = ICONS[tab]
@@ -77,9 +82,10 @@ export function TabBar({
                 >
                   <Icon
                     className={cn(
-                      'size-[18px] shrink-0 transition-colors duration-300',
-                      active ? 'text-primary' : 'text-muted-foreground'
+                      'size-[18px] shrink-0 transition-opacity duration-300',
+                      !active && 'opacity-75'
                     )}
+                    style={{ color: `var(--tab-${tab}-ink)` }}
                     aria-hidden
                   />
                   {t(`house.tabs.${tab}`)}
@@ -117,14 +123,26 @@ export function TabBar({
                   aria-label={t(`house.tabs.${tab}`)}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-lg text-center text-[0.75rem] leading-tight',
+                    'flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-lg border border-transparent text-center text-[0.75rem] leading-tight',
                     focus,
                     active
-                      ? 'font-bold text-primary'
+                      ? 'font-bold text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
+                  style={
+                    active
+                      ? {
+                          borderColor: `var(--tab-${tab})`,
+                          backgroundColor: `color-mix(in oklab, var(--tab-${tab}) 14%, var(--surface))`
+                        }
+                      : undefined
+                  }
                 >
-                  <Icon className="size-5" aria-hidden />
+                  <Icon
+                    className={cn('size-5', !active && 'opacity-75')}
+                    style={{ color: `var(--tab-${tab}-ink)` }}
+                    aria-hidden
+                  />
                   <span aria-hidden className="max-w-full truncate">
                     {t(`house.tabsShort.${tab}`)}
                   </span>
