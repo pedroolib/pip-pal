@@ -17,7 +17,7 @@ Referencias visuales del concepto (de Canva: https://canva.link/dv2bgf5xclz1mch)
 | "Done" | `Button` variante `default` (`--primary: #3368A0`) |
 | "I'm stuck" y botón del reloj | `Button` variantes `outline` y `size="icon"` |
 | Barra de 5 segmentos | Tailwind puro: 5 `div`s |
-| Título, texto | Tailwind puro, Atkinson Hyperlegible, colores de texto de Harbor |
+| Título, texto | Tailwind puro, Titillium Web (en `assets/fonts/`), colores de texto de Harbor |
 | Teclas | `<kbd>` con Tailwind. **Según el sistema:** `⌘` en Mac, `Ctrl` en Windows y Linux. |
 | Pip asomándose | SVG con posición absoluta |
 

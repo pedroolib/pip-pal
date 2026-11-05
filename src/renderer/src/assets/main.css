@@ -50,6 +50,21 @@
   --shadow-ink: 30 42 54;
   /* Pip's eyes stay navy in both themes: he is the same character at night. */
   --pip-ink: #1e2a36;
+
+  /* Each tab of Pip's House has its own quiet pastel (outline and tint) and a deeper ink for its
+     icon. Cool hues only: no red or yellow, and never Pip's sky blue. */
+  --tab-home: #b9c8f5;
+  --tab-home-ink: #4f68b8;
+  --tab-profile: #d3c6f4;
+  --tab-profile-ink: #7558c2;
+  --tab-achievements: #b5e3cf;
+  --tab-achievements-ink: #2f8a68;
+  --tab-summary: #cfe0b8;
+  --tab-summary-ink: #5a7a36;
+  --tab-connections: #b3e0e2;
+  --tab-connections-ink: #2a7f84;
+  --tab-settings: #c9d1dc;
+  --tab-settings-ink: #57667a;
 }
 
 /* Night Harbor: deep navy, not black; off-white text, not white. The blues lighten so they stay
@@ -88,6 +103,19 @@
   --switch-off: #46535e;
   --scrim: rgb(5 10 15 / 0.55);
   --shadow-ink: 3 8 12;
+
+  --tab-home: #5d72b3;
+  --tab-home-ink: #a9bcf2;
+  --tab-profile: #7a68b0;
+  --tab-profile-ink: #c7b8f2;
+  --tab-achievements: #4f9a7d;
+  --tab-achievements-ink: #99dcbf;
+  --tab-summary: #78935a;
+  --tab-summary-ink: #c2d9a6;
+  --tab-connections: #4a9396;
+  --tab-connections-ink: #9fd8db;
+  --tab-settings: #66768a;
+  --tab-settings-ink: #b9c3d0;
 }
 
 @theme inline {
@@ -107,7 +135,7 @@
   --shadow-raised: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 1px 2px rgb(var(--shadow-ink) / 0.14);
   --shadow-thumb: 0 1px 3px rgb(var(--shadow-ink) / 0.3);
   --shadow-active: 0 1px 2px rgb(var(--shadow-ink) / 0.08), 0 0 0 1px var(--border);
-  --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Titillium Web', ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

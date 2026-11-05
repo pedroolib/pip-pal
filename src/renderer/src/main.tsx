@@ -1,5 +1,4 @@
-import '@fontsource/atkinson-hyperlegible/400.css'
-import '@fontsource/atkinson-hyperlegible/700.css'
+import './assets/fonts/fonts.css'
 import './assets/main.css'
 import './i18n'
 import './click-through'

@@ -1,5 +1,5 @@
-// The corner window (#/corner): Pip alone, holding the bubble's buttons or the task card while the
-// other is at the cursor. A click tells the overlay to swap the two.
+// The corner window (#/corner): Pip alone on the screen's right edge. Holding the bubble's buttons or
+// the task card while the other is at the cursor, a click swaps the two; resting, a click opens the menu.
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CornerPip as Holding } from '@shared/ipc'
@@ -28,12 +28,32 @@ export function CornerButton({
   )
 }
 
+/** Pip resting on the screen edge with nothing to hold: a click opens the menu beside him. */
+function RestingPip({ onOpen }: { onOpen: () => void }): React.JSX.Element {
+  const { t } = useTranslation()
+  const [paused] = usePaused()
+  return (
+    <DockedPip
+      mood={paused ? 'quiet' : 'calm'}
+      progress={null}
+      doneStep={null}
+      label={t('dock.open')}
+      onOpen={onOpen}
+    />
+  )
+}
+
 export function CornerPip(): React.JSX.Element {
   const [holding, setHolding] = useState<Holding | null>(null)
   useEffect(() => api.onCorner(setHolding), [])
+  // Main shows this window only when Pip holds something or may rest; either way, draw him.
   return (
     <div className="flex h-screen items-center justify-center">
-      {holding && <CornerButton holding={holding} onOpen={() => api.clickCorner()} />}
+      {holding ? (
+        <CornerButton holding={holding} onOpen={() => api.clickCorner()} />
+      ) : (
+        <RestingPip onOpen={() => api.clickCorner()} />
+      )}
     </div>
   )
 }
