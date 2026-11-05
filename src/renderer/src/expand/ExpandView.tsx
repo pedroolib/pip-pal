@@ -23,6 +23,8 @@ import type {
   Triage
 } from '@shared/schemas'
 import { CalmingCard } from '@renderer/calm/CalmingCard'
+import { CheckInCard } from '@renderer/checkin/CheckInCard'
+import { MoodOptions } from '@renderer/mood/MoodOptions'
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import {
@@ -271,7 +273,12 @@ export function ExpandView({
   stuck,
   planned,
   asked,
+  mood,
+  cut,
   onCalm,
+  onMood,
+  onMoodDone,
+  onKeepAll,
   onStepDone,
   onLater,
   onCorrect,
@@ -304,8 +311,18 @@ export function ExpandView({
   planned: boolean
   /** A drafted question was copied: Pip says thanks. */
   asked: boolean
+  /** Mid-task: 'ask' shows "How are you feeling?", a number is the face just picked, null is nothing (steps only). */
+  mood: 'ask' | number | null
+  /** How many steps stay visible after a low mood, or null for the usual plan (steps only). */
+  cut: number | null
   /** Offer a strategy, or null when the person skipped it or is ready. */
   onCalm: (strategy: CalmingStrategy | null) => void
+  /** The face picked, or null for "Not now". */
+  onMood: (spoons: number | null) => void
+  /** Back to the steps after the options. */
+  onMoodDone: () => void
+  /** Bring back the steps a low mood moved to "can wait". */
+  onKeepAll: () => void
   onStepDone: () => void
   /** The clock on the steps card: open the reminder form for the current step. */
   onLater: () => void
@@ -366,6 +383,28 @@ export function ExpandView({
     return <CalmingCard strategy={calm} then={then} onDone={() => onCalm(null)} />
   }
 
+  // Every few finished steps Pip asks how the person feels, then offers ways to settle or to go on.
+  if (expansion.kind === 'steps' && mood !== null) {
+    if (mood === 'ask')
+      return (
+        <CheckInCard
+          instant
+          title={t('mood.title')}
+          onAnswer={onMood}
+          onSnooze={() => onMood(null)}
+        />
+      )
+    const all = planSteps(expansion.steps, spoons).now.length
+    return (
+      <MoodOptions
+        spoons={mood}
+        waiting={all - planSteps(expansion.steps, spoons, cut).now.length}
+        onContinue={onMoodDone}
+        onKeepAll={onKeepAll}
+      />
+    )
+  }
+
   // The steps hinge on something Pip can't know: it asks instead of guessing.
   if (expansion.kind === 'steps' && expansion.needsContext) {
     return (
@@ -424,7 +463,7 @@ export function ExpandView({
   }
 
   if (expansion.kind === 'steps') {
-    const { now, later } = planSteps(expansion.steps, spoons)
+    const { now, later } = planSteps(expansion.steps, spoons, cut)
     const when = deadline && formatDue(deadline, new Date(), i18n.language)
     return (
       <TaskCard

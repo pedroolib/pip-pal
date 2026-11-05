@@ -6,10 +6,21 @@ export const LOW_SPOONS_STEPS = 3
 /** Above this, Pip doesn't guess and offers the drafted question instead. Calibrate on the test set. */
 export const AMBIGUOUS_AT = 0.6
 
-/** Splits the plan by energy. The cut is code, not the model (docs/DECISIONS.md §4). */
-export function planSteps<T>(steps: T[], spoons: number | null): { now: T[]; later: T[] } {
-  if (spoons === null || spoons > LOW_SPOONS) return { now: steps, later: [] }
-  return { now: steps.slice(0, LOW_SPOONS_STEPS), later: steps.slice(LOW_SPOONS_STEPS) }
+/**
+ * Splits the plan by energy. The cut is code, not the model (docs/DECISIONS.md §4).
+ * `cut` is a mid-task cut: only this many steps from the start stay visible (a low mood while working).
+ */
+export function planSteps<T>(
+  steps: T[],
+  spoons: number | null,
+  cut: number | null = null
+): { now: T[]; later: T[] } {
+  const base =
+    spoons === null || spoons > LOW_SPOONS
+      ? { now: steps, later: [] as T[] }
+      : { now: steps.slice(0, LOW_SPOONS_STEPS), later: steps.slice(LOW_SPOONS_STEPS) }
+  if (cut === null) return base
+  return { now: base.now.slice(0, cut), later: [...base.now.slice(cut), ...base.later] }
 }
 
 export function showAsk(classification: Classification, uncertainties: unknown[]): boolean {

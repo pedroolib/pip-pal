@@ -67,6 +67,16 @@
     "thisStep": "este paso",
     "thePlan": "el plan"
   },
+  "mood": {
+    "title": "¿Cómo te sientes?",
+    "low": "Gracias por decírmelo. Una pausa corta podría ayudar.",
+    "mid": "Gracias. ¿Quieres un momento primero o seguimos?",
+    "strategy": "{{label}} · {{minutes}} min",
+    "then": "volver a tus pasos",
+    "trimmed_one": "Dejé tus próximos pasos cortos. {{count}} paso más puede esperar.",
+    "trimmed_other": "Dejé tus próximos pasos cortos. {{count}} pasos más pueden esperar.",
+    "keepAll": "Mantener todos los pasos"
+  },
   "dock": {
     "open": "Abrir Pip",
     "stepDone": "Paso {{n}} listo",

@@ -33,6 +33,7 @@ import { ReminderForm } from '@renderer/command/ReminderForm'
 import { TellCard } from '@renderer/command/TellCard'
 import { CornerButton } from '@renderer/corner/CornerPip'
 import { SNOOZE_MS, slotFor, spoonsToday } from '@renderer/checkin/model'
+import { cutAfterLow, cutAfterUnstick, moodDue, moodEvery, moodLevel } from '@renderer/mood/model'
 import { planSteps } from '@renderer/decode/model'
 import { ExpandView, type Stuck } from '@renderer/expand/ExpandView'
 import { ResizeEdges } from '@renderer/overlay/ResizeEdges'
@@ -90,6 +91,14 @@ type Task = {
   toRemember: string
   /** What Pip proposes to remember, waiting for a tap. */
   note: NoteProposal | null
+  /** Mid-task "How are you feeling?" (steps only): 'ask' shows the faces, a number is the face just picked. */
+  mood: 'ask' | number | null
+  /** How many times Pip asked on this task, the steps finished since, and the steps between questions. */
+  moodAsks: number
+  moodSince: number
+  moodEvery: number | null
+  /** After a low mood only this many steps from the start stay visible; the rest can wait (steps only). */
+  cut: number | null
 }
 type Tasks = Partial<Record<ActionKind, Task>>
 
@@ -105,7 +114,12 @@ const NEW_TASK: Task = {
   logged: [],
   correction: '',
   toRemember: '',
-  note: null
+  note: null,
+  mood: null,
+  moodAsks: 0,
+  moodSince: 0,
+  moodEvery: null,
+  cut: null
 }
 
 // A failed write only loses the log entry; the flow goes on.
@@ -559,7 +573,7 @@ function Overlay(): React.JSX.Element {
   const stepsTask = tasks.steps
   const steps =
     stepsTask?.result?.kind === 'steps'
-      ? planSteps(stepsTask.result.steps, stepsTask.spoons).now
+      ? planSteps(stepsTask.result.steps, stepsTask.spoons, stepsTask.cut).now
       : null
   const holds = !hasTask ? null : view === 'task' ? 'menu' : 'task'
   const cornerProgress =
@@ -709,7 +723,17 @@ function Overlay(): React.JSX.Element {
             ],
             lessonsUsed: [...new Set([...lessonsUsed, ...result.lessonsUsed])]
           }
-          return { result: merged, step: 0, stuck: null }
+          return {
+            result: merged,
+            step: 0,
+            stuck: null,
+            cut: cutAfterUnstick(x.cut, x.step, result.steps.length),
+            // A new list gets its own rhythm of "how are you feeling?", counted again from its length.
+            mood: null,
+            moodAsks: 0,
+            moodSince: 0,
+            moodEvery: null
+          }
         })
       },
       () => live() && patch('steps', () => stuck('error'))
@@ -721,7 +745,31 @@ function Overlay(): React.JSX.Element {
       logAchievement('step_done', done.text)
       logEvent({ kind: 'step', status: 'done', text: done.text })
     }
-    patch('steps', (x) => ({ step: x.step + 1 }))
+    // Every few finished steps (and at the last one) Pip asks how the person feels, up to 3 times per task.
+    patch('steps', (x) => {
+      const done = x.step + 1
+      const since = x.moodSince + 1
+      const every = x.moodEvery ?? moodEvery(steps?.length ?? 0)
+      const ask = moodDue({ total: steps?.length ?? 0, done, since, asks: x.moodAsks, every })
+      return {
+        step: done,
+        moodEvery: every,
+        ...(ask
+          ? { mood: 'ask', moodAsks: x.moodAsks + 1, moodSince: 0 }
+          : { moodSince: since })
+      }
+    })
+  }
+  // The faces count as a check-in: they feed the day's energy and what Pip learns about calming. A low answer
+  // keeps the next few steps and moves the rest to "can wait"; a high one just goes on.
+  const moodAnswer = (spoons: number | null): void => {
+    if (spoons === null) return patch('steps', () => ({ mood: null }))
+    const at = new Date()
+    api.saveCheckIn({ at: at.toISOString(), slot: slotFor(at), spoons }).catch(() => {})
+    patch('steps', (x) => ({
+      mood: moodLevel(spoons) === 'high' ? null : spoons,
+      ...(moodLevel(spoons) === 'low' && { cut: cutAfterLow(x.step, x.cut) })
+    }))
   }
   const copied = (kind: ActionKind, what: string, question: string, topic: QuestionTopic): void => {
     logOnce(kind, question, { kind: 'asked', topic, question })
@@ -830,7 +878,12 @@ function Overlay(): React.JSX.Element {
               calm={task.calm}
               planned={task.planned}
               asked={task.asked}
+              mood={task.mood}
+              cut={task.cut}
               onCalm={(calm) => patch(active, () => ({ calm }))}
+              onMood={moodAnswer}
+              onMoodDone={() => patch(active, () => ({ mood: null }))}
+              onKeepAll={() => patch(active, () => ({ cut: null }))}
               onStepDone={stepDone}
               onLater={remindLater}
               onCorrect={(added) => act(active, added)}

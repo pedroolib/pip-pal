@@ -10,10 +10,16 @@ import { slotFor } from './model'
 
 export function CheckInCard({
   onAnswer,
-  onSnooze
+  onSnooze,
+  title,
+  instant = false
 }: {
   onAnswer: (spoons: number) => void
   onSnooze: () => void
+  /** Replaces the question, e.g. mid-task "How are you feeling?". */
+  title?: string
+  /** Answers at the tap, skipping the thank-you screen: the caller shows what comes next. */
+  instant?: boolean
 }): React.JSX.Element {
   const { t } = useTranslation()
   const [picked, setPicked] = useState<number | null>(null)
@@ -51,15 +57,15 @@ export function CheckInCard({
             <Pip mood={winding ? 'sleepy' : 'gentle'} size={34} />
           )}
         </span>
-        <h1 className="text-lg leading-snug font-bold">{t('checkIn.title')}</h1>
+        <h1 className="text-lg leading-snug font-bold">{title ?? t('checkIn.title')}</h1>
       </div>
-      <div role="group" aria-label={t('checkIn.title')} className="grid grid-cols-5 gap-2">
+      <div role="group" aria-label={title ?? t('checkIn.title')} className="grid grid-cols-5 gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
             aria-label={t('checkIn.spoons', { count: n })}
-            onClick={() => setPicked(n)}
+            onClick={() => (instant ? onAnswer(n) : setPicked(n))}
             onMouseEnter={() => setLooking(n)}
             onMouseLeave={() => setLooking(null)}
             onFocus={() => setLooking(n)}
