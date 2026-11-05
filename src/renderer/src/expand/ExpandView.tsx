@@ -87,7 +87,7 @@ function Shell({
   const { t } = useTranslation()
   return (
     <PeekingPip pip={<Pip mood={mood} size={40} />}>
-      <Card className="min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-lg">
+      <Card className="min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-float">
         <header className="flex items-center gap-1">
           {onBack && <BackButton onBack={onBack} />}
           <h1 className="min-w-0 flex-1 leading-snug font-bold">{title}</h1>
@@ -121,8 +121,8 @@ function Placeholder(): React.JSX.Element {
     <div className="flex flex-col gap-3" aria-hidden>
       {['w-11/12', 'w-3/4', 'w-5/6'].map((w, i) => (
         <div key={i} className="flex items-center gap-3">
-          <span className="size-6 shrink-0 animate-pulse rounded-full bg-secondary" />
-          <span className={`h-3 animate-pulse rounded-full bg-secondary ${w}`} />
+          <span className="skeleton size-6 shrink-0 rounded-full" />
+          <span className={`skeleton h-3 rounded-full ${w}`} />
         </div>
       ))}
     </div>

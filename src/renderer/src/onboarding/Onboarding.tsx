@@ -52,7 +52,7 @@ const MOOD: Record<OnboardingStep, Mood> = {
   home: 'celebrate'
 }
 
-const pill = 'min-h-11 rounded-full px-5 font-bold'
+const pill = 'min-h-10 px-4 font-bold'
 
 /** Steps whose screen has its own primary button; the footer offers a skip there instead. */
 const OWN_ACTION: OnboardingStep[] = ['people', 'consent', 'about']
@@ -116,14 +116,14 @@ export function Onboarding({
   const step = ob.step === 'about' && !mode ? 'consent' : ob.step
 
   return (
-    <main className="mx-auto flex w-full max-w-[720px] min-w-0 flex-col gap-5 p-4 pb-8">
+    <main className="mx-auto flex w-full max-w-[680px] min-w-0 flex-col gap-5 px-5 pt-10 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
         <div className="flex items-center gap-3">
-          <ol className="flex gap-1.5" aria-hidden>
+          <ol className="flex w-40 gap-1" aria-hidden>
             {ONBOARDING_STEPS.map((s, i) => (
               <li
                 key={s}
-                className={`size-2.5 rounded-full ${i < n ? 'bg-primary' : 'bg-border'}`}
+                className={`h-1 flex-1 rounded-full transition-colors ${i < n ? 'bg-primary' : 'bg-input'}`}
               />
             ))}
           </ol>
@@ -138,13 +138,15 @@ export function Onboarding({
         )}
       </div>
 
-      <HouseCard className="gap-5">
-        <div className="flex items-start gap-4">
-          <Pip mood={MOOD[step]} size={64} className="shrink-0" />
+      <HouseCard className="gap-5 p-7">
+        <div className="flex items-center gap-4">
+          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-pip-soft">
+            <Pip mood={MOOD[step]} size={40} />
+          </span>
           <h1
             ref={heading}
             tabIndex={-1}
-            className="pt-3 text-[1.75rem] leading-tight font-bold outline-none"
+            className="text-[1.5rem] leading-tight font-bold outline-none"
           >
             {t(`onboarding.${step}.title`)}
           </h1>
@@ -250,7 +252,7 @@ function Welcome({ onStart }: { onStart: () => void }): React.JSX.Element {
   return (
     <>
       <p className="text-body">{t('onboarding.welcome.body')}</p>
-      <ol className="ml-6 list-decimal space-y-1 text-[17px] leading-[1.6]">
+      <ol className="ml-6 list-decimal space-y-1 leading-[1.6]">
         {list.map((x) => (
           <li key={x}>{x}</li>
         ))}
@@ -286,7 +288,7 @@ function Comfort({
             set({ ...settings, language: language as Settings['language'] })
           }
         >
-          <SelectTrigger id="ob-language" className="min-h-11 w-60">
+          <SelectTrigger id="ob-language" className="min-h-10 w-60">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -327,7 +329,7 @@ function Privacy({ profile }: { profile: Profile }): React.JSX.Element {
   }).text
   return (
     <>
-      <ul className="ml-6 list-disc space-y-1 text-[17px] leading-[1.6]">
+      <ul className="ml-6 list-disc space-y-1 leading-[1.6]">
         {rules.map((x) => (
           <li key={x}>{x}</li>
         ))}
@@ -336,13 +338,13 @@ function Privacy({ profile }: { profile: Profile }): React.JSX.Element {
         <Label htmlFor="ob-try">{t('onboarding.privacy.tryLabel')}</Label>
         <Input
           id="ob-try"
-          className="min-h-11 max-w-sm"
+          className="min-h-10 max-w-sm"
           placeholder={t('onboarding.privacy.tryPlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <p className="text-sm text-muted-foreground">{t('onboarding.privacy.trySent')}</p>
-        <p aria-live="polite" className="rounded-md bg-muted px-4 py-3 font-mono text-[15px]">
+        <p aria-live="polite" className="rounded-md bg-muted px-4 py-3 font-mono text-[0.9375rem]">
           {sent}
         </p>
       </div>
@@ -402,7 +404,7 @@ function People({
           <Label htmlFor={`${uid}-me`}>{t('onboarding.people.yourName')}</Label>
           <Input
             id={`${uid}-me`}
-            className="min-h-11"
+            className="min-h-10"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -411,7 +413,7 @@ function People({
           <Label htmlFor={`${uid}-job`}>{t('onboarding.people.yourRole')}</Label>
           <Input
             id={`${uid}-job`}
-            className="min-h-11"
+            className="min-h-10"
             value={role}
             onChange={(e) => setRole(e.target.value)}
           />
@@ -425,7 +427,7 @@ function People({
               <Label htmlFor={`${uid}-n${i}`}>{t('onboarding.people.name')}</Label>
               <Input
                 id={`${uid}-n${i}`}
-                className="min-h-11"
+                className="min-h-10"
                 value={r.name}
                 onChange={(e) => patch(i, { name: e.target.value })}
               />
@@ -434,7 +436,7 @@ function People({
               <Label htmlFor={`${uid}-r${i}`}>{t('onboarding.people.role')}</Label>
               <Input
                 id={`${uid}-r${i}`}
-                className="min-h-11"
+                className="min-h-10"
                 list={`${uid}-roles`}
                 value={r.role}
                 onChange={(e) => patch(i, { role: e.target.value })}
@@ -455,7 +457,7 @@ function People({
               <Label htmlFor={`${uid}-a${i}`}>{t('onboarding.people.aliases')}</Label>
               <Input
                 id={`${uid}-a${i}`}
-                className="min-h-11"
+                className="min-h-10"
                 aria-describedby={`${uid}-ah`}
                 value={r.aliases}
                 onChange={(e) => patch(i, { aliases: e.target.value })}
@@ -495,7 +497,7 @@ function Consent({ onPick }: { onPick: (m: 'send' | 'keep') => void }): React.JS
   const { t } = useTranslation()
   return (
     <>
-      <p className="text-[17px] leading-[1.6]">{t('onboarding.consent.body')}</p>
+      <p className="leading-[1.6]">{t('onboarding.consent.body')}</p>
       <p className="text-sm text-muted-foreground">{t('onboarding.consent.keepNote')}</p>
       <div className="flex flex-wrap gap-2">
         <Button className={pill} onClick={() => onPick('send')}>
@@ -554,7 +556,7 @@ function About({
           <Button
             key={c}
             variant="secondary"
-            className="min-h-11 rounded-full"
+            className="min-h-10"
             onClick={() => setAnswers((a) => ({ ...a, [q]: addChip(a[q], c) }))}
           >
             {c}
@@ -564,7 +566,7 @@ function About({
       <Textarea
         ref={field}
         id={`${uid}-${q}`}
-        className="min-h-28 bg-background text-[17px] leading-[1.6]"
+        className="min-h-28 bg-surface leading-[1.6]"
         placeholder={t('onboarding.about.placeholder')}
         maxLength={1000}
         value={answers[q] ?? ''}
@@ -607,7 +609,7 @@ function Review({
   return (
     <>
       {kept && (
-        <p role="status" className="text-[17px] leading-[1.6]">
+        <p role="status" className="leading-[1.6]">
           {t(kept === 'failed' ? 'onboarding.review.kept' : 'onboarding.review.keptByChoice')}
         </p>
       )}
@@ -629,7 +631,7 @@ function Spoons({ settings }: { settings: Settings }): React.JSX.Element {
   const times = enabledTimes(settings)
   return (
     <>
-      <p className="text-[17px] leading-[1.6]">{t('onboarding.spoons.body')}</p>
+      <p className="leading-[1.6]">{t('onboarding.spoons.body')}</p>
       <p className="text-body">
         {times.length
           ? t('onboarding.spoons.times', { times: times.map(showTime).join(', ') })
@@ -689,7 +691,7 @@ function Permission(): React.JSX.Element {
     )
   return (
     <>
-      <p className="text-[17px] leading-[1.6]">{t('onboarding.permission.mac')}</p>
+      <p className="leading-[1.6]">{t('onboarding.permission.mac')}</p>
       {granted ? (
         <p role="status" className="font-bold">
           {t('onboarding.permission.granted')}
@@ -720,7 +722,7 @@ function Practice(): React.JSX.Element {
   const steps = t('onboarding.practice.steps', { returnObjects: true, keys }) as string[]
   return (
     <>
-      <ol className="ml-6 list-decimal space-y-1 text-[17px] leading-[1.6]">
+      <ol className="ml-6 list-decimal space-y-1 leading-[1.6]">
         {steps.map((x) => (
           <li key={x}>{x}</li>
         ))}
@@ -729,7 +731,7 @@ function Practice(): React.JSX.Element {
         <figcaption className="text-sm text-muted-foreground">
           {t('onboarding.practice.messageLabel')}
         </figcaption>
-        <blockquote className="rounded-md border bg-background px-4 py-3 text-[17px] leading-[1.6] select-text">
+        <blockquote className="rounded-md border bg-surface px-4 py-3 leading-[1.6] select-text">
           {t('onboarding.practice.message')}
         </blockquote>
       </figure>

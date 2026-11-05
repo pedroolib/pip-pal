@@ -131,7 +131,7 @@ export function TaskCard({
 
   return (
     <PeekingPip pip={<StepPip key={current} finished={finished} cheer={current > 0} />}>
-      <Card className="@container min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-lg">
+      <Card className="@container min-h-0 w-full gap-4 overflow-y-auto p-5 shadow-float">
         <header className="flex items-start gap-2">
           {onBack && (
             <Button
@@ -177,8 +177,8 @@ export function TaskCard({
               <span
                 className={cn(
                   'w-full rounded-full transition-all duration-500 group-focus-visible:ring-2 group-focus-visible:ring-ring group-focus-visible:ring-offset-2',
-                  i === view ? 'h-2.5' : 'h-1.5 group-hover:h-2',
-                  s === 'done' ? 'bg-primary' : i === view ? 'bg-foreground/40' : 'bg-border'
+                  i === view ? 'h-2' : 'h-1 group-hover:h-1.5',
+                  s === 'done' ? 'bg-primary' : i === view ? 'bg-foreground/40' : 'bg-input'
                 )}
               />
             </button>
@@ -189,7 +189,7 @@ export function TaskCard({
         <div className="flex flex-col gap-4 @xl:flex-row @xl:items-end @xl:gap-8">
           {view >= steps.length ? (
             <div className="motion-swap flex flex-col gap-1 @xl:flex-1">
-              <h1 className="text-2xl font-bold">{t('card.allDone')}</h1>
+              <h1 className="text-[1.375rem] font-bold">{t('card.allDone')}</h1>
               <p className="text-body">
                 {laterCount > 0
                   ? t('card.restWaiting', { count: laterCount })
@@ -200,7 +200,7 @@ export function TaskCard({
             <div className="flex flex-col gap-1 @xl:flex-1" aria-live="polite">
               {/* Keyed by step so each new step fades in. */}
               <div key={view} className="motion-swap flex flex-col gap-1">
-                <h1 className="text-2xl leading-tight font-bold">
+                <h1 className="text-[1.375rem] leading-tight font-bold">
                   <WithKeys text={step.text} />
                 </h1>
                 {step.why && (

@@ -7,11 +7,13 @@ import {
   Languages,
   MessageCircle,
   Moon,
+  Pause as PauseIcon,
   Plus,
   Power,
   RotateCcw,
   ShieldCheck,
   Sun,
+  SunMoon,
   Sunrise,
   Sunset,
   Trash2,
@@ -39,9 +41,12 @@ import {
   SelectValue
 } from '@renderer/components/ui/select'
 import { Switch } from '@renderer/components/ui/switch'
-import { HouseCard, Page } from './parts'
+import { HouseCard, Keys, Page } from './parts'
+import { ThemePicker } from './ThemePicker'
+import { PauseControl } from './PauseControl'
+import { ReadingComfort } from './ReadingComfort'
 import { TonePicker } from './TonePicker'
-import { applySettings, isMac, nextFreeTime, rowBucket, shortcutKeys, showTime } from './settings'
+import { applySettings, isMac, nextFreeTime, rowBucket, showTime } from './settings'
 import { useLoad } from './useLoad'
 
 const BUCKET_ICONS = { morning: Sunrise, midday: Sun, afternoon: Sunset, evening: Moon }
@@ -49,7 +54,8 @@ const BUCKET_ICONS = { morning: Sunrise, midday: Sun, afternoon: Sunset, evening
 /** Fewer enabled check-ins than this shows a gentle suggestion; it never blocks. */
 const SUGGESTED_CHECK_INS = 3
 
-const iconChip = 'grid size-10 shrink-0 place-items-center rounded-full bg-secondary'
+const iconChip =
+  'grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary [&_svg]:size-[18px]'
 
 function Heading({
   Icon,
@@ -105,18 +111,13 @@ export function SettingsView({
 
   const off = !settings
   const mac = isMac(navigator.platform || navigator.userAgent)
-  const keys = shortcutKeys(mac)
 
   return (
-    <Page title={t('house.titles.settings')} intro={t('house.settings.intro')}>
+    <Page title={t('house.titles.settings')}>
       {failed && (
         <HouseCard role="alert">
           <p>{t('house.settings.loadFailed')}</p>
-          <Button
-            onClick={reload}
-            variant="outline"
-            className="min-h-11 w-fit rounded-full border-2 px-5 font-bold"
-          >
+          <Button onClick={reload} variant="outline" className="min-h-10 w-fit px-4 font-bold">
             {t('house.settings.retry')}
           </Button>
         </HouseCard>
@@ -130,17 +131,14 @@ export function SettingsView({
       <CheckInTimes settings={settings} change={change} fail={fail} />
 
       <HouseCard>
+        <Heading Icon={PauseIcon}>{t('house.pause.title')}</Heading>
+        <p>{t('house.pause.body')}</p>
+        <PauseControl />
+      </HouseCard>
+
+      <HouseCard>
         <Heading Icon={Keyboard}>{t('house.settings.shortcut.title')}</Heading>
-        <div className="flex flex-wrap items-center gap-2">
-          {keys.map((k, i) => (
-            <span key={k} className="flex items-center gap-2">
-              {i > 0 && !mac && <span aria-hidden>+</span>}
-              <kbd className="rounded-[10px] border border-b-[3px] border-border bg-background px-3 py-2 text-[0.9375rem] leading-none font-bold">
-                {k}
-              </kbd>
-            </span>
-          ))}
-        </div>
+        <Keys />
         <p>{t('house.settings.shortcut.body')}</p>
         <p className="text-sm text-muted-foreground">
           {t('house.settings.shortcut.fixed')}{' '}
@@ -167,10 +165,7 @@ export function SettingsView({
               change('language', { ...settings, language: language as Settings['language'] })
             }
           >
-            <SelectTrigger
-              id="language"
-              className="min-h-11 w-fit gap-2.5 rounded-full border-[1.5px] bg-surface px-4 font-bold"
-            >
+            <SelectTrigger id="language" className="min-h-10 w-fit gap-2.5 px-4">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -180,6 +175,14 @@ export function SettingsView({
           </Select>
           <p className="text-sm text-muted-foreground">{t('house.settings.language.note')}</p>
           {fail('language')}
+        </HouseCard>
+
+        <HouseCard className="h-full">
+          <Heading Icon={SunMoon}>
+            <span id="theme-h">{t('house.settings.theme.title')}</span>
+          </Heading>
+          <ThemePicker labelledBy="theme-h" />
+          <p className="text-sm text-muted-foreground">{t('house.settings.theme.body')}</p>
         </HouseCard>
 
         <HouseCard className="h-full">
@@ -233,6 +236,8 @@ export function SettingsView({
         </HouseCard>
       </div>
 
+      <ReadingComfort heading={(Icon, title) => <Heading Icon={Icon}>{title}</Heading>} />
+
       <HouseCard>
         <Heading Icon={MessageCircle}>{t('house.settings.tone.title')}</Heading>
         <p className="text-sm text-muted-foreground">{t('house.settings.tone.note')}</p>
@@ -251,7 +256,7 @@ export function SettingsView({
         <p>{t('onboarding.rerun.body')}</p>
         <Button
           variant="outline"
-          className="min-h-11 self-start rounded-full px-5 font-bold"
+          className="min-h-10 self-start px-4 font-bold"
           disabled={!settings}
           onClick={() => settings && onRunSetup(settings)}
         >
@@ -321,9 +326,9 @@ function Remembers(): React.JSX.Element {
           variant="outline"
           disabled={events.length === 0}
           onClick={() => setConfirm(true)}
-          className="min-h-11 rounded-full border-2 px-5 font-bold"
+          className="min-h-10 px-4 font-bold"
         >
-          <Trash2 className="size-5" aria-hidden />
+          <Trash2 className="size-4" aria-hidden />
           {t('house.settings.remembers.deleteAll')}
         </Button>
       </div>
@@ -354,9 +359,9 @@ function Remembers(): React.JSX.Element {
                 when: when(e.at)
               })}
               onClick={() => run(() => api.deleteEvent(e.id))}
-              className="size-11 shrink-0 rounded-full focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring"
+              className="size-9 shrink-0 text-muted-foreground focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring"
             >
-              <Trash2 className="size-5" aria-hidden />
+              <Trash2 className="size-4" aria-hidden />
             </Button>
           </li>
         ))}
@@ -374,16 +379,12 @@ function Remembers(): React.JSX.Element {
             </p>
           )}
           <DialogFooter className="flex-col sm:flex-row sm:justify-start">
-            <Button
-              className="min-h-11 rounded-full px-5"
-              autoFocus
-              onClick={() => setConfirm(false)}
-            >
+            <Button className="min-h-10 px-4" autoFocus onClick={() => setConfirm(false)}>
               {t('house.settings.remembers.keep')}
             </Button>
             <Button
               variant="outline"
-              className="min-h-11 rounded-full px-5"
+              className="min-h-10 px-4"
               onClick={() => run(() => api.clearEvents())}
             >
               <Trash2 aria-hidden /> {t('house.settings.remembers.confirmDelete')}
@@ -508,7 +509,7 @@ function CheckInTimes({
                   })}
                   aria-invalid={taken === c.id || undefined}
                   aria-describedby={taken === c.id ? `taken-${c.id}` : undefined}
-                  className="min-h-11 w-fit rounded-md border-[1.5px] bg-surface text-base focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid"
+                  className="min-h-10 w-fit rounded-md bg-surface text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid"
                 />
               </div>
               <Switch
@@ -528,11 +529,11 @@ function CheckInTimes({
                 disabled={off}
                 aria-label={t('house.settings.checkIns.remove', { time: showTime(c.time) })}
                 onClick={() => remove(c.id)}
-                className="size-11 rounded-full focus-visible:ring-0 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring"
+                className="size-9 text-muted-foreground focus-visible:ring-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-ring"
               >
-                <X className="size-5" aria-hidden />
+                <X className="size-4" aria-hidden />
               </Button>
-              <div className="basis-full pl-[54px] empty:hidden">
+              <div className="basis-full pl-[50px] empty:hidden">
                 <p id={`taken-${c.id}`} role="status" className="text-sm text-body empty:hidden">
                   {taken === c.id &&
                     t('house.settings.checkIns.taken', { time: showTime(draft[c.id]) })}
@@ -549,9 +550,9 @@ function CheckInTimes({
           onClick={add}
           disabled={off || full}
           variant="outline"
-          className="min-h-11 w-fit rounded-full border-2 px-5 font-bold"
+          className="min-h-10 w-fit px-4 font-bold"
         >
-          <Plus className="size-5" aria-hidden />
+          <Plus className="size-4" aria-hidden />
           {t('house.settings.checkIns.add')}
         </Button>
         <p role="status" className="text-sm text-muted-foreground empty:hidden">

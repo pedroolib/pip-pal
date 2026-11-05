@@ -150,7 +150,7 @@ export function ReminderForm({
             <Label
               key={value}
               className={cn(
-                'min-h-11 min-w-0 cursor-pointer justify-center gap-1.5 rounded-md border bg-white px-2 text-center text-sm whitespace-nowrap shadow-xs',
+                'min-h-10 min-w-0 cursor-pointer justify-center gap-1.5 rounded-md border bg-surface px-2 text-center text-sm whitespace-nowrap shadow-xs',
                 'has-[:focus-visible]:border-ring has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50',
                 choice === value &&
                   'border-primary bg-secondary font-bold shadow-[inset_0_0_0_1px_var(--primary)]'
@@ -212,7 +212,7 @@ export function ReminderForm({
   return (
     <WithPip mood={saving ? 'thanks' : MOOD.remind} flip={flip}>
       <Card
-        className="min-h-0 gap-4 overflow-y-auto p-5 shadow-lg"
+        className="min-h-0 gap-4 overflow-y-auto p-5 shadow-float"
         style={{ width: CARD_WIDTH, maxWidth: '100%' }}
         onKeyDown={(e) => e.key === 'Escape' && onCancel()}
       >

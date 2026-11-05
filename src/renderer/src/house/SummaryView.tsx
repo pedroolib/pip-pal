@@ -7,8 +7,9 @@ import { Button } from '@renderer/components/ui/button'
 import { Checkbox } from '@renderer/components/ui/checkbox'
 import { Label } from '@renderer/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@renderer/components/ui/radio-group'
+import { Pip } from '@renderer/pip/Pip'
 import { bullets } from './bullets'
-import { HouseCard, Page } from './parts'
+import { choice, HouseCard, Page } from './parts'
 
 type State = 'idle' | 'loading' | 'error' | 'ready'
 
@@ -28,20 +29,17 @@ function Pills({
 }): React.JSX.Element {
   return (
     <div className="grid gap-2.5">
-      <p id={id} className="font-bold">
+      <p id={id} className="text-sm font-bold text-body">
         {label}
       </p>
       <RadioGroup
         aria-labelledby={id}
         value={value}
         onValueChange={onChange}
-        className="flex flex-wrap gap-2.5"
+        className="flex flex-wrap gap-2"
       >
         {options.map((o) => (
-          <Label
-            key={o.value}
-            className="h-11 cursor-pointer text-base rounded-full border-[1.5px] bg-surface px-[18px] font-bold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-solid has-[:focus-visible]:outline-ring has-data-[state=checked]:border-foreground has-data-[state=checked]:bg-secondary"
-          >
+          <Label key={o.value} className={choice}>
             <RadioGroupItem value={o.value} />
             {o.text}
           </Label>
@@ -96,13 +94,13 @@ export function SummaryView(): React.JSX.Element {
   const loading = state === 'loading'
 
   return (
-    <Page title={t('house.titles.summary')} intro={t('house.summary.intro')}>
-      <p className="flex w-fit max-w-full items-center gap-2.5 rounded-full bg-secondary px-4 py-2.5 text-body">
-        <Info className="size-5 shrink-0" aria-hidden />
+    <Page title={t('house.titles.summary')}>
+      <p className="flex w-fit max-w-full items-center gap-2 text-sm text-body">
+        <Info className="size-4 shrink-0 text-primary" aria-hidden />
         {t('house.summary.privacy')}
       </p>
 
-      <HouseCard>
+      <HouseCard className="gap-5">
         <Pills
           id="summary-who"
           label={t('house.summary.who')}
@@ -127,7 +125,7 @@ export function SummaryView(): React.JSX.Element {
           }}
         />
         <Button
-          className="min-h-11 w-fit rounded-full px-5 font-bold"
+          className="min-h-10 w-fit px-4"
           disabled={loading}
           aria-busy={loading}
           onClick={generate}
@@ -137,6 +135,15 @@ export function SummaryView(): React.JSX.Element {
         </Button>
       </HouseCard>
 
+      {state === 'idle' && (
+        <div className="flex items-center gap-4 rounded-card border border-dashed border-input px-5 py-5">
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-pip-soft">
+            <Pip mood="calm" size={34} />
+          </span>
+          <p className="max-w-[58ch] text-[0.9375rem] text-body">{t('house.summary.emptyHint')}</p>
+        </div>
+      )}
+
       {loading && (
         <HouseCard role="status">
           <p className="flex items-center gap-2.5 font-bold">
@@ -144,7 +151,7 @@ export function SummaryView(): React.JSX.Element {
             {t('house.summary.loading')}
           </p>
           {[0, 1, 2].map((i) => (
-            <div key={i} aria-hidden className="h-[18px] rounded-full bg-muted" />
+            <div key={i} aria-hidden className="skeleton h-4 rounded-md" />
           ))}
         </HouseCard>
       )}
@@ -153,7 +160,7 @@ export function SummaryView(): React.JSX.Element {
         <HouseCard role="alert">
           <p className="font-bold">{t('house.summary.errorTitle')}</p>
           <p className="text-body">{t('house.summary.errorBody')}</p>
-          <Button className="min-h-11 w-fit rounded-full px-5 font-bold" onClick={generate}>
+          <Button className="min-h-10 w-fit px-4" onClick={generate}>
             {t('house.summary.retry')}
           </Button>
         </HouseCard>
@@ -169,7 +176,7 @@ export function SummaryView(): React.JSX.Element {
                 <li key={i} className="border-border not-first:border-t">
                   <label className="flex cursor-pointer items-start gap-3.5 px-1 py-3.5">
                     <Checkbox
-                      className="mt-px size-[22px] border-2 border-body bg-surface"
+                      className="mt-0.5 size-5"
                       checked={p.include}
                       onCheckedChange={(c) =>
                         setPoints((all) =>
@@ -201,7 +208,7 @@ export function SummaryView(): React.JSX.Element {
           <div className="flex flex-wrap gap-2.5">
             <Button
               variant="outline"
-              className="min-h-11 rounded-full bg-surface px-5 font-bold"
+              className="min-h-10 px-4"
               disabled={picked === 0}
               onClick={copy}
             >
@@ -211,7 +218,8 @@ export function SummaryView(): React.JSX.Element {
             {/* Not built yet: same disabled look as the Connections "Coming soon" buttons. */}
             <Button
               disabled
-              className="min-h-11 rounded-full border bg-muted px-5 font-bold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-100 disabled:pointer-events-auto"
+              variant="outline"
+              className="min-h-10 px-4 text-muted-foreground disabled:pointer-events-auto disabled:cursor-not-allowed disabled:opacity-100"
             >
               <FileDown aria-hidden />
               {t('house.summary.exportPdf')} · {t('house.connections.soon')}
