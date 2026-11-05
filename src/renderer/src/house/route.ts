@@ -15,3 +15,6 @@ export function tabFromHash(hash: string): Tab {
 }
 
 export const hashFor = (tab: Tab): string => (tab === 'home' ? '#/home' : `#/home/${tab}`)
+
+/** Pip's room fills the whole window, with no tabs; the House's name and Pip at the top of the sidebar lead there. */
+export const ROOM_HASH = '#/home/room'

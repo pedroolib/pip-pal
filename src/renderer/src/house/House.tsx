@@ -8,7 +8,8 @@ import { FRESH } from '@renderer/onboarding/model'
 import { AchievementsView } from './AchievementsView'
 import { ConnectionsView } from './ConnectionsView'
 import { HomeView } from './HomeView'
-import { hashFor, tabFromHash, type Tab } from './route'
+import { RoomView } from './RoomView'
+import { hashFor, ROOM_HASH, tabFromHash, type Tab } from './route'
 import { SettingsView } from './SettingsView'
 import { applySettings } from './settings'
 import { SummaryView } from './SummaryView'
@@ -18,11 +19,17 @@ import { TabBar } from './TabBar'
 export function House(): React.JSX.Element {
   const { t } = useTranslation()
   const [tab, setTab] = useState<Tab>(() => tabFromHash(location.hash))
+  const [inRoom, setInRoom] = useState(() => location.hash === ROOM_HASH)
   useEffect(() => {
     const sync = (): void => {
+      setInRoom(location.hash === ROOM_HASH)
       const next = tabFromHash(location.hash)
       // An unknown `#/home/<x>` is Home: make the address say so.
-      if (location.hash !== hashFor(next) && location.hash.startsWith('#/home/'))
+      if (
+        location.hash !== hashFor(next) &&
+        location.hash.startsWith('#/home/') &&
+        location.hash !== ROOM_HASH
+      )
         history.replaceState(null, '', hashFor(next))
       setTab(next)
     }
@@ -93,14 +100,15 @@ export function House(): React.JSX.Element {
         {t('house.skip')}
       </a>
       {/* Each view brings its own <main> landmark (Manual does too). */}
-      <TabBar current={tab} learned={learned ?? 0} />
+      <TabBar current={inRoom ? null : tab} learned={learned ?? 0} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {tab === 'home' && <HomeView learned={learned ?? 0} />}
-        {tab === 'profile' && <Manual onPendingChange={setLearned} />}
-        {tab === 'achievements' && <AchievementsView />}
-        {tab === 'summary' && <SummaryView />}
-        {tab === 'connections' && <ConnectionsView />}
-        {tab === 'settings' && (
+        {inRoom && <RoomView />}
+        {!inRoom && tab === 'home' && <HomeView learned={learned ?? 0} />}
+        {!inRoom && tab === 'profile' && <Manual onPendingChange={setLearned} />}
+        {!inRoom && tab === 'achievements' && <AchievementsView />}
+        {!inRoom && tab === 'summary' && <SummaryView />}
+        {!inRoom && tab === 'connections' && <ConnectionsView />}
+        {!inRoom && tab === 'settings' && (
           <SettingsView onRunSetup={(s) => setSetup({ ...s, onboarding: FRESH })} />
         )}
       </div>

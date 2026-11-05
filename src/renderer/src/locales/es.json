@@ -330,6 +330,13 @@
       "connections": "Conectar",
       "settings": "Ajustes"
     },
+    "room": {
+      "open": "El cuarto de Pip",
+      "back": "Volver a la Casa",
+      "door": "Abrir la puerta a la Casa",
+      "sceneLight": "Pip en su cuarto, con la lámpara encendida",
+      "sceneDark": "Pip en su cuarto, con la lámpara apagada"
+    },
     "titles": {
       "achievements": "Logros",
       "summary": "Resumen",

@@ -337,6 +337,13 @@
       "connections": "Connect",
       "settings": "Settings"
     },
+    "room": {
+      "open": "Pip's room",
+      "back": "Back to the House",
+      "door": "Open the door to the House",
+      "sceneLight": "Pip in his room, the lamp on",
+      "sceneDark": "Pip in his room, the lamp off"
+    },
     "titles": {
       "achievements": "Achievements",
       "summary": "Summary",

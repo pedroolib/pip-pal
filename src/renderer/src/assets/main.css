@@ -957,3 +957,212 @@ html.house-page main > :nth-child(n + 6) {
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
+
+/* Pip's room (house/RoomView.tsx): one drawing, two moods. The colors switch with the theme, the sun sets and the
+   moon rises, and the lamp's light fades in and out; with reduced motion everything just switches. */
+.room-scene {
+  --rs-wall: #dbe9e4;
+  --rs-wainscot: #cfe0da;
+  --rs-rail: #f2f6f4;
+  --rs-panel: #c3d7d0;
+  --rs-floor: #e8e0d3;
+  --rs-plank: #d6cdbd;
+  --rs-skirting: #f2f6f4;
+  --rs-frame: #ffffff;
+  --rs-frame-inner: #e9eff3;
+  --rs-sky-top: #cfe0f1;
+  --rs-sky-low: #eaf1f6;
+  --rs-sun: #fffaf0;
+  --rs-sun-glow: #ffffff;
+  --rs-moon: #f1f5fa;
+  --rs-hill-far: #b9cfd0;
+  --rs-hill: #a3bfc0;
+  --rs-tree: #6f9d94;
+  --rs-curtain: #b9d3dc;
+  --rs-curtain-fold: #a3c0cb;
+  --rs-rod: #7c8a9a;
+  --rs-picture-frame: #f7f3ea;
+  --rs-picture: #cfe0f1;
+  --rs-picture-hill: #6f9d94;
+  --rs-picture-sun: #ffffff;
+  --rs-shelf: #3b4756;
+  --rs-book-a: #3368a0;
+  --rs-book-b: #4c8574;
+  --rs-book-c: #f1ede3;
+  --rs-pot: #3368a0;
+  --rs-leaf: #6f9d94;
+  --rs-leaf-b: #85b0a6;
+  --rs-door: #6f9d94;
+  --rs-door-line: #5a8a81;
+  --rs-knob: #f7f3ea;
+  --rs-switch: #f7f3ea;
+  --rs-mat: #b9cfd0;
+  --rs-rug: #f4f0e6;
+  --rs-rug-edge: #c4dedb;
+  --rs-cushion: #8fb0cc;
+  --rs-lamp: #7c8a9a;
+  --rs-shade: #f4f0e6;
+  --rs-bulb: #fffaf0;
+  --rs-light: #fff7e6;
+  --rs-shadow: rgb(60 60 60 / 0.16);
+}
+.dark .room-scene {
+  --rs-wall: #17232d;
+  --rs-wainscot: #14202a;
+  --rs-rail: #2a3946;
+  --rs-panel: #1d2c38;
+  --rs-floor: #1f2a33;
+  --rs-plank: #2a3640;
+  --rs-skirting: #2a3946;
+  --rs-frame: #3c4b5a;
+  --rs-frame-inner: #2c3a47;
+  --rs-sky-top: #0b121a;
+  --rs-sky-low: #1a2a3a;
+  --rs-sun: #fffaf0;
+  --rs-sun-glow: #ffffff;
+  --rs-moon: #e4ebf3;
+  --rs-hill-far: #1a2937;
+  --rs-hill: #142029;
+  --rs-tree: #0f1b24;
+  --rs-curtain: #2e4a5a;
+  --rs-curtain-fold: #243c4a;
+  --rs-rod: #5a6672;
+  --rs-picture-frame: #3a4651;
+  --rs-picture: #1f3042;
+  --rs-picture-hill: #2f5a58;
+  --rs-picture-sun: #8e9aa6;
+  --rs-shelf: #0d141b;
+  --rs-book-a: #4f7fb0;
+  --rs-book-b: #3c6b5d;
+  --rs-book-c: #8e9aa6;
+  --rs-pot: #2a4a6e;
+  --rs-leaf: #3f6b63;
+  --rs-leaf-b: #4c7d73;
+  --rs-door: #2f4f4b;
+  --rs-door-line: #26413e;
+  --rs-knob: #8e9aa6;
+  --rs-switch: #3a4651;
+  --rs-mat: #26353f;
+  --rs-rug: #2a353f;
+  --rs-rug-edge: #34444f;
+  --rs-cushion: #3e5a74;
+  --rs-lamp: #4a5663;
+  --rs-shade: #3a4651;
+  --rs-bulb: #5a6672;
+  --rs-shadow: rgb(0 0 0 / 0.35);
+}
+.room-scene svg [class^='rs-'] {
+  transition:
+    fill var(--motion-slow) var(--ease-in-out),
+    stroke var(--motion-slow) var(--ease-in-out),
+    opacity 700ms var(--ease-in-out),
+    transform 900ms var(--ease-in-out);
+}
+.room-scene .rs-wall { fill: var(--rs-wall); }
+.room-scene .rs-wainscot { fill: var(--rs-wainscot); }
+.room-scene .rs-rail { fill: var(--rs-rail); }
+.room-scene .rs-panel-lines rect { fill: none; stroke: var(--rs-panel); stroke-width: 2; }
+.room-scene .rs-floor { fill: var(--rs-floor); }
+.room-scene .rs-plank path { stroke: var(--rs-plank); stroke-width: 2; fill: none; }
+.room-scene .rs-skirting { fill: var(--rs-skirting); }
+.room-scene .rs-frame { fill: var(--rs-frame); }
+.room-scene .rs-frame-inner { fill: var(--rs-frame-inner); }
+.room-scene .rs-sky-top { stop-color: var(--rs-sky-top); }
+.room-scene .rs-sky-low { stop-color: var(--rs-sky-low); }
+.room-scene .rs-sun-core { fill: var(--rs-sun); }
+.room-scene .rs-sun-glow { fill: var(--rs-sun-glow); opacity: 0.45; }
+.room-scene .rs-moon-core { fill: var(--rs-moon); }
+.room-scene .rs-moon-cut { fill: var(--rs-sky-top); }
+.room-scene .rs-hill-far { fill: var(--rs-hill-far); }
+.room-scene .rs-hill { fill: var(--rs-hill); }
+.room-scene .rs-tree path { fill: var(--rs-tree); stroke: var(--rs-tree); stroke-width: 2; stroke-linecap: round; }
+.room-scene .rs-cross { stroke: var(--rs-frame); stroke-width: 6; fill: none; }
+.room-scene .rs-glass-sheen { fill: none; stroke: #ffffff; stroke-opacity: 0.35; stroke-width: 2; }
+.room-scene .rs-rod { stroke: var(--rs-rod); stroke-width: 4; stroke-linecap: round; }
+.room-scene .rs-rod-end { fill: var(--rs-rod); }
+.room-scene .rs-curtain { fill: var(--rs-curtain); }
+.room-scene .rs-curtain-fold { stroke: var(--rs-curtain-fold); stroke-width: 3; fill: none; stroke-linecap: round; }
+.room-scene .rs-picture-frame { fill: var(--rs-picture-frame); }
+.room-scene .rs-picture { fill: var(--rs-picture); }
+.room-scene .rs-picture-hill { fill: var(--rs-picture-hill); }
+.room-scene .rs-picture-sun { fill: var(--rs-picture-sun); }
+.room-scene .rs-picture-line { stroke: var(--rs-picture-hill); stroke-width: 2; fill: none; stroke-linecap: round; }
+.room-scene .rs-shelf { fill: var(--rs-shelf); }
+.room-scene .rs-bracket { stroke: var(--rs-shelf); stroke-width: 4; stroke-linecap: round; }
+.room-scene .rs-book-a { fill: var(--rs-book-a); }
+.room-scene .rs-book-b { fill: var(--rs-book-b); }
+.room-scene .rs-book-c { fill: var(--rs-book-c); }
+.room-scene .rs-pot { fill: var(--rs-pot); }
+.room-scene .rs-leaf { fill: var(--rs-leaf); }
+.room-scene .rs-leaf-b { fill: var(--rs-leaf-b); }
+.room-scene .rs-stem { stroke: var(--rs-leaf); stroke-width: 3; fill: none; }
+.room-scene .rs-door { fill: var(--rs-door); }
+.room-scene .rs-door-line { stroke: var(--rs-door-line); stroke-width: 4; fill: none; }
+.room-scene .rs-knob { fill: var(--rs-knob); }
+.room-scene .rs-switch { fill: var(--rs-switch); }
+.room-scene .rs-switch-toggle { fill: var(--rs-panel); }
+.room-scene .rs-mat { fill: var(--rs-mat); }
+.room-scene .rs-rug { fill: var(--rs-rug); }
+.room-scene .rs-rug-edge { fill: var(--rs-rug-edge); }
+.room-scene .rs-rug-edge-in { fill: none; stroke: var(--rs-rug-edge); stroke-width: 2; }
+.room-scene .rs-cushion { fill: var(--rs-cushion); }
+.room-scene .rs-cushion-line { stroke: var(--rs-picture-frame); stroke-opacity: 0.5; stroke-width: 2; fill: none; stroke-linecap: round; }
+.room-scene .rs-shadow { fill: var(--rs-shadow); }
+.room-scene .rs-lamp-pole { fill: var(--rs-lamp); }
+.room-scene .rs-lamp-shade { fill: var(--rs-shade); }
+.room-scene .rs-lamp-bulb { fill: var(--rs-bulb); }
+.room-scene .rs-door-link {
+  cursor: pointer;
+  outline: none;
+}
+.room-scene .rs-door-link:hover .rs-door,
+.room-scene .rs-door-link:focus-visible .rs-door {
+  filter: brightness(1.12);
+}
+.room-scene .rs-door-link:focus-visible .rs-door-line {
+  stroke: var(--ring);
+}
+.room-greeting {
+  color: var(--foreground);
+}
+/* Day: the sun, clouds drifting and a beam of light with dust in it. Night: the sun sets, the moon and stars show. */
+.room-scene .rs-stars { fill: #dfe8f2; opacity: 0; }
+.room-scene .rs-clouds { fill: #ffffff; opacity: 0.92; }
+.room-scene .rs-sun { opacity: 1; transform: translateY(0); }
+.room-scene .rs-moon { opacity: 0; transform: translateY(46px); }
+.room-scene .rs-beam { opacity: 1; }
+.dark .room-scene .rs-stars { opacity: 1; }
+.dark .room-scene .rs-clouds { opacity: 0; }
+.dark .room-scene .rs-sun { opacity: 0; transform: translateY(70px); }
+.dark .room-scene .rs-moon { opacity: 1; transform: translateY(0); }
+.dark .room-scene .rs-beam { opacity: 0; }
+.room-scene .rs-cloud-a { animation: room-drift 38s ease-in-out infinite alternate; }
+.room-scene .rs-cloud-b { animation: room-drift 52s ease-in-out infinite alternate-reverse; }
+@keyframes room-drift {
+  from { transform: translateX(-16px); }
+  to { transform: translateX(16px); }
+}
+.room-scene .rs-motes circle {
+  fill: #ffffff;
+  opacity: 0;
+  animation: room-mote 9s ease-in-out infinite;
+}
+@keyframes room-mote {
+  0%, 100% { opacity: 0; transform: translate(0, 0); }
+  30%, 70% { opacity: 0.8; }
+  50% { transform: translate(6px, -14px); }
+}
+/* The lamp's light: on by day, off at night; while on, it breathes very slightly. */
+.room-scene .rs-glow { opacity: 1; }
+.dark .room-scene .rs-glow { opacity: 0; }
+.room-scene .rs-glow-breath {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: lamp-breath 6s var(--ease-in-out) infinite;
+}
+@keyframes lamp-breath {
+  50% {
+    transform: scale(1.03);
+    opacity: 0.92;
+  }
+}
