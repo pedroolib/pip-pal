@@ -24,6 +24,14 @@
   <video src="docs/images/pip-flow.mp4" poster="docs/images/pip-flow-poster.png" width="640" controls muted playsinline>
     <a href="docs/images/pip-flow.mp4"><img src="docs/images/pip-flow-poster.png" width="640" alt="Pip: the unwritten rules written down. Click to watch the 52-second demo."></a>
   </video>
+
+
+
+https://github.com/user-attachments/assets/2f209e01-11a4-48e6-aa80-7968b368215a
+
+
+
+
   <br>
   <sub><b>Pip's flow, 52 s, on a real Slack message.</b> The person selects it and presses the shortcut, reads Pip's bubble, opens <i>Break it into steps</i>, reads ahead with the bar, answers the halfway <i>How are you feeling?</i> and picks a calming option, then opens Pip's House to see their profile and what they taught Pip.</sub>
 </p>
