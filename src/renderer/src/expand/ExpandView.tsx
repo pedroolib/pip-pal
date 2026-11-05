@@ -309,7 +309,7 @@ export function ExpandView({
   onStepDone: () => void
   /** The clock on the steps card: open the reminder form for the current step. */
   onLater: () => void
-  /** "That's not right" on the steps card: ask again with what the person added. */
+  /** "Tell Pip more context" on the steps card: ask again with what the person added. */
   onCorrect: (text: string) => void
   /** What Pip proposes to remember from a correction, or null. */
   note: NoteProposal | null
