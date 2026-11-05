@@ -72,7 +72,12 @@ export function Lessons({
 
   return (
     <Card id="lessons" className="scroll-mt-4 gap-3 overflow-hidden px-5 py-4 shadow-none">
-      <h2 id="lessons-h" ref={heading} tabIndex={-1} className="text-lg font-bold outline-none">
+      <h2
+        id="lessons-h"
+        ref={heading}
+        tabIndex={-1}
+        className="text-[1.0625rem] font-bold outline-none"
+      >
         {t('manual.lessons.title')}
       </h2>
       <p className="text-sm text-body">{t('manual.lessons.body')}</p>
@@ -99,7 +104,7 @@ export function Lessons({
         <div className="flex flex-col items-start gap-1">
           <Button
             variant="outline"
-            className="min-h-11 rounded-full px-5 font-bold"
+            className="min-h-10 px-4 font-bold"
             disabled={working}
             onClick={askMerges}
           >

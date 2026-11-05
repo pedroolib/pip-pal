@@ -18,6 +18,7 @@ import { Input } from '@renderer/components/ui/input'
 import { Label } from '@renderer/components/ui/label'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { DictateButton } from '@renderer/record/DictateButton'
+import { cn } from '@renderer/lib/utils'
 import { AliasField } from './AliasField'
 import { aliasesToSave } from './model'
 
@@ -31,7 +32,7 @@ export type Draft = {
   visibleTo: Recipient[]
 }
 
-const touch = 'min-h-11 min-w-11'
+const touch = 'min-h-10 min-w-11'
 
 function Shared({ visibleTo }: { visibleTo: Recipient[] }): React.JSX.Element {
   const { t } = useTranslation()
@@ -79,7 +80,7 @@ export function Row(props: {
   return (
     <li className="flex items-start gap-2 border-t px-5 py-4 first:border-t-0">
       <div className="min-w-0 flex-1">
-        <div className="max-w-[62ch] text-[17px] leading-[1.6]">{props.children}</div>
+        <div className="max-w-[62ch] leading-[1.6] text-foreground">{props.children}</div>
         {(props.shared || props.saved) && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {props.origin && props.shared && (
@@ -190,7 +191,7 @@ export function Editor(props: {
   }
 
   return (
-    <li className="min-w-0 border-t bg-muted px-5 py-4 first:border-t-0">
+    <li className="min-w-0 border-t bg-background px-5 py-4 first:border-t-0">
       <form
         onSubmit={submit}
         onKeyDown={(e) => e.key === 'Escape' && props.onCancel()}
@@ -199,7 +200,7 @@ export function Editor(props: {
       >
         <p className="text-sm text-muted-foreground">{t(`manual.editor.hint.${props.kind}`)}</p>
         {props.kind === 'owner' ? (
-          <strong className="text-[17px]">{props.title}</strong>
+          <strong className="text-base">{props.title}</strong>
         ) : props.kind === 'person' ? (
           <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <div className="grid min-w-0 gap-2">
@@ -207,7 +208,7 @@ export function Editor(props: {
               <Input
                 id={`${uid}-n`}
                 autoFocus
-                className="min-h-11 bg-background"
+                className="min-h-10 bg-surface"
                 value={d.name}
                 onChange={(e) => set({ name: e.target.value })}
                 {...err('pair')}
@@ -217,7 +218,7 @@ export function Editor(props: {
               <Label htmlFor={`${uid}-r`}>{t('manual.people.role')}</Label>
               <Input
                 id={`${uid}-r`}
-                className="min-h-11 bg-background"
+                className="min-h-10 bg-surface"
                 value={d.role}
                 onChange={(e) => set({ role: e.target.value })}
                 {...err('pair')}
@@ -231,7 +232,7 @@ export function Editor(props: {
               <Input
                 id={`${uid}-t`}
                 autoFocus
-                className="min-h-11 bg-background"
+                className="min-h-10 bg-surface"
                 placeholder={t('manual.calming.placeholder')}
                 value={d.text}
                 onChange={(e) => set({ text: e.target.value })}
@@ -246,7 +247,7 @@ export function Editor(props: {
                 id={`${uid}-m`}
                 type="number"
                 min={1}
-                className="min-h-11 bg-background"
+                className="min-h-10 bg-surface"
                 value={d.minutes}
                 onChange={(e) => set({ minutes: e.target.value })}
                 {...err('minutes')}
@@ -260,7 +261,7 @@ export function Editor(props: {
               ref={field}
               id={`${uid}-t`}
               autoFocus
-              className="min-h-24 bg-background text-[17px] leading-[1.6]"
+              className="min-h-24 bg-surface leading-[1.6]"
               value={d.text}
               onChange={(e) => set({ text: e.target.value })}
               {...err('text')}
@@ -293,7 +294,7 @@ export function Editor(props: {
                 <Label
                   key={r}
                   htmlFor={`${uid}-${r}`}
-                  className="min-h-11 cursor-pointer rounded-md border bg-background px-3 text-base font-normal"
+                  className="min-h-10 cursor-pointer rounded-md border bg-surface px-3 text-base font-normal"
                 >
                   <Checkbox
                     id={`${uid}-${r}`}
@@ -313,10 +314,10 @@ export function Editor(props: {
 
         {failed && <FieldError id={`${uid}-fail`}>{t('manual.saveError')}</FieldError>}
         <div className="flex gap-2">
-          <Button type="submit" className="min-h-11">
+          <Button type="submit" className="min-h-10">
             {props.initial ? t('manual.save') : t(`manual.submitNew.${props.kind}`)}
           </Button>
-          <Button type="button" variant="outline" className="min-h-11" onClick={props.onCancel}>
+          <Button type="button" variant="outline" className="min-h-10" onClick={props.onCancel}>
             {t('manual.cancel')}
           </Button>
         </div>
@@ -343,15 +344,13 @@ export function ConfirmDelete(props: {
           <DialogTitle>{props.title}</DialogTitle>
           <DialogDescription>{t('manual.dialog.body')}</DialogDescription>
         </DialogHeader>
-        <blockquote className="rounded-md bg-muted p-3 text-[17px] leading-[1.6]">
-          {props.quote}
-        </blockquote>
+        <blockquote className="rounded-md bg-muted p-3 leading-[1.6]">{props.quote}</blockquote>
         {props.failed && <FieldError id="delete-fail">{t('manual.saveError')}</FieldError>}
         <DialogFooter className="flex-col sm:flex-row sm:justify-start">
-          <Button className="min-h-11" autoFocus onClick={props.onKeep}>
+          <Button className="min-h-10" autoFocus onClick={props.onKeep}>
             {props.keep}
           </Button>
-          <Button variant="outline" className="min-h-11" onClick={props.onConfirm}>
+          <Button variant="outline" className="min-h-10" onClick={props.onConfirm}>
             <Trash2 aria-hidden /> {props.confirm}
           </Button>
         </DialogFooter>
@@ -377,15 +376,20 @@ export function PendingCard(props: {
     setFailed(ok ? null : id)
     if (ok) setEditing(null)
   }
-  const pill = 'min-h-11 rounded-full px-5 font-bold'
+  const pill = 'min-h-10 px-4 font-bold'
   return (
     <Card
       id="pending"
       aria-labelledby={`${uid}-h`}
-      className="gap-0 overflow-hidden py-0 shadow-none"
+      className="gap-0 overflow-hidden border-primary/25 bg-surface py-0"
     >
       <div className="px-5 pt-4 pb-2">
-        <h2 id={`${uid}-h`} data-pending-h tabIndex={-1} className="text-lg font-bold outline-none">
+        <h2
+          id={`${uid}-h`}
+          data-pending-h
+          tabIndex={-1}
+          className="text-[1.0625rem] font-bold outline-none"
+        >
           {t('manual.pending.title', { count: props.entries.length })}
         </h2>
         <p className="mt-1 max-w-[62ch] text-sm text-body">{t('manual.pending.note')}</p>
@@ -401,7 +405,7 @@ export function PendingCard(props: {
                   ref={field}
                   id={`${uid}-${p.id}`}
                   autoFocus
-                  className="min-h-24 bg-background text-[17px] leading-[1.6]"
+                  className="min-h-24 bg-surface leading-[1.6]"
                   aria-describedby={failed === p.id ? `${uid}-${p.id}-e` : undefined}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -409,7 +413,7 @@ export function PendingCard(props: {
                 <DictateButton field={field} onText={setDraft} />
               </div>
             ) : (
-              <p className="mt-2 max-w-[62ch] text-[17px] leading-[1.6]">
+              <p className="mt-2 max-w-[62ch] leading-[1.6]">
                 {p.minutes === undefined ? (
                   p.text
                 ) : (
@@ -497,19 +501,19 @@ export function Block(props: {
 }): React.JSX.Element {
   const footer = !props.formOpen && (
     <div className="border-t px-3 py-1">
-      <Button variant="ghost" className="min-h-11 text-primary" onClick={props.onAdd}>
+      <Button variant="ghost" className="min-h-10 text-primary" onClick={props.onAdd}>
         <Plus aria-hidden /> {props.addLabel}
       </Button>
     </div>
   )
   return (
-    <Card id={props.id} className="scroll-mt-4 overflow-hidden gap-0 py-0 shadow-none">
+    <Card id={props.id} className="scroll-mt-12 gap-0 overflow-hidden bg-surface py-0">
       <div>
         <div className="flex items-center justify-between gap-2 px-5">
           <h2
             id={`${props.id}-h`}
             tabIndex={-1}
-            className="min-w-0 flex-1 text-lg font-bold outline-none"
+            className="min-w-0 flex-1 text-[1.0625rem] font-bold outline-none"
           >
             <button
               type="button"
@@ -517,10 +521,10 @@ export function Block(props: {
               aria-expanded={props.open}
               aria-controls={`${props.id}-c`}
               onClick={() => props.onOpenChange(!props.open)}
-              className="group flex min-h-11 w-full items-center gap-2 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="group flex min-h-10 w-full items-center gap-2 rounded-md text-left outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring"
             >
               <ChevronDown
-                className="size-4 shrink-0 transition-transform duration-150 group-data-[state=closed]:-rotate-90"
+                className="size-4 shrink-0 transition-transform duration-300 ease-(--ease-out) group-data-[state=closed]:-rotate-90"
                 aria-hidden
               />
               {props.title}
@@ -532,11 +536,21 @@ export function Block(props: {
           <p className="px-5 pb-3 pl-11 text-sm text-muted-foreground">{props.emptyText}</p>
         )}
         {props.empty && !props.open && footer}
-        {/* Always mounted (only hidden) so an open form keeps its draft while collapsed. */}
-        <div id={`${props.id}-c`} hidden={!props.open}>
-          {props.note && <p className="px-5 pb-3 pl-11 text-sm text-body">{props.note}</p>}
-          <ul>{props.children}</ul>
-          {footer}
+        {/* Always mounted (inert while closed) so an open form keeps its draft while collapsed.
+            The grid rows ease between 0fr and 1fr, so the section opens and closes smoothly. */}
+        <div
+          id={`${props.id}-c`}
+          inert={!props.open}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-300 ease-(--ease-out)',
+            props.open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {props.note && <p className="px-5 pb-3 pl-11 text-sm text-body">{props.note}</p>}
+            <ul>{props.children}</ul>
+            {footer}
+          </div>
         </div>
       </div>
     </Card>

@@ -227,7 +227,7 @@ function Manual({
             </p>
             <p>{t('manual.loadError.body')}</p>
             <Button
-              className="min-h-11 w-fit"
+              className="min-h-10 w-fit"
               onClick={() => {
                 setFailed(false)
                 load()
@@ -239,8 +239,8 @@ function Manual({
         ) : (
           <div role="status" className="grid gap-4">
             <span className="sr-only">{t('manual.loading')}</span>
-            <div aria-hidden className="h-32 rounded-lg bg-muted" />
-            <div aria-hidden className="h-32 rounded-lg bg-muted" />
+            <div aria-hidden className="skeleton h-32 rounded-card" />
+            <div aria-hidden className="skeleton h-32 rounded-card" />
           </div>
         )}
       </Shell>
@@ -323,7 +323,7 @@ function Manual({
                 <div className="mt-2 grid justify-items-start gap-1">
                   <Button
                     variant="outline"
-                    className="min-h-11 rounded-full px-5 font-bold"
+                    className="min-h-10 px-4 font-bold"
                     disabled={rewrite?.id === e.id && !rewrite?.failed}
                     onClick={() => void rewriteAnswer(s, e)}
                   >
@@ -406,9 +406,9 @@ function Manual({
       index={
         <nav
           aria-label={t('manual.indexLabel')}
-          className="hidden w-60 shrink-0 self-start lg:sticky lg:top-6 lg:block"
+          className="hidden w-52 shrink-0 self-start xl:sticky xl:top-12 xl:block"
         >
-          <ul className="grid gap-0.5 text-[15px]">
+          <ul className="grid gap-0.5 text-[0.9375rem]">
             {nav.map((n, i) => (
               <li key={n.id} className={i === SECTIONS.length ? 'mt-2 border-t pt-2' : ''}>
                 <a
@@ -418,7 +418,7 @@ function Manual({
                     e.preventDefault()
                     jump(n.id)
                   }}
-                  className="group flex min-h-11 items-center justify-between rounded-md px-3 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-[current=location]:bg-secondary aria-[current=location]:font-bold"
+                  className="group flex min-h-10 items-center justify-between rounded-lg px-3 outline-none hover:bg-foreground/[0.05] focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring aria-[current=location]:bg-secondary aria-[current=location]:text-secondary-foreground aria-[current=location]:font-bold"
                 >
                   {n.label}
                   {!!n.count && (
@@ -434,13 +434,9 @@ function Manual({
       }
       header={
         <>
-          <h1 className="text-[28px] leading-tight font-bold">{t('manual.title')}</h1>
-          <p className="max-w-[44rem] text-base text-muted-foreground">
-            {t('manual.subtitle', { name: profile.name, role: profile.role })}
-          </p>
-          <p className="mt-3 max-w-[62ch] text-[17px] leading-[1.6] text-body">
-            {t('manual.intro')}
-          </p>
+          <h1 className="text-[1.75rem] leading-tight font-bold">
+            {profile.name.trim() || t('manual.title')}
+          </h1>
         </>
       }
     >
@@ -653,7 +649,7 @@ function Shell(props: {
 }): React.JSX.Element {
   const { t } = useTranslation()
   return (
-    <div className="mx-auto flex max-w-[calc(15rem+2rem+44rem)] gap-8 p-6">
+    <div className="mx-auto flex max-w-[calc(13rem+2.5rem+44rem)] gap-10 px-5 pt-8 pb-12 md:px-10 md:pt-12">
       {props.index}
       <main className="w-full max-w-[44rem] min-w-0">
         <header className="mb-6">

@@ -100,7 +100,7 @@ export function CommandMenu({
         onMouseMove={() => setByKeys(false)}
         onMouseLeave={() => !byKeys && setIndex(null)}
         data-keys={byKeys}
-        className="group/menu w-80 max-w-full gap-0.5 p-2 shadow-lg"
+        className="group/menu w-80 max-w-full gap-0.5 p-2 shadow-float"
       >
         {copyFailed && (
           <p

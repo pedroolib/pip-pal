@@ -61,7 +61,7 @@ export function AliasField(props: {
         id={props.id}
         ref={input}
         autoFocus={props.autoFocus}
-        className="min-h-11 bg-background"
+        className="min-h-10 bg-surface"
         maxLength={ALIAS_MAX * 20} // typing only: a paste is handled whole below, and each part is capped by addAlias
         aria-describedby={tooLong ? `${props.id}-hint ${props.id}-long` : `${props.id}-hint`}
         value={text}

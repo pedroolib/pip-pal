@@ -196,8 +196,6 @@
       "saveFailed": "No se guardó. Intenta de nuevo."
     },
     "title": "Mi manual",
-    "subtitle": "{{name}}, {{role}}",
-    "intro": "Pip lee esto para explicarte los mensajes de la forma que te funciona. Cada entrada dice quién puede verla. Una entrada sin nadie marcado queda privada.",
     "indexLabel": "Secciones",
     "sections": {
       "experience": "Experiencia",
@@ -352,10 +350,24 @@
       "noAchievement": "Todavía no hay nada aquí",
       "noAchievementHint": "Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí.",
       "hello": "Hola, soy Pip. Esta es mi casa: aquí viven tu manual, tus logros y tus ajustes.",
-      "helloDone": "Entendido"
+      "helloDone": "Entendido",
+      "greeting": {
+        "morning": "Buenos días",
+        "afternoon": "Buenas tardes",
+        "evening": "Buenas noches",
+        "morningName": "Buenos días, {{name}}",
+        "afternoonName": "Buenas tardes, {{name}}",
+        "eveningName": "Buenas noches, {{name}}"
+      },
+      "heroBody": "Selecciona un mensaje confuso en cualquier lugar y presiona el atajo. Pip lo lee contigo.",
+      "energyLately": "Días recientes",
+      "energyLatelyEmpty": "Tus check-ins aparecen aquí, una barra por día.",
+      "energyDay": "{{day}}, cerca de {{count}} de 5",
+      "wins": "Tus logros",
+      "seeAll": "Ver todos",
+      "latestWin": "El más reciente"
     },
     "achievements": {
-      "intro": "Cosas que hiciste, de la más reciente a la más antigua.",
       "kinds": {
         "step_done": "Paso terminado",
         "change_navigated": "Cambio atravesado",
@@ -364,10 +376,14 @@
       "emptyBody": "Todavía no hay nada aquí. Cuando termines un paso, hagas una pregunta o atravieses un cambio, aparece aquí.",
       "loading": "Cargando tus logros",
       "errorTitle": "Los logros no se cargaron. Inténtalo de nuevo.",
-      "retry": "Intentar de nuevo"
+      "retry": "Intentar de nuevo",
+      "totals": {
+        "step_done": "Pasos terminados",
+        "change_navigated": "Cambios atravesados",
+        "asked_not_guessed": "Preguntaste, no adivinaste"
+      }
     },
     "summary": {
-      "intro": "Una nota corta sobre tu semana para alguien que te apoya.",
       "privacy": "No se envía nada. Tú eliges qué compartir.",
       "who": "¿Para quién es?",
       "generate": "Generar",
@@ -387,14 +403,13 @@
         "changes": "De los cambios",
         "achievements": "De los logros",
         "profile": "De tu perfil"
-      }
+      },
+      "emptyHint": "Elige para quién es y cuántos días, luego presiona Generar. Pip redacta puntos cortos a partir de tus check-ins y logros, y tú marcas los que quieres conservar."
     },
     "connections": {
-      "intro": "Más adelante, Pip podría usar esto para sugerir tu carita de energía. Ahora no hay nada conectado y no se guarda nada.",
       "local": "Se queda en tu computadora. Nunca se envía.",
       "soon": "Próximamente",
       "now": "Primero en la lista",
-      "later": "Más adelante",
       "appleWatch": {
         "name": "Apple Watch",
         "body": "Sueño y variabilidad del ritmo cardiaco, para sugerir cuánta energía podrías tener hoy."
@@ -402,18 +417,9 @@
       "whoop": {
         "name": "Whoop",
         "body": "Sueño y recuperación, para sugerir cuánta energía podrías tener hoy."
-      },
-      "email": {
-        "name": "Correo",
-        "body": "Elige un mensaje para que Pip te lo explique."
-      },
-      "slack": {
-        "name": "Slack",
-        "body": "Elige un mensaje de Slack para que Pip te lo explique."
       }
     },
     "settings": {
-      "intro": "Los cambios se guardan al hacerlos.",
       "loading": "Cargando tus ajustes",
       "saveFailed": "Los ajustes no se guardaron. Inténtalo de nuevo.",
       "loadFailed": "Los ajustes no se cargaron.",
@@ -477,7 +483,53 @@
         "title": "Privacidad",
         "selected": "Solo salen de tu computadora el texto que seleccionas, lo que escribes para corregir o enseñar a Pip, lo que escribes o dictas en Cuéntale a Pip y envías, y tus notas guardadas, y solo después de cambiar los nombres por roles como [Manager]. Lo que le cuentas a Pip va a Claude (la IA de Anthropic). Las notas guardadas vuelven a salir con mensajes posteriores, sin que pulses Enviar otra vez.",
         "manual": "Los resúmenes nunca se envían solos. Tú los copias o los exportas."
+      },
+      "theme": {
+        "title": "Apariencia",
+        "body": "Clara, oscura o igual que tu computadora.",
+        "system": "Sistema",
+        "light": "Clara",
+        "dark": "Oscura"
+      },
+      "reading": {
+        "title": "Comodidad de lectura",
+        "body": "Texto más grande y más espacio pueden facilitar la lectura larga.",
+        "size": "Tamaño del texto",
+        "sizes": {
+          "md": "Normal",
+          "lg": "Grande",
+          "xl": "Más grande"
+        },
+        "spacious": "Más espacio entre líneas y palabras",
+        "sample": "Hola Sam, un aviso rápido. La revisión pasa al jueves, ¿puedes mandar los números el miércoles?"
       }
+    },
+    "sidebar": {
+      "shortcut": "Leer un mensaje",
+      "shortcutBody": "Selecciona texto en cualquier lugar y presiona",
+      "theme": "Apariencia"
+    },
+    "pause": {
+      "button": "Pausar a Pip",
+      "title": "Pausar a Pip",
+      "body": "En pausa, Pip no muestra check-ins ni recordatorios. El atajo sigue funcionando cuando lo presionas.",
+      "choose": "¿Por cuánto tiempo?",
+      "hour": "Por 1 hora",
+      "tomorrow": "Hasta mañana en la mañana",
+      "resume": "Hasta que lo reanude",
+      "cancel": "Cancelar",
+      "paused": "Pip está en pausa",
+      "untilTime": "Hasta {{time}}",
+      "untilResume": "Hasta que lo reanudes",
+      "resumeNow": "Reanudar",
+      "banner": "Los check-ins y avisos de recordatorios están apagados. Los recordatorios te esperan."
+    },
+    "changes": {
+      "title": "Cambios en los que Pip te ayudó",
+      "empty": "Cuando un mensaje anuncia un cambio y Pip te ayuda a planearlo, aparece aquí.",
+      "kind": "Cambio: {{type}}",
+      "more_one": "{{count}} más",
+      "more_other": "{{count}} más"
     }
   },
   "expand": {

@@ -44,6 +44,7 @@ import { TriageBubble } from '@renderer/triage/TriageBubble'
 import { BUBBLE_WIDTH, CARD_RESERVE, unclearParts, type Flip } from '@renderer/triage/model'
 import { previewTriage } from '@renderer/triage/samples'
 import { RecordFlow } from '@renderer/record/RecordFlow'
+import { isPaused, pausePref, usePaused } from '@renderer/pause'
 
 // `?spoons=2` in the URL skips the check-in in a plain browser.
 function spoonsOverride(): number | null {
@@ -371,7 +372,8 @@ function Overlay(): React.JSX.Element {
           setDueQueue([sample])
           setView('hidden')
         })
-      } else if (spoonsOverride() !== null || !due || quiet) afterCheckIn()
+      } else if (spoonsOverride() !== null || !due || quiet || isPaused(pausePref.get()))
+        afterCheckIn()
       else {
         setOnDemand(false)
         setView('checkIn')
@@ -385,6 +387,7 @@ function Overlay(): React.JSX.Element {
     const offReminderDue = api.onReminderDue((r) => setDueQueue((q) => addDue(q, r)))
     window.addEventListener('focus', refreshSettings)
     const offDue = api.onCheckInDue(() => {
+      if (isPaused(pausePref.get())) return // paused: Pip does not ask
       refreshSettings()
       if (viewNow.current === 'menu' || HOLDS_WORK.includes(viewNow.current)) {
         return setCheckInWaits(true)
@@ -448,8 +451,10 @@ function Overlay(): React.JSX.Element {
 
   // Once Pip is hidden, what waited comes up, one at a time: the check-in first, then the oldest reminder.
   // Re-listed first, because a reminder may have been edited or deleted in the House while it waited.
+  // While paused nothing comes up by itself; reminders keep waiting and arrive once Pip resumes.
+  const [paused] = usePaused()
   useEffect(() => {
-    if (view !== 'hidden') return
+    if (view !== 'hidden' || paused) return
     if (checkInWaits) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- moving on from 'hidden' is what this effect is for
       setCheckInWaits(false)
@@ -473,7 +478,7 @@ function Overlay(): React.JSX.Element {
     return () => {
       live = false
     }
-  }, [view, checkInWaits, dueQueue])
+  }, [view, checkInWaits, dueQueue, paused])
 
   // The window is fitted to the bubble, keeping its edges at the cursor; hidden, it shrinks back;
   // the check-in gets its own size back only if Pip resized the window (else a first launch or a

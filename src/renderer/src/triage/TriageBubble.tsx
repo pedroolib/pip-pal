@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Calendar,
+  ChevronRight,
   CircleHelp,
   Clock,
   Frown,
@@ -139,22 +140,23 @@ function ActionButton({
       variant="outline"
       onClick={onClick}
       className={cn(
-        'h-auto min-h-11 w-full items-start justify-start gap-3 rounded-md border bg-white px-3 py-2 text-left whitespace-normal shadow-xs hover:bg-accent',
+        'group/action h-auto min-h-11 w-full items-start justify-start gap-3 rounded-lg border bg-surface px-3 py-2.5 text-left whitespace-normal shadow-none hover:border-primary/40 hover:bg-secondary/50',
         single && 'items-center',
-        maybe &&
-          'border-dashed border-muted-foreground/70 bg-transparent font-normal shadow-none hover:bg-accent/60'
+        maybe && 'border-dashed border-input bg-transparent font-normal hover:bg-accent'
       )}
     >
       <Icon className={cn('size-5 shrink-0 text-primary', !single && 'mt-0.5')} aria-hidden />
       <span className="flex min-w-0 flex-col">
-        {eyebrow && (
-          <span className="text-xs font-bold tracking-wide text-body uppercase">{eyebrow}</span>
-        )}
-        <span className={cn('text-base', !maybe && 'font-bold')}>
+        {eyebrow && <span className="text-xs font-bold text-muted-foreground">{eyebrow}</span>}
+        <span className={cn('text-[0.9375rem]', !maybe && 'font-bold')}>
           {t(`bubble.actions.${kind}`)}
         </span>
         {about && <span className="text-sm font-normal text-muted-foreground">{about}</span>}
       </span>
+      <ChevronRight
+        className="ml-auto size-4 shrink-0 self-center text-muted-foreground transition-transform group-hover/action:translate-x-0.5"
+        aria-hidden
+      />
     </Button>
   )
 }
@@ -197,7 +199,7 @@ export function TriageBubble({
           className={flip.y ? 'mb-3' : 'mt-3'}
         />
         {error && (
-          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-3 p-5 shadow-lg">
+          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-3 p-5 shadow-float">
             <p role="status" className="text-base">
               {t('bubble.error')}
             </p>
@@ -215,13 +217,13 @@ export function TriageBubble({
           </span>
         )}
         {triage && lines && (
-          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-lg">
+          <Card style={{ width: CARD_WIDTH }} className="min-w-0 gap-0 p-5 shadow-float">
             {lines.from && (
               <p className="mb-2.5 text-sm text-muted-foreground">
                 {t('bubble.from', { role: lines.from })}
               </p>
             )}
-            <ul className="flex flex-col gap-2.5">
+            <ul className="motion-stagger flex flex-col gap-2.5">
               <Fact icon={lines.when.icon === 'date' ? Calendar : Clock}>
                 <div className="flex flex-wrap items-center gap-x-2">
                   <Label evidence={lines.when.evidence}>
@@ -249,8 +251,8 @@ export function TriageBubble({
             </ul>
             {lines.actions.length > 0 && (
               <>
-                <hr className="my-3.5 border-border" />
-                <div className="motion-stagger flex flex-col gap-2">
+                <hr className="-mx-5 my-4 border-border" />
+                <div className="motion-stagger flex flex-col gap-1.5">
                   {lines.actions.map(({ kind, strength, eyebrow }) => (
                     <ActionButton
                       key={kind}

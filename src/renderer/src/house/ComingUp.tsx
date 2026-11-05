@@ -1,7 +1,7 @@
 // "Coming up": the reminders, soonest first. Hidden when there are none or the read failed.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Bell, Pencil, Trash2 } from 'lucide-react'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
 import { oldestFirst } from '@renderer/command/dueQueue'
@@ -27,13 +27,13 @@ export function ComingUp(): React.JSX.Element | null {
 
   return (
     <HouseCard aria-labelledby="home-coming">
-      <div>
-        <h2 id="home-coming" className="text-[1.0625rem] leading-snug font-bold">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
+        <h2 id="home-coming" className="text-[0.8125rem] font-bold text-muted-foreground">
           {t('comingUp.title')}
         </h2>
-        <p className="text-sm text-muted-foreground">{t('comingUp.sub')}</p>
+        <p className="text-[0.8125rem] text-muted-foreground">{t('comingUp.sub')}</p>
       </div>
-      <ul className="flex flex-col">
+      <ul className="motion-stagger flex flex-col">
         {shown.map((r) => (
           <li key={r.id} className="border-t py-3 first:border-t-0 first:pt-0">
             {editing === r.id ? (
@@ -45,13 +45,18 @@ export function ComingUp(): React.JSX.Element | null {
               />
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <div className="min-w-0 flex-[1_1_15rem]">
-                  <p className="line-clamp-2 leading-snug font-bold break-words">{r.text}</p>
-                  <p className="text-sm text-body">
-                    {capital(
-                      formatDue({ text: '', date: r.at, explicit: true }, now, i18n.language).date
-                    )}
-                  </p>
+                <div className="flex min-w-0 flex-[1_1_15rem] items-center gap-3.5">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary text-primary">
+                    <Bell className="size-4" aria-hidden />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="line-clamp-2 leading-snug font-bold break-words">{r.text}</p>
+                    <p className="text-sm text-body">
+                      {capital(
+                        formatDue({ text: '', date: r.at, explicit: true }, now, i18n.language).date
+                      )}
+                    </p>
+                  </div>
                 </div>
                 {deleting === r.id ? (
                   <div className="flex flex-wrap items-center gap-2 rounded-lg bg-secondary/60 p-3">
