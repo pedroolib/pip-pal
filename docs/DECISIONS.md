@@ -143,7 +143,9 @@ Detalles de diseño en [design/README.md](design/README.md).
 
 **Cucharas en el plan.** Con ≤2 cucharas (`LOW_SPOONS`), la interfaz muestra máximo 3 pasos y marca el resto "can wait". Lo hace el código, no el modelo.
 
-**Las API keys solo viven en el proceso main,** nunca en el renderer ni en el repo. Para el demo van en variables de entorno de la Mac (`ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY`); `.env` está en `.gitignore`.
+**Las API keys viven solo en el servidor,** como secretos del Worker de `src/proxy/`, nunca en el renderer, el repo ni la app empaquetada. El soporte de la competencia lo exige, y el proceso main corre en la máquina de cada quien, así que también cuenta como cliente. El soporte eligió esta opción: el repo es público y el proxy pide un token privado. Con `PIP_ACCESS_TOKEN` en `.env`, `useProxyWithToken` (`src/main/ai/proxy.ts`) apunta los dos SDK al proxy, que manda el token donde iría la key. Sin token ni keys, Pip usa los fixtures de demo; con keys propias en `.env` van directo y nunca pasan por el proxy. La app empaquetada no lee `.env`, así que ahí van en el entorno del sistema. Crear o cambiar el token: `node scripts/new-proxy-token.mjs`.
+
+**Límites del proxy:** la URL es pública y no es secreta; lo que protege es el token, y sin el secreto en el Worker rechaza a todos. Es un solo token para el equipo: si se filtra, hay que cambiarlo para todos. Además solo acepta dos rutas, los modelos y campos que Pip usa, `max_tokens` hasta 8192, 256 KB y 60 llamadas por minuto por IP (el límite es por ubicación de Cloudflare y admite ráfagas). Si el token se filtra, el tope real es el límite de gasto de la key. El texto limpio pasa por Cloudflare sin registrarse (`observability` apagado), y los avisos de privacidad lo dicen. Después del Launchpad conviene pasar a un endpoint por acción.
 
 ## 5. Privacidad
 
@@ -237,7 +239,7 @@ Reglas para el guardado real (A, al reemplazar los handlers de `src/main/mock.ts
 - **B2B:** asientos que paga la empresa empleadora como ajuste razonable, o Specialisterne como parte de su servicio (alarga el acompañamiento después de 6 meses y le da indicadores).
 - **Plan personal** para quien no tiene apoyo de su empresa.
 
-Es nivel 3. Para el Launchpad basta con las keys en la Mac del demo. **Sigue abierto:** quién paga primero, la empresa o Specialisterne.
+Las licencias y los asientos son nivel 3. La parte que reenvía las llamadas ya existe (`src/proxy/`, §4). **Sigue abierto:** quién paga primero, la empresa o Specialisterne.
 
 ## 8. Idioma
 

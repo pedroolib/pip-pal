@@ -9,7 +9,7 @@ Read before working: `docs/PLAN.md` (what we build, by when, who owns what), `do
 - `src/shared/` is the contract between main, preload and renderer. Change it only through a PR that all three devs review.
 - Privacy is the product: only text the person selected, answered in onboarding after the disclosure, or typed or dictated to Pip and pressed Send on, leaves the machine, always after PII scrubbing; summaries are filtered by recipient in code, not in the prompt; Pip never sends anything on its own.
 - The renderer talks to main only through `api` from `@renderer/api`, never `window.api` directly. In a plain browser (no preload, e.g. Factory review on localhost:3000) it falls back to the fixture-backed mock in `src/shared/mock-api.ts`.
-- API keys live only in the main process (env vars), never in the renderer or the repo.
+- API keys live only on the server, as Worker secrets of the proxy in `src/proxy/`. The proxy only serves people with the team's access token (`PIP_ACCESS_TOKEN` in `.env`); without it Pip uses the demo fixtures. A dev's own keys may go in `.env` and then go direct from main. Keys and the token never go in the renderer, the repo or the packaged app. The proxy never logs or stores what passes through it.
 - The overlay is click-through except over Pip's surfaces: a shadcn `Card` counts automatically; mark any other clickable overlay piece (the Pip character, pills) with `data-overlay-hit` (see `src/renderer/src/click-through.ts`).
 - All UI text goes in `src/renderer/src/locales/en.json` (i18next); no hard-coded strings.
 - Harbor theme only, via the CSS variables in `src/renderer/src/assets/main.css`. No red or yellow. Respect `prefers-reduced-motion`.

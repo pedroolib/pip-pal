@@ -546,7 +546,7 @@
       },
       "privacy": {
         "title": "Privacy",
-        "selected": "Only text you select, what you type to correct or teach Pip, what you type or dictate to Tell Pip and send, and your kept notes leave your computer, and only after names are swapped for roles like [Manager]. What you tell Pip goes to Claude (Anthropic's AI). Kept notes go out again with later messages, with no new Send.",
+        "selected": "Only text you select, what you type to correct or teach Pip, what you type or dictate to Tell Pip and send, and your kept notes leave your computer, and only after names are swapped for roles like [Manager]. What you tell Pip goes to Claude (Anthropic's AI). Kept notes go out again with later messages, with no new Send. On the way, this text passes through Pip's relay on Cloudflare, which keeps none of it.",
         "manual": "Summaries never send themselves. You copy or export them."
       },
       "theme": {
@@ -683,7 +683,7 @@
     },
     "consent": {
       "title": "Before the questions",
-      "body": "Next I'll ask 6 short questions. To turn your answers into suggestions for your profile, Pip sends them, with names removed, to Claude (Anthropic's AI). Nothing is saved until you accept it.",
+      "body": "Next I'll ask 6 short questions. To turn your answers into suggestions for your profile, Pip sends them, with names removed, to Claude (Anthropic's AI), through Pip's relay on Cloudflare, which keeps none of it. Nothing is saved until you accept it.",
       "send": "Continue",
       "keep": "Keep my words, don't send",
       "keepNote": "If you keep your words, I save your answers as you wrote them. Nothing is sent."

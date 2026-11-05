@@ -1,0 +1,18 @@
+# Deploy: npx wrangler deploy --config src/proxy/wrangler.toml
+# Keys are Worker secrets (npx wrangler secret put <NAME>), never in this file.
+name = "pip-proxy"
+main = "worker.ts"
+compatibility_date = "2026-11-01"
+
+# Scrubbed user text passes through here, so request logs stay off.
+[observability]
+enabled = false
+
+# Per person, per minute. A decode with its triage and cards is a handful of calls.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 60
+period = 60
