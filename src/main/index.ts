@@ -32,7 +32,7 @@ const HOTKEY = 'Control+Shift+Space'
 if (!app.requestSingleInstanceLock()) app.exit()
 
 // Fits the task card (max-w-sm plus the p-8 that leaves room for its shadow).
-const OVERLAY = { width: 576, height: 340, margin: 16 }
+const OVERLAY = { width: 640, height: 280, margin: 16 }
 // The window's transparent padding (p-8) may go past the screen edge while dragging; the card may not.
 const OVERLAY_PAD = 32
 
@@ -45,6 +45,7 @@ let overlay: BrowserWindow | null = null
 // What the overlay's page last told main; a replaced page starts over (resetOverlayPage).
 let recordingActive = false
 let overlayWantsKeyboard = false
+let blurTimer: ReturnType<typeof setTimeout> | null = null
 // Reminders wait for this: sent before the page has subscribed, one would be lost.
 let overlaySubscribed = false
 // Where a press with a selection found the window, in case the overlay refuses the selection.
@@ -179,7 +180,7 @@ function createOverlay(): void {
   mainWindow.on('closed', () => {
     overlay = null
     setEscape(false)
-    setBubbleShown(false)
+    setBubbleShown()
     setMenuKeys(false)
     setCorner(null)
     resetOverlayPage()
@@ -187,14 +188,14 @@ function createOverlay(): void {
   // A reload or crash skips React's cleanup, so the bubble could never release the shortcut.
   mainWindow.webContents.on('render-process-gone', () => {
     setEscape(false)
-    setBubbleShown(false)
+    setBubbleShown()
     setMenuKeys(false)
     resetOverlayPage()
   })
   mainWindow.webContents.on('did-start-navigation', (_e, _url, _inPlace, isMainFrame) => {
     if (!isMainFrame) return
     setEscape(false)
-    setBubbleShown(false)
+    setBubbleShown()
     setMenuKeys(false)
     setCorner(null) // the reloaded overlay has no task open
     resetOverlayPage()
@@ -226,19 +227,13 @@ function createOverlay(): void {
 }
 
 // The corner Pip: a window just big enough for Pip and its progress ring, on the right edge of the
-// screen the overlay is on. It holds whatever of the task isn't at the cursor (CornerPip); with
-// nothing to hold, Pip rests there, always on screen, and a click opens the menu beside him.
-// He steps out while a bubble or card is open at the cursor (that Pip is him), and comes back after.
+// screen the overlay is on. It holds whatever of the task isn't at the cursor (CornerPip). With
+// nothing to hold it is hidden: Pip appears only when the command is given, never resting on screen.
 const CORNER = { size: 80, margin: 16 }
 /** How far down the right edge Pip rests: clear of the check-in, which opens bottom-right. */
 const CORNER_FROM_TOP = 0.38
 let corner: BrowserWindow | null = null
 let cornerState: CornerPip | null = null
-/** Set once storage is open: resting waits for onboarding's practice step, like the hotkey. */
-let restAllowed = (): boolean => false
-/** A bubble or card is open at the cursor (IPC.bubbleOpen). */
-let bubbleShown = false
-let bubbleTimer: ReturnType<typeof setTimeout> | null = null
 
 function createCorner(): void {
   const win = new BrowserWindow({
@@ -269,7 +264,7 @@ function createCorner(): void {
   win.webContents.on('dom-ready', () => {
     win.webContents.insertCSS('body { background: transparent !important; }')
   })
-  // A reload starts empty: hand it what it held. Then Pip rests there if he may.
+  // A reload starts empty: hand it what it held. 
   win.webContents.on('did-finish-load', () => {
     win.webContents.send(IPC.corner, cornerState)
     updateCorner()
@@ -288,11 +283,11 @@ function setCorner(state: CornerPip | null): void {
   updateCorner()
 }
 
-/** Shows the corner Pip when it holds something, or rests there when nothing is open at the cursor. */
+/** Shows the corner Pip only while it holds something. */
 function updateCorner(): void {
   const win = corner
   if (!win) return
-  if (!cornerState && (bubbleShown || !restAllowed())) {
+  if (!cornerState) {
     win.hide()
     return
   }
@@ -312,32 +307,12 @@ function restBounds(): Electron.Rectangle {
   }
 }
 
-// Where the overlay draws its own Pip relative to the point it opens at (Overlay.tsx openAtCursor):
-// 44 px Pip (PIP_SIZE), 12 px gap (CURSOR_GAP) and 12 px margin (mt-3) inside the 32 px padding.
-const BUBBLE_PIP = { size: 44, gap: 12, margin: 12 }
-// Mirrors CARD_RESERVE in triage/model.ts: room the bubble wants below the point before it opens upward.
-const BUBBLE_RESERVE = 480
-
-/**
- * The point the overlay opens at. While Pip rests on screen, the menu and the bubble open beside him,
- * placed so the overlay's Pip lands exactly where the resting one was (that one steps out while the
- * bubble is open). Otherwise, at the cursor.
- */
+/** The overlay opens at the cursor. */
 async function pipPoint(): Promise<{ x: number; y: number }> {
-  if (!corner || !restAllowed()) return cursorPoint()
-  const r = restBounds()
-  const { workArea: wa } = screen.getDisplayNearestPoint({ x: r.x, y: r.y })
-  const cx = r.x + r.width / 2
-  const cy = r.y + r.height / 2
-  // The bubble opens to Pip's left (he is at the right edge), so Pip's centre sits this far left of the point.
-  const dx = BUBBLE_PIP.gap + BUBBLE_PIP.size / 2
-  const dy = BUBBLE_PIP.gap + BUBBLE_PIP.margin + BUBBLE_PIP.size / 2
-  // Opening downward needs the reserve below; if it doesn't fit, the overlay opens upward (and Pip sits below).
-  const down = cy - dy + BUBBLE_PIP.gap + BUBBLE_RESERVE <= wa.y + wa.height
-  return { x: Math.round(cx + dx), y: Math.round(down ? cy - dy : cy + dy) }
+  return cursorPoint()
 }
 
-// The bubble opens next to its point (beside the resting Pip, or the cursor), its card just inside the
+// The bubble opens next to the cursor, its card just inside the
 // transparent padding. Not clamped: the renderer reads the point back from this position and fits the
 // bubble on screen itself, opening it left or up near an edge (CURSOR_GAP in Overlay.tsx).
 async function moveToPip(win: BrowserWindow): Promise<void> {
@@ -347,27 +322,9 @@ async function moveToPip(win: BrowserWindow): Promise<void> {
   showPip(win)
 }
 
-/** The bubble opened or closed. Closing waits a moment: switching cards closes and reopens at once. */
-function setBubbleShown(open: boolean): void {
-  if (bubbleTimer) clearTimeout(bubbleTimer)
-  bubbleTimer = null
-  if (open) {
-    bubbleShown = true
-    updateCorner()
-    return
-  }
-  bubbleTimer = setTimeout(() => {
-    bubbleShown = false
-    updateCorner()
-  }, 200)
-}
-
-/** Clicking the resting Pip opens the menu right where he is, as the shortcut does with nothing selected. */
-async function openMenuFromCorner(): Promise<void> {
-  const win = overlay
-  if (!win) return
-  if (!cardOpen()) await moveToPip(win)
-  win.webContents.send(IPC.command, { copyFailed: false })
+/** The bubble opened or closed: the corner Pip may need to show or hide. */
+function setBubbleShown(): void {
+  updateCorner()
 }
 
 // The overlay is unfocusable except while a record card needs the keyboard (IPC.overlayFocus).
@@ -554,7 +511,6 @@ app.whenReady().then(() => {
   const storage = openStorage()
   // Until onboarding reaches its practice step, the hotkey and check-ins stay quiet (demo: always on).
   const ready = (): boolean => storage.demo || hotkeyReady(storage.settings.load().onboarding)
-  restAllowed = ready
   // Launch at login keeps reminders alive after a reboot. Packaged app only: in dev it would register Electron itself.
   const applyLogin = (): void => {
     if (!app.isPackaged) return
@@ -604,7 +560,7 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== overlay || typeof open !== 'boolean') return
     setEscape(open)
-    setBubbleShown(open)
+    setBubbleShown()
   })
 
   // The record cards with a text field or an Enter key need the keyboard; everywhere else the overlay
@@ -612,8 +568,20 @@ app.whenReady().then(() => {
   ipcMain.on(IPC.overlayFocus, (event, on: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== overlay || typeof on !== 'boolean') return
-    overlayWantsKeyboard = on
-    setOverlayFocus(win, on)
+    // Switching cards releases the keyboard and asks for it again in the same moment; giving it up and taking it
+    // back makes the window flash out and in, so a release waits a beat for the next card's request.
+    if (blurTimer) clearTimeout(blurTimer)
+    blurTimer = null
+    if (on) {
+      overlayWantsKeyboard = true
+      setOverlayFocus(win, true)
+      return
+    }
+    blurTimer = setTimeout(() => {
+      blurTimer = null
+      overlayWantsKeyboard = false
+      if (!win.isDestroyed()) setOverlayFocus(win, false)
+    }, 120)
   })
 
   // Tells the command that its press means "stop", before it would touch the selection.
@@ -651,7 +619,6 @@ app.whenReady().then(() => {
     if (!win || win !== corner) return
     // Holding a task: swap it with what is at the cursor. Resting: open the menu beside him.
     if (cornerState) overlay?.webContents.send(IPC.cornerOpen)
-    else void openMenuFromCorner()
   })
 
   createOverlay()

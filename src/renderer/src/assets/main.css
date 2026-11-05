@@ -809,9 +809,12 @@ html:has([data-overlay-root]) {
 [data-overlay-root][data-flip-y] [data-slot='card'] {
   --rise: -6px;
 }
-/* Cards that open into a window still sized for the previous view wait for it to grow before rising in. */
+/* Cards that open into a window still sized for the previous view stay unseen until it has grown (Overlay's
+   `fitted`), then rise in whole, as the menu does. Pip is not held back: he stays on screen while the card
+   changes, so he never blinks out between the menu and its cards. */
 [data-overlay-root] [data-hold] [data-slot='card'] {
-  animation-delay: 80ms;
+  visibility: hidden;
+  animation: none;
 }
 /* Pip appears where the window is first shown, then the window moves to the side of the cursor with room for
    it (Overlay's fit); stay invisible until it has, so Pip does not jump. The overlay frame mounts at each appearance. */
