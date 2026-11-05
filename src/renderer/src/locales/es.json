@@ -62,10 +62,7 @@
     "skip": "Saltar",
     "ready": "Ya estoy",
     "left_one": "Queda {{count}} minuto",
-    "left_other": "Quedan {{count}} minutos",
-    "step1": "el paso 1",
-    "thisStep": "este paso",
-    "thePlan": "el plan"
+    "left_other": "Quedan {{count}} minutos"
   },
   "mood": {
     "title": "¿Cómo te sientes?",

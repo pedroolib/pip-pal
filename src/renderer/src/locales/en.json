@@ -61,10 +61,7 @@
     "skip": "Skip",
     "ready": "I'm ready",
     "left_one": "{{count}} minute left",
-    "left_other": "{{count}} minutes left",
-    "step1": "step 1",
-    "thisStep": "this step",
-    "thePlan": "the plan"
+    "left_other": "{{count}} minutes left"
   },
   "mood": {
     "title": "How are you feeling?",

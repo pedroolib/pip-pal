@@ -16,13 +16,11 @@ import {
 } from 'lucide-react'
 import type {
   ActionKind,
-  CalmingStrategy,
   Expansion,
   NoteProposal,
   QuestionTopic,
   Triage
 } from '@shared/schemas'
-import { CalmingCard } from '@renderer/calm/CalmingCard'
 import { CheckInCard } from '@renderer/checkin/CheckInCard'
 import { MoodOptions } from '@renderer/mood/MoodOptions'
 import { Button } from '@renderer/components/ui/button'
@@ -269,13 +267,11 @@ export function ExpandView({
   spoons,
   step,
   deadline,
-  calm,
   stuck,
   planned,
   asked,
   mood,
   cut,
-  onCalm,
   onMood,
   onMoodDone,
   onKeepAll,
@@ -303,8 +299,6 @@ export function ExpandView({
   step: number
   /** The bubble's deadline, shown under the steps. */
   deadline: Triage['deadline']
-  /** A calming strategy offered before going on (low spoons or a change). */
-  calm: CalmingStrategy | null
   /** Pip is breaking the current step down, or null (steps only). */
   stuck: Stuck | null
   /** The person said they have a plan for the change (transition only). */
@@ -315,8 +309,6 @@ export function ExpandView({
   mood: 'ask' | number | null
   /** How many steps stay visible after a low mood, or null for the usual plan (steps only). */
   cut: number | null
-  /** Offer a strategy, or null when the person skipped it or is ready. */
-  onCalm: (strategy: CalmingStrategy | null) => void
   /** The face picked, or null for "Not now". */
   onMood: (spoons: number | null) => void
   /** Back to the steps after the options. */
@@ -375,15 +367,7 @@ export function ExpandView({
     )
   }
 
-  if (calm) {
-    const then =
-      expansion.kind === 'transition'
-        ? t('calm.thePlan')
-        : t(step === 0 ? 'calm.step1' : 'calm.thisStep')
-    return <CalmingCard strategy={calm} then={then} onDone={() => onCalm(null)} />
-  }
-
-  // Every few finished steps Pip asks how the person feels, then offers ways to settle or to go on.
+  // Halfway through the steps Pip asks how the person feels, then offers ways to settle or to go on.
   if (expansion.kind === 'steps' && mood !== null) {
     if (mood === 'ask')
       return (

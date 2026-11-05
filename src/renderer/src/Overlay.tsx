@@ -10,13 +10,11 @@ import { useTranslation } from 'react-i18next'
 import { CORRECTION_MAX, OVERLAY_MIN, type Bounds } from '@shared/ipc'
 import {
   DEFAULT_SETTINGS,
-  LOW_SPOONS,
   dueCheckIn,
   hotkeyReady,
   enabledTimes,
   type Achievement,
   type ActionKind,
-  type CalmingStrategy,
   type Expansion,
   type LoggableEvent,
   type NoteProposal,
@@ -76,7 +74,6 @@ type Task = {
   error: boolean
   /** Index of the step in progress (steps only); kept here so tucking the card away keeps it. */
   step: number
-  calm: CalmingStrategy | null
   /** "I'm stuck" on the current step, until its smaller steps take its place (steps only). */
   stuck: Stuck | null
   /** "I have a plan" was pressed (transition only). */
@@ -105,7 +102,6 @@ const NEW_TASK: Task = {
   result: null,
   error: false,
   step: 0,
-  calm: null,
   stuck: null,
   planned: false,
   asked: false,
@@ -181,8 +177,6 @@ function Overlay(): React.JSX.Element {
     readingNow.current = view === 'triage' && !triage && !error
     onDemandNow.current = onDemand
   }, [view, onDemand, triage, error])
-  // A calming strategy is offered at most once per message, so Pip doesn't insist.
-  const calmOffered = useRef(false)
   // The selected text, for the button's Claude call. Stays in this window.
   const text = useRef('')
   // The window edges next to the cursor (left/top, or right/bottom when flipped), kept still while
@@ -249,7 +243,6 @@ function Overlay(): React.JSX.Element {
     setTasks({})
     setActive(null)
     setStepReminders([])
-    calmOffered.current = false
     if (!here) openAtCursor()
     setTriage(null)
     setError(false)
@@ -265,19 +258,6 @@ function Overlay(): React.JSX.Element {
       const task = all[kind]
       return task ? { ...all, [kind]: { ...task, ...change(task) } } : all
     })
-  // With few spoons, or before a plan for a change, Pip offers the manual's first calming strategy.
-  const offerCalm = (kind: ActionKind, spoons: number | null, live: () => boolean): void => {
-    const low = spoons !== null && spoons <= LOW_SPOONS
-    if (calmOffered.current || kind === 'questions' || !(low || kind === 'transition')) return
-    calmOffered.current = true
-    api.getProfile().then(
-      (p) => {
-        const strategy = p.calmingStrategies[0]
-        if (strategy && live()) patch(kind, () => ({ calm: strategy }))
-      },
-      () => {}
-    )
-  }
   // `inPlace`: Pip is already reading at the cursor, so the menu opens where it is: the window has moved and
   // grown since, and reading the cursor back from it again would put Pip on another side of the card.
   const openMenu = (failed: boolean, inPlace = false): void => {
@@ -355,8 +335,6 @@ function Overlay(): React.JSX.Element {
               )
             if (!live()) return
             patch(kind, () => ({ result }))
-            // A question for the person comes first; a calming offer then would sit in front of it.
-            if (!asking) offerCalm(kind, spoons, live)
           })
       })
       .catch(() => live() && patch(kind, () => ({ error: true })))
@@ -861,12 +839,10 @@ function Overlay(): React.JSX.Element {
               spoons={task.spoons}
               step={task.step}
               deadline={triage?.deadline ?? null}
-              calm={task.calm}
               planned={task.planned}
               asked={task.asked}
               mood={task.mood}
               cut={task.cut}
-              onCalm={(calm) => patch(active, () => ({ calm }))}
               onMood={moodAnswer}
               onMoodDone={() => patch(active, () => ({ mood: null }))}
               onKeepAll={() => patch(active, () => ({ cut: null }))}
