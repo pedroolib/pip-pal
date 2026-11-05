@@ -40,6 +40,14 @@ export function CommandMenu({
   // The focus ring is for the keyboard; the pointer only tints the row it is over.
   const [byKeys, setByKeys] = useState(false)
   const rows = useRef<(HTMLButtonElement | null)[]>([])
+  // Where the pointer last was. A card that appears or moves under a resting pointer makes the browser fire a
+  // mouse move with no movement; that must not select a row, or the menu would pick itself like a key press.
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+  const moved = (e: React.MouseEvent): boolean => {
+    const last = pointer.current
+    pointer.current = { x: e.screenX, y: e.screenY }
+    return !last || last.x !== e.screenX || last.y !== e.screenY
+  }
 
   useEffect(() => {
     api.setOverlayFocus(true)
@@ -50,9 +58,10 @@ export function CommandMenu({
     }
   }, [])
   useEffect(() => {
+    // Focus follows the keyboard only: the pointer tints the row but must not move focus, or hovering looks like tabbing.
     if (index === null) (document.activeElement as HTMLElement | null)?.blur()
-    else rows.current[index]?.focus()
-  }, [index])
+    else if (byKeys) rows.current[index]?.focus()
+  }, [index, byKeys])
 
   // Whether the key was one of the menu's.
   const press = (key: string): boolean => {
@@ -97,7 +106,13 @@ export function CommandMenu({
       <Card
         role="menu"
         aria-label={t('command.label')}
-        onMouseMove={() => setByKeys(false)}
+        onMouseMove={(e) => {
+          if (!moved(e)) return
+          setByKeys(false)
+          // The selection follows the pointer, so hover and keyboard never mark two rows at once.
+          const row = (e.target as HTMLElement).closest<HTMLElement>('[data-row]')
+          if (row) setIndex(Number(row.dataset.row))
+        }}
         onMouseLeave={() => !byKeys && setIndex(null)}
         data-keys={byKeys}
         className="group/menu w-80 max-w-full gap-0.5 p-2 shadow-float"
@@ -121,8 +136,7 @@ export function CommandMenu({
             role="menuitem"
             tabIndex={i === (index ?? 0) ? 0 : -1}
             data-active={i === index}
-            // The selection follows the pointer, so hover and keyboard never mark two rows at once.
-            onMouseMove={() => setIndex(i)}
+            data-row={i}
             onClick={() => onPick(item)}
             className="group flex min-h-12 w-full items-center gap-3 rounded-md border border-transparent px-3 py-1.5 text-left outline-none data-[active=true]:bg-accent group-data-[keys=true]/menu:data-[active=true]:border-ring group-data-[keys=true]/menu:data-[active=true]:ring-[3px] group-data-[keys=true]/menu:data-[active=true]:ring-ring/50"
           >

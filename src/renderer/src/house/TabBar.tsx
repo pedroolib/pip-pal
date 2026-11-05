@@ -4,7 +4,7 @@ import { cn } from '@renderer/lib/utils'
 import { Pip } from '@renderer/pip/Pip'
 import { Keys } from './parts'
 import { PauseControl } from './PauseControl'
-import { hashFor, TABS, type Tab } from './route'
+import { hashFor, ROOM_HASH, TABS, type Tab } from './route'
 import { ThemePicker } from './ThemePicker'
 
 const ICONS = {
@@ -37,7 +37,8 @@ export function TabBar({
   current,
   learned = 0
 }: {
-  current: Tab
+  /** null in Pip's room, which is none of the tabs. */
+  current: Tab | null
   learned?: number
 }): React.JSX.Element {
   const { t } = useTranslation()
@@ -48,20 +49,26 @@ export function TabBar({
         aria-label={t('house.nav')}
         className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r bg-sidebar px-3 pt-5 pb-4 md:flex"
       >
-        <div className="mb-6 flex items-center gap-2.5 px-2.5">
+        {/* Pip's name and face lead to his room, which takes over the window. */}
+        <a
+          href={ROOM_HASH}
+          aria-label={t('house.room.open')}
+          className={cn('mb-6 -mx-0.5 flex items-center gap-2.5 rounded-lg px-3 py-1', focus)}
+        >
           <Pip mood="calm" size={30} decorative />
           <span className="text-[0.9375rem] font-bold">{t('house.nav')}</span>
-        </div>
+        </a>
         <ul className="relative flex flex-col gap-0.5">
           {/* One highlight slides to the current tab (rows are 2.5rem plus a 0.125rem gap). */}
           {/* It takes the current tab's pastel: a soft outline and the faintest tint. */}
           <li
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-10 rounded-lg border shadow-control transition-[transform,border-color,background-color] duration-300 ease-(--ease-out)"
+            className="pointer-events-none absolute inset-x-0 top-0 h-10 rounded-lg border shadow-control transition-[transform,border-color,background-color,opacity] duration-300 ease-(--ease-out)"
             style={{
-              transform: `translateY(calc(${TABS.indexOf(current)} * 2.625rem))`,
-              borderColor: `var(--tab-${current})`,
-              backgroundColor: `color-mix(in oklab, var(--tab-${current}) 14%, var(--surface))`
+              opacity: current ? 1 : 0,
+              transform: `translateY(calc(${current ? TABS.indexOf(current) : 0} * 2.625rem))`,
+              borderColor: `var(--tab-${current ?? 'home'})`,
+              backgroundColor: `color-mix(in oklab, var(--tab-${current ?? 'home'}) 14%, var(--surface))`
             }}
           />
           {TABS.map((tab) => {
