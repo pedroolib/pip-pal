@@ -280,48 +280,6 @@ async function main() {
     await gif('house-tour.gif', tour, { width: 760 })
     page.win.destroy()
   }
-
-  // --- The steps flow as a GIF: bubble, steps, browse, done, mood, options, all done.
-  {
-    const page = await open({ query: { spoons: '5' } })
-    const region = { x: 0, y: 0, w: 480, h: 570 }
-    const frames = []
-    const snap = async (ms, settle = 1000) => {
-      await sleep(settle)
-      frames.push({ buf: await page.crop(await page.grab(), region), ms })
-    }
-    await page.waitFor(page.hasText('Break it into steps'))
-    await snap(2200)
-    await page.click('Break it into steps')
-    await page.waitFor(page.hasText('Step 1 of 5'))
-    await snap(2200)
-    await page.clickSel('[aria-label="Show step 4"]')
-    await page.waitFor(page.hasText('Step 4 of 5'))
-    await snap(2000, 800)
-    await page.click('Back to step 1')
-    await sleep(500)
-    await page.click('Done')
-    await page.waitFor(page.hasText('Step 2 of 5'))
-    await snap(1600, 800)
-    await page.click('Done')
-    await page.waitFor(page.hasText('Step 3 of 5'))
-    await page.click('Done')
-    await page.waitFor(page.hasText('How are you feeling?'))
-    await snap(2200)
-    await page.clickSel('[aria-label="Energy face 2 of 5"]')
-    await page.waitFor(page.hasText('A short pause might help'))
-    await snap(2600)
-    await page.click('Continue')
-    await page.waitFor(page.hasText('Step 4 of 5'))
-    await snap(1600, 800)
-    await page.click('Done')
-    await page.waitFor(page.hasText('Step 5 of 5'))
-    await page.click('Done')
-    await page.waitFor(page.hasText('All done for now'))
-    await snap(2600)
-    await gif('steps-flow.gif', frames, { width: 640 })
-    page.win.destroy()
-  }
 }
 
 app.whenReady().then(() =>

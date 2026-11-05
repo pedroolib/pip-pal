@@ -21,9 +21,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/steps-flow.gif" width="400" alt="Animation of Pip's flow: a selected message, Pip's bubble, the steps card, reading ahead with the progress bar, steps finished, the halfway check-in and calming options.">
+  <video src="docs/images/pip-flow.mp4" poster="docs/images/pip-flow-poster.png" width="640" controls muted playsinline>
+    <a href="docs/images/pip-flow.mp4"><img src="docs/images/pip-flow-poster.png" width="640" alt="Pip: the unwritten rules written down. Click to watch the 52-second demo."></a>
+  </video>
   <br>
-  <sub><b>Pip's flow.</b> Select text and press the shortcut, read Pip's bubble, open <i>Break it into steps</i>, read ahead with the bar, finish steps (each turns blue), answer the halfway <i>How are you feeling?</i> and, if energy is low, pick a calming option before the rest.</sub>
+  <sub><b>Pip's flow, 52 s, on a real Slack message.</b> The person selects it and presses the shortcut, reads Pip's bubble, opens <i>Break it into steps</i>, reads ahead with the bar, answers the halfway <i>How are you feeling?</i> and picks a calming option, then opens Pip's House to see their profile and what they taught Pip.</sub>
 </p>
 
 ## Why Pip exists
@@ -198,7 +200,24 @@ npm run fetch:whisper
 
 It downloads the Whisper base model (about 80 MB, not in git), pinned to a specific revision and verified by SHA-256.
 
-`npm run dev` starts the app with hot reload. Press the shortcut to try it; with a clean profile Pip starts with onboarding, and `PIP_DEMO=1` starts with the demo person "Sam" instead.
+`npm run dev` starts the app with hot reload. Press the shortcut to try it; with a clean profile Pip starts with onboarding.
+
+### Connect to the AI server: `PIP_ACCESS_TOKEN`
+
+Pip's AI calls go through the team's server, which holds the API keys and only answers people with the team's access token.
+
+1. Ask the team for the token. It is private and never committed.
+2. Copy `.env.example` to `.env` (`cp .env.example .env`, or `Copy-Item .env.example .env` in PowerShell) and set the token:
+
+   ```
+   PIP_ACCESS_TOKEN=paste-the-token-here
+   ```
+
+3. Restart `npm run dev`. The app reads `.env` only when it starts.
+
+**Without the token Pip still runs, on built-in example data:** the same sample bubble, steps and questions every time, and nothing leaves your computer. For the best demo that way, add `PIP_DEMO=1` to `.env` to start with the demo person "Sam" and skip onboarding.
+
+The installed app does not read `.env`: set `PIP_ACCESS_TOKEN` as a system environment variable instead. Developers can use their own `ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY` in `.env`; those calls go straight to the providers, not through the server.
 
 ## Project structure
 
