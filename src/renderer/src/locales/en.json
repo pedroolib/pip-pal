@@ -377,6 +377,7 @@
         "afternoonName": "Good afternoon, {{name}}",
         "eveningName": "Good evening, {{name}}"
       },
+      "scene": { "label": "Pip's room", "poke": "Poke Pip", "lamp": "Lamp", "plant": "Plant" },
       "heroBody": "Select a confusing message anywhere and press the shortcut. Pip reads it with you.",
       "energyLately": "Recent days",
       "energyLatelyEmpty": "Your check-ins show here, one bar per day.",

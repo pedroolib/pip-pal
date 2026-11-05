@@ -23,7 +23,7 @@ const MOTES: [number, number, number][] = [
 
 /**
  * Pip's room, drawn once. Colors, the sun and moon, and the lamp's light all come from main.css
- * (`.room-scene`), so light and dark need no redraw: the sun sets, the moon and stars rise, the lamp goes out.
+ * (`.room-scene`), so light and dark need no redraw: the sun sets, the moon and stars rise, the lamp comes on.
  */
 function Scene(): React.JSX.Element {
   const { t } = useTranslation()
@@ -85,7 +85,7 @@ function Scene(): React.JSX.Element {
 
         {/* Light from the window across the room: only by day. */}
         <g className="rs-beam">
-          <path d="M170 190 L286 190 L470 400 L300 400 Z" fill="url(#room-beam)" />
+          <path d="M180 150 L256 150 L464 400 L300 400 Z" fill="url(#room-beam)" />
           <g className="rs-motes">
             {MOTES.map(([x, y, delay]) => (
               <circle key={x} cx={x} cy={y} r="2" style={{ animationDelay: `${delay}s` }} />
@@ -221,7 +221,7 @@ function Scene(): React.JSX.Element {
           <path d="M250 358 Q270 366 290 358" className="rs-cushion-line" />
         </g>
 
-        {/* The lamp: its light is on in light mode and off in dark mode. */}
+        {/* The lamp: its light is off by day and on at night. */}
         <g>
           <ellipse cx="620" cy="374" rx="30" ry="6" className="rs-shadow" />
           <g className="rs-glow">
@@ -261,9 +261,11 @@ export function RoomView(): React.JSX.Element {
   return (
     <main className="relative min-h-dvh flex-1 overflow-hidden">
       <Scene />
-      <h1 className="room-greeting pointer-events-none absolute inset-x-0 top-[5%] px-6 text-center text-[clamp(1.5rem,3.4vw,2.5rem)] leading-tight font-bold">
-        {name ? t(`house.home.greeting.${part}Name`, { name }) : t(`house.home.greeting.${part}`)}
-      </h1>
+      <div className="pointer-events-none absolute inset-x-0 top-[5%] flex justify-center px-6">
+        <h1 className="room-greeting rounded-full border bg-background/80 px-6 py-1.5 text-center text-[clamp(1.5rem,3.4vw,2.5rem)] leading-tight font-bold shadow-card backdrop-blur-md">
+          {name ? t(`house.home.greeting.${part}Name`, { name }) : t(`house.home.greeting.${part}`)}
+        </h1>
+      </div>
       <Button
         asChild
         variant="ghost"

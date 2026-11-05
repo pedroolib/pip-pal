@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@renderer/api'
 import { Button } from '@renderer/components/ui/button'
-import { Pip } from '@renderer/pip/Pip'
 import { usePaused } from '@renderer/pause'
+import { RoomScene } from './RoomScene'
 import { Keys } from './parts'
 import { useLoad } from './useLoad'
 
@@ -66,8 +66,8 @@ export function Room(): React.JSX.Element {
             <Keys />
           </div>
         </div>
-        <div className="hidden shrink-0 sm:block">
-          <Pip mood={paused ? 'quiet' : hello ? 'hello' : 'calm'} size={104} />
+        <div className="hidden shrink-0 min-[960px]:block">
+          <RoomScene part={part} paused={paused} hello={hello} />
         </div>
       </div>
       {hello && (

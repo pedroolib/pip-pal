@@ -31,7 +31,7 @@ export function ThemePicker({
       {/* The thumb slides under the chosen option: a third of the row, minus padding and gaps. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc((100%-0.5rem)/3)] rounded-md bg-surface shadow-control transition-transform duration-300 ease-(--ease-out)"
+        className="pointer-events-none absolute top-0.5 bottom-0.5 left-0.5 w-[calc((100%-0.5rem)/3)] rounded-md border border-primary/45 bg-primary/20 shadow-control transition-transform duration-300 ease-(--ease-out)"
         style={{ transform: `translateX(calc(${THEMES.indexOf(pref)} * (100% + 0.125rem)))` }}
       />
       {THEMES.map((theme) => {
