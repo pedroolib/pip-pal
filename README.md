@@ -269,7 +269,7 @@ pip-pal/
 | Tool | How we used it |
 |---|---|
 | **Claude Code** (Anthropic) | Code, tests, debugging and docs from a teammate's instructions. Recent: the clickable step bar, the halfway mood check, the "I'm stuck" breakdown, and this README with its screenshots and diagrams. [CLAUDE.md](CLAUDE.md) holds the rules we give it |
-| **Factory** (AI-agent orchestrator, Pedro's setup in `.factory/`) | Larger work packages (voice capture, PII scrubber hardening) with builder agents and separate reviewer agents for code, UI, UX and security, in rounds. Lessons: [.factory/LESSONS.md](.factory/LESSONS.md). The scrubber's test-only reference in `src/shared/__reference/` comes from that process |
+| **[Pedro's Factory](https://github.com/pedroolib/pedros-factory)** (Claude Code plugin, built by our teammate Pedro) | A pipeline of AI agents that we run inside Claude Code for larger work packages (voice capture, PII scrubber hardening). From a written spec it splits the work into tickets, then **builder** agents each implement one ticket in their own git worktree, owning only the files that ticket lists. Separate **reviewer** agents check the result for code quality, UI, UX and security, in rounds, and a final **approver** agent decides to merge or escalate to a human. Its job folders stay local (`.factory/jobs/` is gitignored); what we keep is [.factory/stack.md](.factory/stack.md) and the lessons from each job in [.factory/LESSONS.md](.factory/LESSONS.md). The scrubber's test-only reference in `src/shared/__reference/` comes from that process |
 | **shadcn MCP server** | Looking up and adding shadcn/ui components (`.mcp.json`) |
 | **Claude and Jev inside Pip** | Runtime features, not development tools; see above |
 
